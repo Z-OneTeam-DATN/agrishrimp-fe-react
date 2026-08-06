@@ -16,6 +16,8 @@ import {
     Info,
     Copy,
     ChevronUp,
+    Plus,
+    X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -473,8 +475,8 @@ export default function AddProductPage() {
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
 
-    const [variantImageFiles, setVariantImageFiles] = useState<(File | null)[]>([null]);
-    const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([""]);
+    const [variantImageFiles, setVariantImageFiles] = useState<File[][]>([[]]);
+    const [variantImagePreviews, setVariantImagePreviews] = useState<string[][]>([[]]);
 
     const [categories, setCategories] = useState<any[]>([]);
     const [brands, setBrands] = useState<any[]>([]);
@@ -696,7 +698,7 @@ export default function AddProductPage() {
         name: "variants",
     });
 
-    const firstVariantImagePreview = (variantImagePreviews[0] || "").trim();
+    const firstVariantImagePreview = (variantImagePreviews[0]?.[0] || "").trim();
 
     const steps = useMemo(
         () => [
@@ -1275,25 +1277,48 @@ export default function AddProductPage() {
         variantIndex: number,
         e: React.ChangeEvent<HTMLInputElement>
     ) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
         setVariantImageFiles((prev) => {
-            const n = [...prev];
-            n[variantIndex] = file;
-            return n;
+            const next = [...prev];
+            const currentFiles = next[variantIndex] || [];
+            next[variantIndex] = [...currentFiles, ...files];
+            return next;
         });
         setVariantImagePreviews((prev) => {
-            const n = [...prev];
-            n[variantIndex] = URL.createObjectURL(file);
-            return n;
+            const next = [...prev];
+            const currentPreviews = next[variantIndex] || [];
+            const newPreviews = files.map((f) => URL.createObjectURL(f));
+            next[variantIndex] = [...currentPreviews, ...newPreviews];
+            return next;
+        });
+        setMediaDirty(true);
+        e.target.value = "";
+    };
+
+    const handleRemoveVariantImage = (variantIndex: number, imgIdx: number) => {
+        setVariantImageFiles((prev) => {
+            const next = [...prev];
+            if (next[variantIndex]) {
+                next[variantIndex] = next[variantIndex].filter((_, i) => i !== imgIdx);
+            }
+            return next;
+        });
+        setVariantImagePreviews((prev) => {
+            const next = [...prev];
+            if (next[variantIndex]) {
+                next[variantIndex] = next[variantIndex].filter((_, i) => i !== imgIdx);
+            }
+            return next;
         });
         setMediaDirty(true);
     };
 
     const handleAppendVariant = () => {
         append({ ...DEFAULT_VARIANT, sku: `${baseSkuWatch}-V${fields.length + 1}`, barcode: generateBarcode() });
-        setVariantImageFiles((prev) => [...prev, null]);
-        setVariantImagePreviews((prev) => [...prev, ""]);
+        setVariantImageFiles((prev) => [...prev, []]);
+        setVariantImagePreviews((prev) => [...prev, []]);
     };
 
     const handleToggleVariant = (fieldId: string) => {
@@ -1320,10 +1345,10 @@ export default function AddProductPage() {
             attributeValueIds: [...(source?.attributeValueIds || [])],
         });
 
-        const sourceFile = variantImageFiles[idx];
-        const sourcePreview = variantImagePreviews[idx] || "";
-        setVariantImageFiles((prev) => [...prev, sourceFile ?? null]);
-        setVariantImagePreviews((prev) => [...prev, sourcePreview]);
+        const sourceFiles = variantImageFiles[idx] || [];
+        const sourcePreviews = variantImagePreviews[idx] || [];
+        setVariantImageFiles((prev) => [...prev, [...sourceFiles]]);
+        setVariantImagePreviews((prev) => [...prev, [...sourcePreviews]]);
         setMediaDirty(true);
     };
 
@@ -1340,9 +1365,9 @@ export default function AddProductPage() {
 
     // ── SUBMIT ──
     const onSubmit = async (data: ProductFormData) => {
-        const firstVariantImageFile = variantImageFiles[0];
-        if (!firstVariantImageFile) {
-            toast.error("Vui lòng tải ảnh cho biến thể đầu tiên.");
+        const firstVariantImageFiles = variantImageFiles[0] || [];
+        if (firstVariantImageFiles.length === 0) {
+            toast.error("Vui lòng tải ít nhất 1 ảnh cho biến thể đầu tiên.");
             return;
         }
 
@@ -1403,11 +1428,13 @@ export default function AddProductPage() {
                 })
             );
 
-            formData.append("productImages", firstVariantImageFile);
+            formData.append("productImages", firstVariantImageFiles[0]);
 
-            variantImageFiles.forEach((file) => {
-                if (file) {
-                    formData.append("variantImages", file);
+            variantImageFiles.forEach((fileList) => {
+                if (fileList && fileList.length > 0) {
+                    fileList.forEach((file) => {
+                        formData.append("variantImages", file);
+                    });
                 } else {
                     formData.append("variantImages", new Blob([], { type: "image/png" }));
                 }
@@ -1701,40 +1728,55 @@ export default function AddProductPage() {
 
                                         {!isCollapsed && (
                                         <div className="flex flex-col gap-5 border-t border-slate-100 px-6 py-5 xl:flex-row">
-                                            <div className="flex flex-col items-center shrink-0">
-                                                <div
-                                                    onClick={() =>
-                                                        document.getElementById(`v-img-${idx}`)?.click()
-                                                    }
-                                                    className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-blue-500"
-                                                >
-                                                    {variantImagePreviews[idx] ? (
-                                                        <img
-                                                            src={variantImagePreviews[idx]}
-                                                            className="w-full h-full object-cover"
-                                                            alt="SKU"
-                                                        />
-                                                    ) : (
-                                                        <>
-                                                            <Camera size={26} className="text-slate-300" />
-                                                            <span className="mt-1 text-[9px] font-normal text-slate-300">
-                                                                Chọn ảnh
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                        <Upload size={15} className="text-white" />
+                                            <div className="flex flex-col shrink-0 gap-1.5">
+                                                <Label className="text-[10.5px] font-semibold text-slate-500">
+                                                    Ảnh biến thể ({(variantImagePreviews[idx] || []).length} ảnh)
+                                                </Label>
+                                                <div className="flex flex-wrap items-center gap-2 max-w-[280px]">
+                                                    {(variantImagePreviews[idx] || []).map((imgSrc, imgIdx) => (
+                                                        <div
+                                                            key={`v-preview-${idx}-${imgIdx}`}
+                                                            className="group relative h-[72px] w-[72px] overflow-hidden rounded-md border border-slate-200 bg-slate-50 shrink-0"
+                                                        >
+                                                            <img src={imgSrc} className="h-full w-full object-cover" alt={`SKU #${idx + 1}`} />
+                                                            {imgIdx === 0 && (
+                                                                <span className="absolute top-0.5 left-0.5 rounded bg-blue-600 px-1 py-0.5 text-[8px] font-bold text-white shadow">
+                                                                    Bìa
+                                                                </span>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveVariantImage(idx, imgIdx)}
+                                                                className="absolute top-0.5 right-0.5 rounded-full bg-slate-900/70 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-rose-600"
+                                                                title="Xóa ảnh"
+                                                            >
+                                                                <X size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+
+                                                    <div
+                                                        onClick={() =>
+                                                            document.getElementById(`v-img-${idx}`)?.click()
+                                                        }
+                                                        className="flex h-[72px] w-[72px] cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 transition-all hover:border-blue-500 hover:bg-blue-50/50 shrink-0"
+                                                    >
+                                                        <Plus size={16} className="text-slate-400" />
+                                                        <span className="mt-0.5 text-[9px] font-medium text-slate-500">
+                                                            {(variantImagePreviews[idx] || []).length === 0 ? "Chọn ảnh" : "+ Ảnh"}
+                                                        </span>
                                                     </div>
                                                 </div>
                                                 <input
                                                     type="file"
                                                     id={`v-img-${idx}`}
                                                     hidden
+                                                    multiple
                                                     onChange={(e) => handleVariantImageChange(idx, e)}
                                                     accept="image/*"
                                                 />
-                                                <p className="mt-1.5 text-center text-[9px] font-medium text-slate-400">
-                                                    Ảnh SKU / Barcode
+                                                <p className="text-[9px] text-slate-400">
+                                                    Ảnh #1 làm ảnh chính ngoài trang chủ
                                                 </p>
                                             </div>
 
