@@ -220,7 +220,7 @@ export default function SupplierListPage() {
                                     </Button>
                                 ) : (
                                     <Button
-                                        className="h-9 bg-emerald-600 text-[11px] font-medium hover:bg-emerald-700"
+                                        className="h-9 bg-blue-600 text-[11px] font-medium hover:bg-blue-700"
                                         onClick={() => router.push("/admin/suppliers/add")}
                                     >
                                         + Tạo supplier đầu tiên
