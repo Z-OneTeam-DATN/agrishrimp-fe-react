@@ -789,12 +789,12 @@ export default function EditProductPage() {
             : fallbackData?.variants?.length || 1;
         setVariantImageFiles((prev) => {
             const next = [...prev];
-            while (next.length < variantLength) next.push(null);
+            while (next.length < variantLength) next.push([]);
             return next.slice(0, variantLength);
         });
         setVariantImagePreviews((prev) => {
             const next = [...prev];
-            while (next.length < variantLength) next.push("");
+            while (next.length < variantLength) next.push([]);
             return next.slice(0, variantLength);
         });
 

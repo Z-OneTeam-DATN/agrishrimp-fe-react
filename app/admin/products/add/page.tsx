@@ -1153,8 +1153,8 @@ export default function AddProductPage() {
         });
 
         const variantLength = Array.isArray(draftData.variants) && draftData.variants.length > 0 ? draftData.variants.length : 1;
-        setVariantImageFiles(Array(variantLength).fill(null));
-        setVariantImagePreviews(Array(variantLength).fill(""));
+        setVariantImageFiles(Array.from({ length: variantLength }, () => []));
+        setVariantImagePreviews(Array.from({ length: variantLength }, () => []));
 
         if (pendingDraftData.savedAt) {
             setLastDraftSavedAt(new Date(pendingDraftData.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
