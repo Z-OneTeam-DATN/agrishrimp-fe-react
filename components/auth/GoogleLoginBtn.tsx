@@ -4,15 +4,16 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { AuthService } from "@/app/services/auth.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getPostLoginDestination } from "@/lib/workspace-permissions";
+import { getErrorMessage } from "@/lib/axios";
 
 export default function GoogleLoginBtn() {
   const setAccessAndRefreshToken = useAuthStore((state) => state.setAccessAndRefreshToken);
   const [isInternalLoading, setIsInternalLoading] = useState(false);
-
-  if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return null;
+  const hasGoogleClientId = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 
   /**
    * Mutation gọi API Next.js Route (/api/auth/google-login)
@@ -42,6 +43,17 @@ export default function GoogleLoginBtn() {
     },
     onError: (error: any) => {
       console.error("Google Login Backend Error:", error);
+      const message = getErrorMessage(error);
+      const normalized = message.toLowerCase();
+      if (
+        normalized.includes("đã đăng ký bằng") ||
+        normalized.includes("phương thức khác") ||
+        normalized.includes("vui lòng đăng nhập theo cách đó")
+      ) {
+        toast.error("Tài khoản này đã đăng nhập bằng phương thức khác");
+      } else {
+        toast.error(message || "Đăng nhập Google thất bại.");
+      }
       setIsInternalLoading(false);
     },
   });
@@ -59,11 +71,14 @@ export default function GoogleLoginBtn() {
     },
     onError: (errorResponse) => {
       console.error("Google Login Failed:", errorResponse);
+      toast.error("Đăng nhập Google thất bại.");
       setIsInternalLoading(false);
     },
   });
 
   const isLoading = isInternalLoading || mutation.isPending;
+
+  if (!hasGoogleClientId) return null;
 
   return (
     <button

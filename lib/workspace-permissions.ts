@@ -126,6 +126,41 @@ export function setLastWorkspace(workspace: WorkspaceRoute) {
   window.localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspace);
 }
 
+const ADMIN_PERMISSION_DESTINATIONS: Array<{
+  permissions: readonly string[];
+  href: string;
+}> = [
+  { permissions: [P.DASHBOARD_VIEW], href: "/admin" },
+  { permissions: [P.REPORT_FINANCE_VIEW], href: "/admin/financial" },
+  { permissions: [P.REPORT_REVENUE_VIEW], href: "/admin/reports/sales" },
+  { permissions: [P.REPORT_INVENTORY_VIEW], href: "/admin/reports/inventory" },
+  { permissions: [P.ORDER_VIEW], href: "/admin/orders" },
+  { permissions: [P.CUSTOMER_VIEW], href: "/admin/customers" },
+  { permissions: [P.VOUCHER_VIEW], href: "/admin/vouchers" },
+  { permissions: [P.PRODUCT_VIEW], href: "/admin/products" },
+  { permissions: [P.CATEGORY_VIEW], href: "/admin/categories" },
+  { permissions: [P.ATTRIBUTE_VIEW], href: "/admin/variants" },
+  { permissions: [P.BANNER_VIEW], href: "/admin/banners" },
+  { permissions: [P.PURCHASE_REQUEST_VIEW], href: "/admin/purchase-requests" },
+  { permissions: [P.IMPORT_VIEW], href: "/admin/receipts" },
+  { permissions: [P.EXPORT_VIEW], href: "/admin/exports" },
+  { permissions: [P.TRANSFER_VIEW], href: "/admin/transfers" },
+  { permissions: [P.CHECK_VIEW], href: "/admin/inventory-checks" },
+  { permissions: [P.SUPPLIER_VIEW], href: "/admin/suppliers" },
+  { permissions: [P.STAFF_VIEW], href: "/admin/employees" },
+  { permissions: [P.BRANCH_VIEW], href: "/admin/branches" },
+  { permissions: [P.ROLE_VIEW], href: "/admin/employees/roles" },
+  { permissions: [P.SETTING_VIEW], href: "/admin/settings" },
+];
+
+export function getDefaultAdminRoute(permissions: string[] = []) {
+  const destination = ADMIN_PERMISSION_DESTINATIONS.find((item) =>
+    hasAnyPermissionCode(permissions, item.permissions),
+  );
+
+  return destination?.href ?? "/admin/forbidden";
+}
+
 export function getPostLoginDestination(permissions: string[] = [], roleSlug?: string) {
   if (roleSlug === "USER" || roleSlug === "CUSTOMER") {
     return "/";
@@ -141,12 +176,16 @@ export function getPostLoginDestination(permissions: string[] = [], roleSlug?: s
   const availableWorkspaces = getAvailableWorkspaces(permissions);
   const lastWorkspace = getLastWorkspace();
 
-  if (lastWorkspace && availableWorkspaces.includes(lastWorkspace)) {
+  if (
+    lastWorkspace &&
+    lastWorkspace !== "/admin" &&
+    availableWorkspaces.includes(lastWorkspace)
+  ) {
     return lastWorkspace;
   }
 
   if (availableWorkspaces.includes("/admin")) {
-    return "/admin";
+    return getDefaultAdminRoute(permissions);
   }
 
   if (availableWorkspaces.includes("/agronomist")) {

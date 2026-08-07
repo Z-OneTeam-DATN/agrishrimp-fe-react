@@ -134,6 +134,11 @@ export default function EditProfileForm({
               errors.fullname ? "border-red-500" : "border-gray-200"
             )}
           />
+          {errors.fullname && (
+            <p className="text-xs font-medium text-red-500">
+              {errors.fullname.message}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -158,6 +163,11 @@ export default function EditProfileForm({
               errors.birthday ? "border-red-500" : "border-gray-200"
             )}
           />
+          {errors.birthday && (
+            <p className="text-xs font-medium text-red-500">
+              {errors.birthday.message}
+            </p>
+          )}
         </div>
       </div>
 
@@ -184,6 +194,11 @@ export default function EditProfileForm({
               errors.phone ? "border-red-500" : "border-gray-200"
             )}
           />
+          {errors.phone && (
+            <p className="text-xs font-medium text-red-500">
+              {errors.phone.message}
+            </p>
+          )}
         </div>
       </div>
 
