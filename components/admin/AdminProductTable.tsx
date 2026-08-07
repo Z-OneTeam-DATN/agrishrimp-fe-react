@@ -275,13 +275,14 @@ export function AdminProductTable({
                                         {/* Ảnh */}
                                         <TableCell className="p-2">
                                             <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] flex items-center justify-center overflow-hidden shadow-sm">
-                                                 {p.imageUrls && p.imageUrls.length > 0 ? (
-                                                     <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-contain p-0.5" />
-                                                 ) : p.variants?.[0]?.imageUrl ? (
-                                                     <img src={p.variants[0].imageUrl} alt={p.name} className="w-full h-full object-contain p-0.5" />
-                                                 ) : (
-                                                     <ImageIcon size={16} className="text-slate-200" />
-                                                 )}
+                                                 {(() => {
+                                                     const mainImg = p.imageUrls?.[0] || (p.variants?.[0]?.imageUrl || "").split(",")[0]?.trim();
+                                                     return mainImg ? (
+                                                         <img src={mainImg} alt={p.name} className="w-full h-full object-contain p-0.5" />
+                                                     ) : (
+                                                         <ImageIcon size={16} className="text-slate-200" />
+                                                     );
+                                                 })()}
                                             </div>
                                         </TableCell>
 
@@ -400,9 +401,14 @@ export function AdminProductTable({
                                                                                     {isVariantExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                                                                 </button>
                                                                                 <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-[3px] border border-slate-200 bg-white">
-                                                                                    {v.imageUrl && (
-                                                                                        <img src={v.imageUrl} className="h-full w-full object-contain p-0.5" alt={v.sku} />
-                                                                                    )}
+                                                                                    {(() => {
+                                                                                        const vImg = (v.imageUrl || "").split(",")[0]?.trim();
+                                                                                        return vImg ? (
+                                                                                            <img src={vImg} className="h-full w-full object-contain p-0.5" alt={v.sku} />
+                                                                                        ) : (
+                                                                                            <ImageIcon size={14} className="text-slate-200" />
+                                                                                        );
+                                                                                    })()}
                                                                                 </div>
                                                                             </div>
                                                                         </td>

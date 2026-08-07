@@ -110,7 +110,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     const interval = setInterval(() => {
       setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
-    }, 900);
+    }, 1800);
 
     return () => clearInterval(interval);
   }, [isHovered, allImages.length]);
@@ -162,19 +162,22 @@ export default function ProductCard({ product }: ProductCardProps) {
       className="group relative flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#d9e4d9] hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
     >
       <div className="relative mx-auto w-full max-w-[220px] overflow-hidden bg-white pt-[84%]">
-        <Image
-          key={`card-img-${currentImageIndex}-${allImages[currentImageIndex]}`}
-          src={allImages[currentImageIndex] || "/placeholder.svg"}
-          alt={product.name}
-          fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
-          className={`object-contain p-0 transition-all duration-500 group-hover:scale-[1.04] ${
-            product.isOutOfStock ? "opacity-50 grayscale" : ""
-          }`}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/placeholder.svg";
-          }}
-        />
+        {allImages.map((imgUrl, idx) => (
+          <Image
+            key={`card-img-${idx}`}
+            src={imgUrl || "/placeholder.svg"}
+            alt={product.name}
+            fill
+            unoptimized
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
+            className={`object-contain p-0 transition-opacity duration-700 ease-in-out group-hover:scale-[1.04] ${
+              idx === currentImageIndex ? "opacity-100 z-10" : "opacity-0 z-0"
+            } ${product.isOutOfStock ? "opacity-50 grayscale" : ""}`}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/placeholder.svg";
+            }}
+          />
+        ))}
 
         {allImages.length > 1 && isHovered && (
           <div className="absolute bottom-1 left-0 right-0 z-10 flex justify-center gap-1 transition-opacity duration-300">
