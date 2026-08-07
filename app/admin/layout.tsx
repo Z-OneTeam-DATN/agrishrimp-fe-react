@@ -14,6 +14,7 @@ import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import {
   ACTIVITY_LOG_PERMISSIONS,
   ADMIN_WORKSPACE_PERMISSIONS,
+  getDefaultAdminRouteByPermissionChecker,
   setLastWorkspace,
 } from "@/lib/workspace-permissions";
 
@@ -87,6 +88,14 @@ export default function AdminLayout({
   const hasAdminWorkspaceAccess = hasAnyPermission(
     ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
   );
+  const defaultAdminRoute = useMemo(
+    () => getDefaultAdminRouteByPermissionChecker(hasPermission),
+    [hasPermission],
+  );
+  const shouldRedirectFromAdminRoot =
+    pathname === "/admin" &&
+    defaultAdminRoute !== "/admin" &&
+    defaultAdminRoute !== "/admin/forbidden";
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>
@@ -121,6 +130,24 @@ export default function AdminLayout({
     }
   }, [isLoadingAuth, router, user]);
 
+  useEffect(() => {
+    if (
+      !isLoadingAuth &&
+      user &&
+      hasAdminWorkspaceAccess &&
+      shouldRedirectFromAdminRoot
+    ) {
+      router.replace(defaultAdminRoute);
+    }
+  }, [
+    defaultAdminRoute,
+    hasAdminWorkspaceAccess,
+    isLoadingAuth,
+    router,
+    shouldRedirectFromAdminRoot,
+    user,
+  ]);
+
   if (isLoadingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
@@ -139,6 +166,14 @@ export default function AdminLayout({
         title="Bạn không có quyền truy cập"
         description="Tài khoản này chưa được cấp quyền cho khu vực quản trị."
       />
+    );
+  }
+
+  if (shouldRedirectFromAdminRoot) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
     );
   }
 

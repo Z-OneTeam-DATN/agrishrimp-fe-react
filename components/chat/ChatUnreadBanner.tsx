@@ -6,6 +6,7 @@ import { useChatStore } from "@/stores/useChatStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { ChatService } from "@/app/services/chat.service";
 import { Conversation } from "@/app/types/chat.types";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 const AUTO_DISMISS_MS = 6000;
 const APPEAR_DELAY_MS = 1800;
@@ -27,8 +28,8 @@ export default function ChatUnreadBanner() {
     if (isLoadingAuth || !isAuthenticated) return;
     if (sessionStorage.getItem(SESSION_KEY)) return;
 
-    const roleSlug = (user as any)?.role?.slug as string | undefined;
-    const isStaff = roleSlug && roleSlug !== "customer" && roleSlug !== "khach-hang";
+    const roleSlug = normalizeRoleSlug((user as any)?.role);
+    const isStaff = Boolean(roleSlug && roleSlug !== "CUSTOMER");
     if (isStaff) return;
 
     let cancelled = false;

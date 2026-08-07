@@ -228,7 +228,7 @@ export default function LayoutClient({
       if (cachedUser) {
         setUser(cachedUser as UserType);
         setPermissions(cachedPermissions);
-        setLoadingAuth(false);
+        setLoadingAuth(isAdminPage && cachedPermissions.length === 0 && !background);
       } else if (background) {
         setLoadingAuth(false);
       } else {
@@ -290,6 +290,7 @@ export default function LayoutClient({
       clearClientAuth,
       detectServerSession,
       fetchFreshAuthSnapshot,
+      isAdminPage,
       refreshAndFetchAuthSnapshot,
       setLoadingAuth,
       setPermissions,

@@ -5,6 +5,7 @@
 export const P = {
   // ── SYSTEM ──────────────────────────────────────
   DASHBOARD_VIEW:     "DASHBOARD_VIEW",
+  ACTIVITY_LOG_VIEW:  "ACTIVITY_LOG_VIEW",
 
   // ── REPORT ──────────────────────────────────────
   REPORT_REVENUE_VIEW:   "REPORT_REVENUE_VIEW",

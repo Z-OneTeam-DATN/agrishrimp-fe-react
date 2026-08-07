@@ -559,7 +559,7 @@ const getWorkflowStatusMeta = (status: CheckWorkflowStatus) => {
 
 const isInternalEmployee = (employee: any) => {
   const roleSlug = String(employee?.role?.slug || "").toLowerCase();
-  return roleSlug !== "user" && roleSlug !== "customer";
+  return roleSlug !== "customer";
 };
 
 export default function InventoryUpsert({
