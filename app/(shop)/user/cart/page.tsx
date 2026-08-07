@@ -242,6 +242,7 @@ export default function CartPage() {
   const [voucherInput, setVoucherInput] = useState("");
   const [savedVoucherCodes, setSavedVoucherCodes] = useState<string[]>([]);
   const [isVoucherDialogOpen, setIsVoucherDialogOpen] = useState(false);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<CartItem | null>(null);
 
   const { fetchCartCount, setItems: setCheckoutStoreItems } = useCartStore();
   const { isAuthenticated, data: user, isLoading: isLoadingAuth } = useCurrentUser();
@@ -382,18 +383,23 @@ export default function CartPage() {
   };
 
   const removeItem = async (cartItemId: number, variantId: number) => {
-    if (!confirm("Xóa sản phẩm này khỏi giỏ hàng?")) return;
     setUpdatingItems((p) => ({ ...p, [variantId]: true }));
     try {
       await cartService.removeItem(cartItemId);
       toast.success("Đã xóa khỏi giỏ hàng");
       setItems((prev) => prev.filter((item) => item.id !== cartItemId));
       fetchCartCount();
+      setPendingDeleteItem(null);
     } catch {
       toast.error("Lỗi khi xóa sản phẩm");
     } finally {
       setUpdatingItems((p) => ({ ...p, [variantId]: false }));
     }
+  };
+
+  const confirmDeleteItem = () => {
+    if (!pendingDeleteItem) return;
+    void removeItem(pendingDeleteItem.id, pendingDeleteItem.variantId);
   };
 
   const toggleCheck = (id: number) =>
@@ -687,8 +693,9 @@ export default function CartPage() {
                             {formatMoney(item.price * item.quantity)}
                           </span>
                           <button
-                            onClick={() => removeItem(item.id, item.variantId)}
+                            onClick={() => setPendingDeleteItem(item)}
                             className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-red-500"
+                            aria-label={`Xóa ${item.name} khỏi giỏ hàng`}
                           >
                             {isUpdating ? (
                               <Loader2 size={14} className="animate-spin text-blue-700" />
@@ -755,8 +762,9 @@ export default function CartPage() {
                                   />
                                 )}
                                 <button
-                                  onClick={() => removeItem(item.id, item.variantId)}
+                                  onClick={() => setPendingDeleteItem(item)}
                                   className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-red-500"
+                                  aria-label={`Xóa ${item.name} khỏi giỏ hàng`}
                                 >
                                   {isUpdating ? (
                                     <Loader2 size={13} className="animate-spin text-blue-700" />
@@ -962,6 +970,65 @@ export default function CartPage() {
           </aside>
         </div>
       </div>
+
+      <Dialog
+        open={!!pendingDeleteItem}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteItem(null);
+        }}
+      >
+        <DialogContent className="max-w-[420px] rounded-none border border-slate-200 bg-white p-0">
+          <DialogHeader className="border-b border-slate-200 px-5 py-4">
+            <DialogTitle className="text-[16px] font-semibold text-slate-950">
+              Xóa sản phẩm khỏi giỏ hàng
+            </DialogTitle>
+            <DialogDescription className="text-[13px] text-slate-500">
+              Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-5 py-4">
+            {pendingDeleteItem && (
+              <div className="border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="line-clamp-2 text-[14px] font-semibold text-slate-900">
+                  {pendingDeleteItem.name}
+                </p>
+                {pendingDeleteItem.variant && (
+                  <p className="mt-1 text-[12px] text-slate-500">
+                    {pendingDeleteItem.variant}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteItem(null)}
+                disabled={pendingDeleteItem ? updatingItems[pendingDeleteItem.variantId] : false}
+                className="h-10 border border-slate-200 bg-white px-5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteItem}
+                disabled={pendingDeleteItem ? updatingItems[pendingDeleteItem.variantId] : false}
+                className="inline-flex h-10 items-center justify-center gap-2 bg-red-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pendingDeleteItem && updatingItems[pendingDeleteItem.variantId] ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Đang xóa...
+                  </>
+                ) : (
+                  "Xóa khỏi giỏ hàng"
+                )}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isVoucherDialogOpen} onOpenChange={setIsVoucherDialogOpen}>
         <DialogContent className="max-w-[680px] rounded-none border border-slate-200 bg-white p-0">
