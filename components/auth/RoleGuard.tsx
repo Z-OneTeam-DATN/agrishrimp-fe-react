@@ -4,7 +4,7 @@ import React from "react";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { normalizeRoleSlug } from "@/lib/roles";
 
-type Role = "ADMIN" | "SUPER_ADMIN" | "ADMINISTRATOR" | "MANAGER" | "BRANCH_MANAGER" | "USER";
+type Role = "CUSTOMER" | "STAFF" | "WAREHOUSE_MANAGER" | "AGRONOMIST" | "ADMIN" | "SUPER_ADMIN";
 
 interface RoleGuardProps {
   allowedRoles: Role[];

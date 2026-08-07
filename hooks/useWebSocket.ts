@@ -8,6 +8,7 @@ import { useNotificationStore } from "@/stores/useNotificationStore";
 import { useTypingStore } from "@/stores/useTypingStore";
 import { ChatMessage, Notification } from "@/app/types/chat.types";
 import { ChatService } from "@/app/services/chat.service";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 // Use SOCKET_URL (no /api suffix) to build the correct ws-native endpoint
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8004";
@@ -26,8 +27,8 @@ export function useWebSocket() {
   const { addMessage, updateConversationLastMsg, addOrUpdateConversation, markConvRead } = useChatStore();
   const { addNotification } = useNotificationStore();
   const { setTyping } = useTypingStore();
-  const roleSlug = (user as any)?.role?.slug as string | undefined;
-  const isStaff = roleSlug && roleSlug !== "customer" && roleSlug !== "khach-hang";
+  const roleSlug = normalizeRoleSlug((user as any)?.role);
+  const isStaff = Boolean(roleSlug && roleSlug !== "CUSTOMER");
 
   const disconnect = useCallback(() => {
     subscriptionsRef.current.forEach((s) => { try { s.unsubscribe(); } catch {} });

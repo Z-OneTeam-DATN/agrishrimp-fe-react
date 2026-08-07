@@ -11,6 +11,7 @@ export type WorkspaceRoute = "/admin" | "/agronomist" | "/chat";
 // khu vực /admin (sidebar hiện ra, "Quay lại quản trị" hiện ra) dù không có quyền admin thật nào.
 export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.DASHBOARD_VIEW,
+  P.ACTIVITY_LOG_VIEW,
   P.REPORT_REVENUE_VIEW,
   P.REPORT_INVENTORY_VIEW,
   P.REPORT_FINANCE_VIEW,
@@ -34,39 +35,7 @@ export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.CHAT_VIEW,
 ] as const;
 
-/**
- * Quyền được coi là "liên quan đến nhật ký hoạt động" — dùng chung cho cả sidebar (ẩn/hiện link)
- * và AdminLayout (chặn truy cập trực tiếp qua URL). Trước đây layout dùng nhầm
- * ADMIN_WORKSPACE_PERMISSIONS (rất rộng — chỉ cần có bất kỳ quyền admin nào, kể cả chỉ xem sản
- * phẩm) khiến 2 nơi lệch nhau: sidebar ẩn link nhưng gõ thẳng URL vẫn vào được trang rỗng.
- */
-export const ACTIVITY_LOG_PERMISSIONS = [
-  P.DASHBOARD_VIEW,
-  P.STAFF_VIEW,
-  P.BRANCH_VIEW,
-  P.ROLE_VIEW,
-  P.ORDER_VIEW,
-  P.PURCHASE_REQUEST_VIEW,
-  P.PURCHASE_REQUEST_CREATE,
-  P.PURCHASE_REQUEST_UPDATE,
-  P.PURCHASE_REQUEST_APPROVE,
-  P.IMPORT_VIEW,
-  P.IMPORT_CREATE,
-  P.IMPORT_APPROVE,
-  P.EXPORT_VIEW,
-  P.EXPORT_CREATE,
-  P.EXPORT_APPROVE,
-  P.TRANSFER_VIEW,
-  P.TRANSFER_CREATE,
-  P.TRANSFER_APPROVE,
-  P.CHECK_VIEW,
-  P.CHECK_CREATE,
-  P.CHECK_APPROVE,
-  P.SUPPLIER_VIEW,
-  P.SUPPLIER_CREATE,
-  P.SUPPLIER_UPDATE,
-  P.SUPPLIER_DELETE,
-] as const;
+export const ACTIVITY_LOG_PERMISSIONS = [P.ACTIVITY_LOG_VIEW] as const;
 
 export function hasAnyPermissionCode(
   permissions: string[] = [],
@@ -131,6 +100,7 @@ const ADMIN_PERMISSION_DESTINATIONS: Array<{
   href: string;
 }> = [
   { permissions: [P.DASHBOARD_VIEW], href: "/admin" },
+  { permissions: [P.ACTIVITY_LOG_VIEW], href: "/admin/activity-logs" },
   { permissions: [P.REPORT_FINANCE_VIEW], href: "/admin/financial" },
   { permissions: [P.REPORT_REVENUE_VIEW], href: "/admin/reports/sales" },
   { permissions: [P.REPORT_INVENTORY_VIEW], href: "/admin/reports/inventory" },
@@ -161,8 +131,18 @@ export function getDefaultAdminRoute(permissions: string[] = []) {
   return destination?.href ?? "/admin/forbidden";
 }
 
+export function getDefaultAdminRouteByPermissionChecker(
+  hasPermission: (permission: string) => boolean,
+) {
+  const destination = ADMIN_PERMISSION_DESTINATIONS.find((item) =>
+    item.permissions.some(hasPermission),
+  );
+
+  return destination?.href ?? "/admin/forbidden";
+}
+
 export function getPostLoginDestination(permissions: string[] = [], roleSlug?: string) {
-  if (roleSlug === "USER" || roleSlug === "CUSTOMER") {
+  if (roleSlug === "CUSTOMER") {
     return "/";
   }
 
