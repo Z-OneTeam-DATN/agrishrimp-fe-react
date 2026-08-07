@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
+import { FileService } from "@/app/services/file.service";
 import { getPublicBrands } from "@/app/services/brand.service";
 import { updateAttribute } from "@/app/services/AttributeService";
 import { SettingService } from "@/app/services/setting.service";
@@ -1181,8 +1182,24 @@ export default function EditProductPage() {
 
         try {
             setIsLoading(true);
+
+            // Upload newly added files per variant to Cloudinary temp storage
+            const uploadedVariantUrls: string[][] = await Promise.all(
+                variantImageFiles.map(async (fileList) => {
+                    if (!fileList || fileList.length === 0) return [];
+                    const uploadPromises = fileList.map(async (file) => {
+                        const fileFormData = new FormData();
+                        fileFormData.append("file", file);
+                        const res = await FileService.tmpUpload(fileFormData);
+                        return res.url;
+                    });
+                    return Promise.all(uploadPromises);
+                })
+            );
+
             const firstExistingImage = firstVariantPreviews.find((url) => !url.startsWith("blob:")) || null;
-            const firstNewImageFile = (variantImageFiles[0] || [])[0] || null;
+            const firstNewUploadedImage = uploadedVariantUrls[0]?.[0] || null;
+            const primaryProductImage = firstNewUploadedImage || firstExistingImage;
 
             const productData: any = {
                 name: data.name.trim(),
@@ -1190,13 +1207,15 @@ export default function EditProductPage() {
                 ...(data.brandId && { brandId: Number(data.brandId) }),
                 description: data.description || "",
                 status: data.status,
-                images: firstExistingImage ? [firstExistingImage] : [],
+                images: primaryProductImage ? [primaryProductImage] : [],
                 variants: rawVariants.map((v: any, vIdx: number) => {
-                    const vPreviews = (variantImagePreviews[vIdx] || []).filter((url) => !url.startsWith("blob:"));
+                    const existingPreviews = (variantImagePreviews[vIdx] || []).filter((url) => !url.startsWith("blob:"));
+                    const newUrls = uploadedVariantUrls[vIdx] || [];
+                    const allUrls = [...existingPreviews, ...newUrls];
                     return {
                         sku: v.sku.trim(),
                         barcode: v.barcode?.trim() || "",
-                        image: vPreviews.length > 0 ? vPreviews.join(",") : null,
+                        image: allUrls.length > 0 ? allUrls.join(",") : null,
                         attributeValueIds: v.attributeValueIds || [],
                     };
                 }),
@@ -1204,20 +1223,6 @@ export default function EditProductPage() {
 
             const formData = new FormData();
             formData.append("data", new Blob([JSON.stringify(productData)], { type: "application/json" }));
-
-            if (firstNewImageFile) {
-                formData.append("productImages", firstNewImageFile);
-            }
-
-            variantImageFiles.forEach((fileList) => {
-                if (fileList && fileList.length > 0) {
-                    fileList.forEach((file) => {
-                        formData.append("variantImages", file);
-                    });
-                } else {
-                    formData.append("variantImages", new Blob([], { type: "image/png" }));
-                }
-            });
 
             await ProductService.update(id, formData);
             setAllowUnload(true);
