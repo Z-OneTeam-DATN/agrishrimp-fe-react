@@ -20,8 +20,16 @@ export class AuthService {
   }
 
   static async getMyPermissionsNext(): Promise<string[]> {
-    const response = await apiNext.get<string[]>(`${this.PREFIX}/permissions`);
-    return Array.isArray(response.data) ? response.data : [];
+    const response = await apiJava.get<
+      string[] | { permissions?: string[]; data?: string[]; content?: string[]; result?: string[] }
+    >("/me/permissions");
+    const raw = response.data;
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw === "object") {
+      const inner = raw.permissions ?? raw.data ?? raw.content ?? raw.result;
+      if (Array.isArray(inner)) return inner;
+    }
+    return [];
   }
 
   static async me(): Promise<UserType> {

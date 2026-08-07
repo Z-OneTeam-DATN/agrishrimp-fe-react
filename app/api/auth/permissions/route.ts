@@ -2,9 +2,12 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import axios from "axios";
 
-export async function GET() {
+export async function GET(request: Request) {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("accessToken")?.value;
+  const bearerToken = request.headers.get("authorization") || "";
+  const accessToken =
+    cookieStore.get("accessToken")?.value ||
+    bearerToken.replace(/^Bearer\s+/i, "");
 
   if (!accessToken) {
     return NextResponse.json([], { status: 200 });
