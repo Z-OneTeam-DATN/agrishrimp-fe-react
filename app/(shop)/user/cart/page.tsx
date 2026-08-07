@@ -652,6 +652,9 @@ export default function CartPage() {
                                 alt={item.name}
                                 fill
                                 className="object-cover"
+                                onError={(event) => {
+                                  (event.target as HTMLImageElement).src = "/placeholder.svg";
+                                }}
                               />
                             </div>
                             <div className="min-w-0">
@@ -711,6 +714,9 @@ export default function CartPage() {
                               alt={item.name}
                               fill
                               className="object-cover"
+                              onError={(event) => {
+                                (event.target as HTMLImageElement).src = "/placeholder.svg";
+                              }}
                             />
                           </Link>
 
