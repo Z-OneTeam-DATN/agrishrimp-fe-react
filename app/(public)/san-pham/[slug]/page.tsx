@@ -407,6 +407,7 @@ export default function ProductDetailPage({
                 const defaultIdx = firstValidIdx >= 0 ? firstValidIdx : 0;
                 setSelectedVariantIndex(defaultIdx);
 
+                const defaultVariant = detail.variants?.[defaultIdx];
                 const galleryImages = Array.from(
                     new Set(
                         [
