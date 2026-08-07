@@ -1190,8 +1190,9 @@ export default function EditProductPage() {
                     const uploadPromises = fileList.map(async (file) => {
                         const fileFormData = new FormData();
                         fileFormData.append("file", file);
-                        const res = await FileService.tmpUpload(fileFormData);
-                        return res.url;
+                        const res = (await FileService.tmpUpload(fileFormData)) as any;
+                        const imgPath = res?.url || res?.data?.url || res?.tmpPath || res?.data?.tmpPath || res?.publicId || "";
+                        return imgPath;
                     });
                     return Promise.all(uploadPromises);
                 })
