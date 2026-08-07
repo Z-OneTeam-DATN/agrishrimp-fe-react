@@ -706,7 +706,14 @@ export default function ProductDetailPage({
                                                     : "border-slate-200 hover:border-blue-400"
                                             }`}
                                         >
-                                            <Image src={image} alt={`Ảnh sản phẩm ${index + 1}`} fill className="object-cover" />
+                                            <Image
+                                                src={image}
+                                                alt={`Ảnh sản phẩm ${index + 1}`}
+                                                fill
+                                                unoptimized
+                                                sizes="100px"
+                                                className="object-cover"
+                                            />
                                         </button>
                                     ))}
                                 </div>
@@ -718,10 +725,13 @@ export default function ProductDetailPage({
                                         </span>
                                     )}
                                     <Image
+                                        key={`active-detail-img-${activeImage}`}
                                         src={activeImage}
                                         alt={product.name}
                                         fill
                                         priority
+                                        unoptimized
+                                        sizes="(max-width: 768px) 100vw, 600px"
                                         className={`object-contain p-4 transition-all duration-300 sm:p-5 ${
                                             isCompletelyOutOfStock ? "opacity-50 grayscale" : ""
                                         }`}
