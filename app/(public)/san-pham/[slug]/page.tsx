@@ -264,8 +264,9 @@ function RelatedProductCard({
     sourceProductId?: number;
 }) {
     const [adding, setAdding] = useState(false);
+    const firstVariantImg = (product.variants?.find((variant) => variant.imageUrl)?.imageUrl || "").split(",")[0]?.trim();
     const image =
-        product.variants?.find((variant) => variant.imageUrl)?.imageUrl ??
+        (firstVariantImg && firstVariantImg.length > 0 ? firstVariantImg : null) ??
         product.imageUrls?.[0] ??
         "/placeholder.svg";
     const firstVariant = product.variants?.find((variant) => (variant.quantity ?? 0) > 0) ?? product.variants?.[0];
@@ -406,13 +407,12 @@ export default function ProductDetailPage({
                 const defaultIdx = firstValidIdx >= 0 ? firstValidIdx : 0;
                 setSelectedVariantIndex(defaultIdx);
 
-                const defaultVariant = detail.variants?.[defaultIdx];
                 const galleryImages = Array.from(
                     new Set(
                         [
                             ...(detail.imageUrls ?? []),
                             ...((detail.variants ?? [])
-                                .map((variant) => variant.imageUrl)
+                                .flatMap((variant) => (variant.imageUrl || "").split(","))
                                 .filter((imageUrl): imageUrl is string => Boolean(imageUrl))),
                         ]
                             .map((imageUrl) => imageUrl.trim())
@@ -420,7 +420,10 @@ export default function ProductDetailPage({
                     )
                 );
 
-                setActiveImage(defaultVariant?.imageUrl ?? galleryImages[0] ?? "/placeholder.svg");
+                const defaultVariantImg = defaultVariant?.imageUrl
+                    ? defaultVariant.imageUrl.split(",")[0]?.trim()
+                    : null;
+                setActiveImage(defaultVariantImg || galleryImages[0] || "/placeholder.svg");
                 setRelated(
                     mergeFrequentlyBoughtWithCategoryFallback(
                         recommendations.map((item) => item.product),
@@ -485,7 +488,7 @@ export default function ProductDetailPage({
         const mergedImages = [
             ...(product?.imageUrls ?? []),
             ...((product?.variants ?? [])
-                .map((variant) => variant.imageUrl)
+                .flatMap((variant) => (variant.imageUrl || "").split(","))
                 .filter((imageUrl): imageUrl is string => Boolean(imageUrl))),
         ];
 
@@ -548,7 +551,8 @@ export default function ProductDetailPage({
     const handleSelectVariant = (index: number) => {
         setSelectedVariantIndex(index);
         const variant = availableVariants[index];
-        const image = variant?.imageUrl ?? productGalleryImages[0] ?? "/placeholder.svg";
+        const variantImg = variant?.imageUrl ? variant.imageUrl.split(",")[0]?.trim() : null;
+        const image = variantImg || productGalleryImages[0] || "/placeholder.svg";
         setActiveImage(image);
     };
 
@@ -644,7 +648,7 @@ export default function ProductDetailPage({
     const soldCount = Number(product.soldCount ?? 0);
     const currentPrice = currentVariant?.price ?? 0;
     const descriptionHtml = normalizeDescriptionHtml(product.description || product.shortDesc);
-    const thumbnailImages = productGalleryImages.slice(0, 4);
+    const thumbnailImages = productGalleryImages;
     const relatedProducts = related.slice(0, 3);
     const breadcrumbContent = (
         <div className="container mx-auto px-4 py-2.5">

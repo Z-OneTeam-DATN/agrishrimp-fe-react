@@ -108,7 +108,7 @@ const formatProductPrice = (value?: number | null) => {
 
 const getSuggestionImage = (product: PublicProductListItem) =>
   product.imageUrls?.[0] ||
-  product.variants?.find((variant) => variant.imageUrl)?.imageUrl ||
+  (product.variants?.find((variant) => variant.imageUrl)?.imageUrl || "").split(",")[0]?.trim() ||
   "/placeholder.svg";
 
 const getSuggestionPrice = (product: PublicProductListItem) =>
