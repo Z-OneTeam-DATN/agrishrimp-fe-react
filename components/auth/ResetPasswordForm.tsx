@@ -24,6 +24,10 @@ export function ResetPasswordForm() {
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
 
   const {
     register,
@@ -37,7 +41,7 @@ export function ResetPasswordForm() {
     mode: "onSubmit",
     defaultValues: {
       email: "",
-      captchaToken: "",
+      captchaToken: isLocalhost ? "test" : "",
     },
   });
 
@@ -72,6 +76,10 @@ export function ResetPasswordForm() {
   });
 
   const resetCaptcha = () => {
+    if (isLocalhost) {
+      setValue("captchaToken", "test", { shouldValidate: true });
+      return;
+    }
     setValue("captchaToken", "", { shouldValidate: true });
     const turnstile = (window as Window & { turnstile?: { reset(): void } })
       .turnstile;
@@ -81,11 +89,6 @@ export function ResetPasswordForm() {
   };
 
   const onSubmit = (data: ResetPasswordFormValues) => {
-    const isLocalhost =
-      typeof window !== "undefined" &&
-      (window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1");
-
     if (isLocalhost) {
       mutation.mutate({ ...data, captchaToken: "test" });
       return;
@@ -163,9 +166,15 @@ export function ResetPasswordForm() {
             clearErrors("captchaToken");
           }}
           onExpire={() =>
-            setValue("captchaToken", "", { shouldValidate: true })
+            setValue("captchaToken", isLocalhost ? "test" : "", {
+              shouldValidate: true,
+            })
           }
           onError={() => {
+            if (isLocalhost) {
+              setValue("captchaToken", "test", { shouldValidate: true });
+              return;
+            }
             setValue("captchaToken", "", { shouldValidate: true });
             setError("captchaToken", {
               type: "server",

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -454,7 +455,14 @@ export default function Header() {
           ) : null}
           <button
             type="button"
-            onClick={() => setIsImageSearchOpen(true)}
+            onClick={() => {
+              if (!isAuthenticated || !user) {
+                toast.error("Vui lòng đăng nhập để dùng tính năng tìm kiếm bằng hình ảnh!");
+                setTimeout(() => router.push("/login"), 1500);
+                return;
+              }
+              setIsImageSearchOpen(true);
+            }}
             className={cn(
               iconButtonClassName,
               "text-gray-400 hover:text-[rgb(25,101,162)]"
