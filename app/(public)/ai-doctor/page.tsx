@@ -493,7 +493,7 @@ export default function AiDoctorChatPage() {
           <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
         ) : (
           <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-white/70">
-            Đăng nhập để xem lại Sổ khám các ngày trước.
+            Đăng nhập để dùng Bác sĩ Tôm AI và xem lại Sổ khám các ngày trước.
           </div>
         )}
       </aside>
@@ -812,7 +812,20 @@ export default function AiDoctorChatPage() {
           <div ref={chatEndRef} />
         </div>
 
-        {isViewingHistory ? (
+        {!isAuthenticated ? (
+          <div className="sticky bottom-0 border-t border-gray-200 bg-white p-4 text-center shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
+            <p className="mb-2 text-sm text-gray-600">
+              Đăng nhập để trò chuyện và gửi ảnh cho Bác sĩ Tôm AI chẩn đoán bệnh.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              className="rounded-full bg-[#1965A2] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#15588D]"
+            >
+              Đăng nhập ngay
+            </button>
+          </div>
+        ) : isViewingHistory ? (
           <div className="sticky bottom-0 border-t border-gray-200 bg-white p-4 text-center shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
             <button
               type="button"

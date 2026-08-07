@@ -26,6 +26,10 @@ export default function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
 
   const {
     register,
@@ -43,7 +47,7 @@ export default function SignupForm() {
       password: "",
       confirmPassword: "",
       termsAccepted: false,
-      captchaToken: "",
+      captchaToken: isLocalhost ? "test" : "",
     },
   });
 
@@ -130,6 +134,10 @@ export default function SignupForm() {
   });
 
   const resetCaptcha = () => {
+    if (isLocalhost) {
+      setValue("captchaToken", "test", { shouldValidate: true });
+      return;
+    }
     setValue("captchaToken", "", { shouldValidate: true });
     if (typeof window !== "undefined" && (window as any).turnstile) {
       (window as any).turnstile.reset();
@@ -137,6 +145,11 @@ export default function SignupForm() {
   };
 
   const onSubmit = (data: RegisterFormValues) => {
+    if (isLocalhost) {
+      mutation.mutate({ ...data, captchaToken: "test" });
+      return;
+    }
+
     if (!data.captchaToken) {
       setError("captchaToken", {
         type: "manual",
@@ -207,9 +220,15 @@ export default function SignupForm() {
             clearErrors("captchaToken");
           }}
           onExpire={() =>
-            setValue("captchaToken", "", { shouldValidate: true })
+            setValue("captchaToken", isLocalhost ? "test" : "", {
+              shouldValidate: true,
+            })
           }
           onError={() => {
+            if (isLocalhost) {
+              setValue("captchaToken", "test", { shouldValidate: true });
+              return;
+            }
             setValue("captchaToken", "", { shouldValidate: true });
             setError("captchaToken", {
               type: "server",

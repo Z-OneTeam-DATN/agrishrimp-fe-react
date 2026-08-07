@@ -6,13 +6,11 @@ import type {
   AiDoctorDailyRecordListResponse,
   AiDoctorDiagnosisResponse,
 } from "@/app/types/ai-doctor.types";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 const DIAGNOSIS_STORAGE_PREFIX = "ai-doctor:diagnosis:";
 const LAST_DIAGNOSIS_ID_KEY = "ai-doctor:last-id";
-// Dùng chung cho cả khách vãng lai lẫn user đã đăng nhập: chat có thể chuyển sang hỏi làm rõ
-// nhiều lượt (AI mơ hồ/gần đạt ngưỡng bệnh nào đó) nên cần 1 sessionId ổn định xuyên suốt cuộc
-// hội thoại, không phải chỉ để định danh khách vãng lai như trước.
+// Chat có thể chuyển sang hỏi làm rõ nhiều lượt (AI mơ hồ/gần đạt ngưỡng bệnh nào đó) nên cần 1
+// sessionId ổn định xuyên suốt cuộc hội thoại.
 const CHAT_SESSION_ID_KEY = "ai-doctor:public-session-id";
 
 const canUseStorage = () => typeof window !== "undefined" && !!window.sessionStorage;
@@ -67,8 +65,8 @@ const getChatSessionId = () => {
   return sessionId;
 };
 
-const hasPrivateAccess = () => Boolean(useAuthStore.getState().accessToken);
-
+// AI Doctor bat buoc dang nhap — khong con nhanh khach vang lai goi "/public/ai-doctor/*" nua,
+// moi request deu di qua "/ai-doctor/*" (yeu cau JWT hop le, BE tra 401 neu chua dang nhap).
 export const aiDoctorService = {
   async diagnose(image: File, userSymptoms?: string) {
     const formData = new FormData();
@@ -77,21 +75,11 @@ export const aiDoctorService = {
     if (userSymptoms?.trim()) {
       formData.append("userSymptoms", userSymptoms.trim());
     }
-    if (!hasPrivateAccess()) {
-      const sessionId = getChatSessionId();
-      if (sessionId) {
-        formData.append("sessionId", sessionId);
-      }
-    }
 
     const response = await apiJava.post<AiDoctorDiagnosisResponse>(
-      hasPrivateAccess() ? "/ai-doctor/diagnosis" : "/public/ai-doctor/diagnosis",
+      "/ai-doctor/diagnosis",
       formData,
-      ({
-        headers: { "Content-Type": "multipart/form-data" },
-        isPublic: !hasPrivateAccess(),
-        timeout: 90000,
-      } as any),
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 90000 },
     );
 
     persistDiagnosis(response.data);
@@ -150,22 +138,21 @@ export const aiDoctorService = {
     diagnosisContext?: { diseaseCode?: string; diseaseName?: string },
     image?: { base64: string; mimeType: string },
   ) {
-    const isPrivate = hasPrivateAccess();
     const response = await apiJava.post<AiDoctorChatResponse>(
-      isPrivate ? "/ai-doctor/chat" : "/public/ai-doctor/chat",
+      "/ai-doctor/chat",
       {
-      message,
-      // Cần ổn định cho cả user đã đăng nhập: BE có thể mở phiên hỏi làm rõ nhiều lượt
-      // (AiChatClarifySession) khoá theo sessionId — sessionId đổi mỗi tin nhắn sẽ khiến BE
-      // không nối lại được câu hỏi trước đó với câu trả lời tiếp theo.
-      sessionId: getChatSessionId(),
-      diagnosisContext: diagnosisContext
-        ? { diseaseCode: diagnosisContext.diseaseCode, diseaseName: diagnosisContext.diseaseName }
-        : undefined,
-      imageBase64: image?.base64,
-      imageMimeType: image?.mimeType,
-    },
-      { isPublic: !isPrivate, timeout: image ? 60000 : undefined } as any,
+        message,
+        // BE co the mo phien hoi lam ro nhieu luot (AiChatClarifySession) khoa theo sessionId —
+        // sessionId doi moi tin nhan se khien BE khong noi lai duoc cau hoi truoc do voi cau tra
+        // loi tiep theo.
+        sessionId: getChatSessionId(),
+        diagnosisContext: diagnosisContext
+          ? { diseaseCode: diagnosisContext.diseaseCode, diseaseName: diagnosisContext.diseaseName }
+          : undefined,
+        imageBase64: image?.base64,
+        imageMimeType: image?.mimeType,
+      },
+      { timeout: image ? 60000 : undefined },
     );
     return response.data;
   },
@@ -175,24 +162,17 @@ export const aiDoctorService = {
     payload: {
       answer?: string;
       candidateDiseaseCodes?: string[];
-      // Chỉ cần thiết ở lượt gọi đầu tiên cho khách vãng lai — họ không có history DB để
-      // BE tự lấy lại ảnh/triệu chứng, nên FE phải gửi kèm những gì đã có từ /diagnosis.
       imageUrl?: string;
       initialSymptoms?: string;
     },
   ) {
-    const isPrivate = hasPrivateAccess();
     const response = await apiJava.post<AiDoctorClarifyResponse>(
-      isPrivate
-        ? `/ai-doctor/diagnosis/${diagnosisId}/clarify`
-        : `/public/ai-doctor/diagnosis/${diagnosisId}/clarify`,
+      `/ai-doctor/diagnosis/${diagnosisId}/clarify`,
       payload,
-      { isPublic: !isPrivate } as any,
     );
 
-    // Khi đã chốt bệnh, cập nhật lại cache — nếu không, /ai-doctor/result?id=X (đặc biệt với
-    // khách vãng lai, vốn chỉ đọc từ cache) sẽ vẫn hiển thị kết quả cũ (needsClarification=true,
-    // bệnh đoán ban đầu) thay vì kết luận thật vừa chốt.
+    // Khi đã chốt bệnh, cập nhật lại cache — nếu không, /ai-doctor/result?id=X sẽ vẫn hiển thị
+    // kết quả cũ (needsClarification=true, bệnh đoán ban đầu) thay vì kết luận thật vừa chốt.
     if (response.data.type === "DECISION" && response.data.diagnosis) {
       persistDiagnosis({ ...response.data.diagnosis, needsClarification: false });
     }
