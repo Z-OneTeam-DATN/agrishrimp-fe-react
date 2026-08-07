@@ -54,6 +54,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
+import { FileService } from "@/app/services/file.service";
 import { getPublicBrands } from "@/app/services/brand.service";
 import { updateAttribute } from "@/app/services/AttributeService";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -1418,6 +1419,21 @@ export default function AddProductPage() {
         try {
             setIsLoading(true);
 
+            const uploadedVariantUrls: string[][] = await Promise.all(
+                variantImageFiles.map(async (fileList) => {
+                    if (!fileList || fileList.length === 0) return [];
+                    const uploadPromises = fileList.map(async (file) => {
+                        const fileFormData = new FormData();
+                        fileFormData.append("file", file);
+                        const res = await FileService.tmpUpload(fileFormData);
+                        return res.url;
+                    });
+                    return Promise.all(uploadPromises);
+                })
+            );
+
+            const firstNewUploadedImage = uploadedVariantUrls[0]?.[0] || null;
+
             const productData: any = {
                 name: data.name.trim(),
                 categoryId: Number(data.categoryId),
@@ -1425,10 +1441,13 @@ export default function AddProductPage() {
                 ...(data.baseSku?.trim() && { baseSku: data.baseSku.trim() }),
                 ...(data.description?.trim() && { description: data.description }),
                 ...(data.status && { status: data.status }),
-                variants: rawVariants.map((v: any) => {
+                images: firstNewUploadedImage ? [firstNewUploadedImage] : [],
+                variants: rawVariants.map((v: any, vIdx: number) => {
+                    const newUrls = uploadedVariantUrls[vIdx] || [];
                     return {
                         sku: v.sku.trim(),
                         ...(v.barcode?.trim() && { barcode: v.barcode.trim() }),
+                        image: newUrls.length > 0 ? newUrls.join(",") : null,
                         attributeValueIds: v.attributeValueIds || [],
                     };
                 }),
@@ -1441,18 +1460,6 @@ export default function AddProductPage() {
                     type: "application/json",
                 })
             );
-
-            formData.append("productImages", firstVariantImageFiles[0]);
-
-            variantImageFiles.forEach((fileList) => {
-                if (fileList && fileList.length > 0) {
-                    fileList.forEach((file) => {
-                        formData.append("variantImages", file);
-                    });
-                } else {
-                    formData.append("variantImages", new Blob([], { type: "image/png" }));
-                }
-            });
 
             await ProductService.create(formData);
             setAllowUnload(true);
