@@ -55,6 +55,7 @@ const ExportItemSchema = z.object({
   lotNumber: z.string().optional(),
   receiptCode: z.string().optional(),
   receiptId: z.number().optional(),
+  imageUrl: z.string().optional(),
 });
 
 const ExportCommandSchema = z.object({
@@ -126,6 +127,25 @@ function AdminExportFormContent() {
     return type === "WAREHOUSE" || name.includes("kho tong");
   };
 
+  const getFirstImageUrl = (...sources: unknown[]): string => {
+    for (const source of sources) {
+      if (Array.isArray(source)) {
+        const found: string = getFirstImageUrl(...source);
+        if (found) return found;
+        continue;
+      }
+
+      const url = String(source ?? "")
+        .split(",")
+        .map((item) => item.trim())
+        .find(Boolean);
+
+      if (url) return url;
+    }
+
+    return "";
+  };
+
   const currentUserBranchFromList = React.useMemo(() => {
     const currentBranchId = currentUserBranch?.id ?? warehouseId;
     return branches.find((branch: any) => {
@@ -195,6 +215,7 @@ function AdminExportFormContent() {
     lotNumber: item.batchNumber || item.lotNumber || "",
     receiptCode: item.receiptCode || "",
     receiptId: item.receiptId ? Number(item.receiptId) : undefined,
+    imageUrl: getFirstImageUrl(item.imageUrl, item.imageUrls),
   });
 
   const generateNoteCode = () => {
@@ -650,6 +671,7 @@ function AdminExportFormContent() {
       price: variant.importPrice || variant.price || 0,
       returnReason: variant.reason || "",
       lotNumber,
+      imageUrl: getFirstImageUrl(variant.imageUrl, variant.imageUrls),
     });
   };
 
@@ -1145,7 +1167,10 @@ function AdminExportFormContent() {
                             Đang tải dữ liệu...
                           </div>
                         ) : allProducts.length > 0 ? (
-                          allProducts.map((variant) => (
+                          allProducts.map((variant) => {
+                            const variantImage = getFirstImageUrl(variant.imageUrl, variant.imageUrls);
+
+                            return (
                             <div
                               key={`${variant.variantId ?? variant.id}-${variant.batchNumber ?? variant.sku}`}
                               className="p-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer flex justify-between items-center group"
@@ -1175,9 +1200,9 @@ function AdminExportFormContent() {
                                   />
                                 </div>
                                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
-                                  {variant.imageUrl ? (
+                                  {variantImage ? (
                                     <img
-                                      src={variant.imageUrl}
+                                      src={variantImage}
                                       alt={variant.sku}
                                       className="w-full h-full object-cover"
                                     />
@@ -1234,7 +1259,8 @@ function AdminExportFormContent() {
                                 </p>
                               </div>
                             </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <div className="p-4 text-center text-slate-500 text-[12px]">
                             {searchTerm
@@ -1302,6 +1328,7 @@ function AdminExportFormContent() {
                       const hasReasonError =
                         errors.items?.[index]?.returnReason;
                       const currentItem = watchItems[index] as any;
+                      const currentItemImage = getFirstImageUrl(currentItem?.imageUrl);
 
                       return (
                         <React.Fragment key={field.id}>
@@ -1313,9 +1340,27 @@ function AdminExportFormContent() {
                               {currentItem?.sku}
                             </TableCell>
                             <TableCell className="px-1.5 py-2 text-[11px] font-semibold text-slate-700">
-                              {currentItem?.name}
-                              <div className="mt-0.5 text-[10px] font-medium text-blue-600">
-                                SL lỗi hiện có: {currentItem?.stock || 0}
+                              <div className="flex min-w-0 items-center gap-2">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-slate-200 bg-white">
+                                  {currentItemImage ? (
+                                    <img
+                                      src={currentItemImage}
+                                      alt={currentItem?.name || currentItem?.sku}
+                                      className="h-full w-full object-cover"
+                                      onError={(event) => {
+                                        event.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                  ) : (
+                                    <Package size={16} className="text-slate-300" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="line-clamp-2">{currentItem?.name}</div>
+                                  <div className="mt-0.5 text-[10px] font-medium text-blue-600">
+                                    SL lỗi hiện có: {currentItem?.stock || 0}
+                                  </div>
+                                </div>
                               </div>
                             </TableCell>
 
