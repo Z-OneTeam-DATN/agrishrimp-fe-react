@@ -528,6 +528,8 @@ export default function Header() {
   const parentMobileCategories = mobileCategories.filter((c) => !c.parentId || c.parentId === 0);
   const getMobileChildren = (parentId: number) =>
     mobileCategories.filter((c) => c.parentId === parentId && c.parentId !== 0);
+  const categoryHref = (category: CategoryDTO) =>
+    category.slug ? `/danh-muc/${category.slug}` : `/san-pham?categoryId=${category.id}`;
 
   const renderAuthSection = () => {
     if (isLoading) {
@@ -764,7 +766,7 @@ export default function Header() {
                                       <div key={category.id} className="py-3">
                                         <SheetClose asChild>
                                           <Link
-                                            href={`/san-pham?categoryId=${category.id}`}
+                                            href={categoryHref(category)}
                                             className="flex items-center justify-between text-[14px] font-semibold text-gray-900"
                                           >
                                             <span>{category.name}</span>
@@ -776,7 +778,7 @@ export default function Header() {
                                             {children.map((child) => (
                                               <SheetClose asChild key={child.id}>
                                                 <Link
-                                                  href={`/san-pham?categoryId=${child.id}`}
+                                                  href={categoryHref(child)}
                                                   className="block text-[13px] font-medium text-gray-600 transition-colors hover:text-[rgb(25,101,162)]"
                                                 >
                                                   {child.name}

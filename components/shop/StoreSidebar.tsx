@@ -25,7 +25,7 @@ const mainMenuItems = [
 
 // 2. Danh sách Thông tin hỗ trợ (Dấu chấm)
 const supportMenuItems = [
-  { href: "/about", label: "Giới thiệu AgriShrimp" },
+  { href: "/gioi-thieu", label: "Giới thiệu AgriShrimp" },
   { href: "/contact", label: "Liên hệ" },
   { href: "/terms-of-use", label: "Điều khoản sử dụng" },
   { href: "/privacy-policy", label: "Chính sách bảo mật" },

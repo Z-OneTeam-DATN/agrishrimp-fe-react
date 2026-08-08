@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import LayoutClient from "./layoutClient";
+import { createSeoMetadata } from "@/lib/seo";
 
 // Trang trước đây chỉ khai `font-family: "Inter"` suông trong globals.css mà không thực sự nạp
 // font nào — trình duyệt phải tự tìm font "Inter" cài sẵn trên máy, và ở các đoạn chữ đậm/đen
@@ -16,8 +17,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Agri Shrimp - Giải pháp nuôi tôm thông minh",
-  description: "Hệ thống quản lý Agri Shrimp",
+  ...createSeoMetadata({
+    title: "AgriShrimp | AI Chẩn Đoán Bệnh Tôm & Vật Tư Thủy Sản",
+    description:
+      "AgriShrimp cung cấp AI hỗ trợ chẩn đoán bệnh tôm qua hình ảnh, kiến thức nuôi tôm, kho tri thức bệnh tôm, sản phẩm và vật tư thủy sản.",
+    path: "/",
+  }),
   icons: {
     icon: "/images/logo_arishrimp.jpg",
   },

@@ -38,6 +38,11 @@ export interface BlogPostDTO {
   excerpt: string | null;
   content: string | null;
   thumbnailUrl: string | null;
+  seoTitle: string | null;
+  metaDescription: string | null;
+  canonicalUrl: string | null;
+  focusKeyword: string | null;
+  coverImageAlt: string | null;
   status: "DRAFT" | "IN_REVIEW" | "PUBLISHED";
   reviewNote: string | null;
   viewCount: number;

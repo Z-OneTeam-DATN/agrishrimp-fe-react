@@ -9,6 +9,15 @@ const nextConfig = {
   output: "standalone",
   distDir: "dist",
   allowedDevOrigins: ["192.168.1.11"],
+  async redirects() {
+    return [
+      {
+        source: "/about",
+        destination: "/gioi-thieu",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

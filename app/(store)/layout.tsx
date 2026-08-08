@@ -19,7 +19,7 @@ export default function StoreLayout({
   // Map path to breadcrumb name
   const getBreadcrumbName = (path: string) => {
     if (path === "/store" || path === "/account") return "Tài khoản";
-    if (path.includes("/about")) return "Giới thiệu AgriShrimp";
+    if (path.includes("/gioi-thieu") || path.includes("/about")) return "Giới thiệu AgriShrimp";
     if (path.includes("/account")) return "Tài khoản";
     if (path.includes("/contact")) return "Liên hệ";
     if (path.includes("/cookie-policy")) return "Chính sách cookie";
@@ -59,9 +59,9 @@ export default function StoreLayout({
         >
           <Menu size={24} />
         </button>
-        <h1 className="font-bold text-lg text-gray-800 truncate flex-1 text-center">
+        <div className="font-bold text-lg text-gray-800 truncate flex-1 text-center">
           {getBreadcrumbName(pathname)}
-        </h1>
+        </div>
         <button
           onClick={() => router.back()}
           className="text-gray-600 hover:text-gray-800 p-1 -mr-1"

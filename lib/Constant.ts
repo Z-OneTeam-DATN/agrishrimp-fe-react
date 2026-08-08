@@ -63,7 +63,7 @@ export const FOOTER_LINKS = [
   {
     title: "Về AgriShrimp",
     items: [
-      { label: "Giới thiệu công ty", href: "/about" },
+      { label: "Giới thiệu công ty", href: "/gioi-thieu" },
       { label: "Tuyển dụng", href: "/careers" },
       { label: "Chính sách bảo mật", href: "/privacy" },
     ],

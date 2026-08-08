@@ -74,6 +74,8 @@ export default function HeaderCategoryDropdown() {
 
   const activeParent = parentCategories.find((c) => c.id === activeParentId);
   const activeChildren = activeParentId ? getChildren(activeParentId) : [];
+  const categoryHref = (category: CategoryDTO) =>
+    category.slug ? `/danh-muc/${category.slug}` : `/san-pham?categoryId=${category.id}`;
 
   return (
     <div
@@ -125,7 +127,7 @@ export default function HeaderCategoryDropdown() {
                         }`}
                       >
                         <Link
-                          href={`/san-pham?categoryId=${parent.id}`}
+                          href={categoryHref(parent)}
                           className="truncate text-[13px] font-medium flex-1"
                           onClick={() => setIsOpen(false)}
                         >
@@ -150,7 +152,7 @@ export default function HeaderCategoryDropdown() {
                         <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
                           <h3 className="text-[14px] font-bold text-gray-900">{activeParent.name}</h3>
                           <Link
-                            href={`/san-pham?categoryId=${activeParent.id}`}
+                            href={categoryHref(activeParent)}
                             className="text-[12px] font-semibold text-primary hover:underline"
                             onClick={() => setIsOpen(false)}
                           >
@@ -162,7 +164,7 @@ export default function HeaderCategoryDropdown() {
                           {activeChildren.map((child) => (
                             <Link
                               key={child.id}
-                              href={`/san-pham?categoryId=${child.id}`}
+                              href={categoryHref(child)}
                               className="group rounded-xl border border-gray-100 bg-gray-50/60 p-3 transition-colors hover:border-primary/20 hover:bg-primary/5"
                               onClick={() => setIsOpen(false)}
                             >

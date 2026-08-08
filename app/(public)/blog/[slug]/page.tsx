@@ -586,7 +586,11 @@ export default function BlogDetailPage() {
             <article>
               {post.thumbnailUrl && (
                 <div className="mb-8 overflow-hidden rounded-[24px] bg-slate-100">
-                  <img src={post.thumbnailUrl} alt={post.title} className="aspect-[16/9] w-full object-cover" />
+                  <img
+                    src={post.thumbnailUrl}
+                    alt={post.coverImageAlt || post.title}
+                    className="aspect-[16/9] w-full object-cover"
+                  />
                 </div>
               )}
 

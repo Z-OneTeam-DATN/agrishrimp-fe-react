@@ -213,7 +213,7 @@ function BlogContent() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={post.thumbnailUrl}
-                            alt={post.title}
+                            alt={post.coverImageAlt || post.title}
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
                         ) : (
