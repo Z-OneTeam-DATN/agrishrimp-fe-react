@@ -76,7 +76,7 @@ export const supplierService = {
         const response = await apiJava.get(
             `${supplierService.EXTERNAL_PREFIX}/business/${taxCode}`,
         );
-        return response.data;
+        return repairVietnameseData(response.data);
     },
 
     // Lấy lịch sử nhập hàng của 1 NCC
