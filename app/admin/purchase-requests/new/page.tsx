@@ -43,6 +43,25 @@ const AVAILABLE_CATALOG_STATUS = "AVAILABLE";
 const BACKEND_ORIGIN =
   process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
 
+function getFirstImageUrl(...sources: unknown[]): string | undefined {
+  for (const source of sources) {
+    if (Array.isArray(source)) {
+      const found = getFirstImageUrl(...source);
+      if (found) return found;
+      continue;
+    }
+
+    const url = String(source ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .find(Boolean);
+
+    if (url) return url;
+  }
+
+  return undefined;
+}
+
 function normalizeBranchText(value?: string | null) {
   return String(value || "")
     .normalize("NFD")
@@ -52,7 +71,7 @@ function normalizeBranchText(value?: string | null) {
 }
 
 function resolveProductImageSrc(imagePath?: string | null) {
-  const normalizedPath = String(imagePath || "").trim();
+  const normalizedPath = getFirstImageUrl(imagePath);
   if (!normalizedPath) return undefined;
 
   if (normalizedPath.startsWith("data:") || normalizedPath.startsWith("blob:")) {
@@ -140,7 +159,7 @@ function buildSupplierCatalogVariants(
             .join(", ")
         : "";
       const resolvedImageUrl = resolveProductImageSrc(
-        item.imageUrl || variant?.imageUrl || product?.imageUrls?.[0],
+        getFirstImageUrl(item.imageUrl, variant?.imageUrl, product?.imageUrls),
       );
 
       if (
