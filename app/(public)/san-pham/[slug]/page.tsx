@@ -42,6 +42,7 @@ import {
     PublicProductVariant,
 } from "@/app/types/product.schema";
 import { formatNumber } from "@/lib/utils";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { ProductReviews, ReviewFilterValue } from "@/components/site/ProductReviews";
 
 const SERVICE_BADGES = [
@@ -66,6 +67,43 @@ function getVariantLabel(variant?: PublicProductVariant | null): string {
 function formatPrice(value?: number | null): string {
     if (!value || value <= 0) return "Liên hệ";
     return `${formatNumber(Math.round(value))} đ`;
+}
+
+function getSharpProductImageUrl(imagePath?: string | null): string {
+    const resolved = resolveImageUrl(imagePath, "/placeholder.svg");
+
+    try {
+        const url = new URL(resolved);
+        if (url.hostname !== "res.cloudinary.com") return resolved;
+
+        const parts = url.pathname.split("/");
+        const uploadIndex = parts.findIndex((part) => part === "upload");
+        if (uploadIndex < 0) return resolved;
+
+        const afterUpload = parts.slice(uploadIndex + 1);
+        const versionIndex = afterUpload.findIndex((part) => /^v\d+$/.test(part));
+        if (versionIndex > 0) {
+            url.pathname = [
+                ...parts.slice(0, uploadIndex + 1),
+                ...afterUpload.slice(versionIndex),
+            ].join("/");
+            return url.toString();
+        }
+
+        const firstSegment = afterUpload[0] ?? "";
+        const looksLikeTransformation = /(^|,)(a_|ar_|b_|c_|co_|dpr_|e_|f_|fl_|g_|h_|q_|r_|w_|x_|y_)/.test(firstSegment);
+        if (looksLikeTransformation && afterUpload.length > 1) {
+            url.pathname = [
+                ...parts.slice(0, uploadIndex + 1),
+                ...afterUpload.slice(1),
+            ].join("/");
+            return url.toString();
+        }
+    } catch {
+        return resolved;
+    }
+
+    return resolved;
 }
 
 function toVoucherNumber(value?: number | string | null): number {
@@ -418,13 +456,14 @@ export default function ProductDetailPage({
                         ]
                             .map((imageUrl) => imageUrl.trim())
                             .filter(Boolean)
+                            .map(getSharpProductImageUrl)
                     )
                 );
 
                 const defaultVariantImg = defaultVariant?.imageUrl
                     ? defaultVariant.imageUrl.split(",")[0]?.trim()
                     : null;
-                setActiveImage(defaultVariantImg || galleryImages[0] || "/placeholder.svg");
+                setActiveImage(getSharpProductImageUrl(defaultVariantImg || galleryImages[0] || "/placeholder.svg"));
                 setRelated(
                     mergeFrequentlyBoughtWithCategoryFallback(
                         recommendations.map((item) => item.product),
@@ -494,7 +533,12 @@ export default function ProductDetailPage({
         ];
 
         const uniqueImages = Array.from(
-            new Set(mergedImages.map((imageUrl) => imageUrl.trim()).filter(Boolean))
+            new Set(
+                mergedImages
+                    .map((imageUrl) => imageUrl.trim())
+                    .filter(Boolean)
+                    .map(getSharpProductImageUrl)
+            )
         );
 
         return uniqueImages.length > 0 ? uniqueImages : ["/placeholder.svg"];
@@ -554,7 +598,7 @@ export default function ProductDetailPage({
         const variant = availableVariants[index];
         const variantImg = variant?.imageUrl ? variant.imageUrl.split(",")[0]?.trim() : null;
         const image = variantImg || productGalleryImages[0] || "/placeholder.svg";
-        setActiveImage(image);
+        setActiveImage(getSharpProductImageUrl(image));
     };
 
     const openReviewsSection = (filter: ReviewFilterValue = "all") => {
@@ -693,7 +737,7 @@ export default function ProductDetailPage({
                     <div className="mx-auto w-full max-w-[560px] xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
                         <div className="bg-white p-3 shadow-sm sm:p-4">
                             <div className="grid gap-3 sm:grid-cols-[76px_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[72px_minmax(0,1fr)] 2xl:grid-cols-[84px_minmax(0,1fr)]">
-                                <div className="order-2 flex gap-2.5 overflow-x-auto pb-1 sm:order-1 sm:flex-col sm:overflow-visible sm:pb-0">
+                                <div className="order-2 flex gap-2.5 overflow-x-auto pb-1 sm:order-1 sm:max-h-[318px] sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto sm:pb-0 sm:pr-1 2xl:max-h-[350px]">
                                     {thumbnailImages.map((image, index) => (
                                         <button
                                             key={`${image}-${index}`}
@@ -712,7 +756,7 @@ export default function ProductDetailPage({
                                                 fill
                                                 unoptimized
                                                 sizes="100px"
-                                                className="object-cover"
+                                                className="object-contain p-1"
                                             />
                                         </button>
                                     ))}
@@ -731,8 +775,8 @@ export default function ProductDetailPage({
                                         fill
                                         priority
                                         unoptimized
-                                        sizes="(max-width: 768px) 100vw, 600px"
-                                        className={`object-contain p-4 transition-all duration-300 sm:p-5 ${
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1536px) 420px, 520px"
+                                        className={`object-contain p-6 transition-all duration-300 sm:p-8 ${
                                             isCompletelyOutOfStock ? "opacity-50 grayscale" : ""
                                         }`}
                                         onError={(event) => {
