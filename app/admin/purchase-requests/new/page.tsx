@@ -26,6 +26,7 @@ import {
   type PurchaseRequestForm,
 } from "@/app/types/purchase.schema";
 import { cn } from "@/lib/utils";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 type SupplierCatalogVariant = {
   id: number;
@@ -240,6 +241,7 @@ export default function NewPurchaseRequestPage() {
   const currentUserBranch = currentUser?.branch as
     | { id?: number; name?: string; branchType?: string; branchCode?: string }
     | undefined;
+  const isSuperAdmin = normalizeRoleSlug(currentUser?.role) === "SUPER_ADMIN";
   const currentUserBranchOption = currentUserBranch
     ? {
         name: currentUserBranch.name ?? "",
@@ -336,24 +338,28 @@ export default function NewPurchaseRequestPage() {
         const allBranches = Array.isArray(branchData)
           ? branchData
           : (branchData?.content ?? []);
-        const warehouseOnly: BranchDTO[] =
-          allBranches.filter(isWarehouseBranchOption);
+        const selectableBranches: BranchDTO[] = isSuperAdmin
+          ? allBranches.filter((branch: BranchDTO) => {
+              const code = String(branch.branchCode || "").trim().toUpperCase();
+              return code !== "SYSTEM_DEFECT";
+            })
+          : allBranches.filter(isWarehouseBranchOption);
 
-        setWarehouseBranches(warehouseOnly);
+        setWarehouseBranches(selectableBranches);
 
         const defaultWarehouse =
-          warehouseOnly.find(
+          selectableBranches.find(
             (branch: BranchDTO) => branch.name === currentUserBranch?.name,
           ) ??
-          warehouseOnly.find(
+          selectableBranches.find(
             (branch: BranchDTO) => branch.id === warehouseId,
           ) ??
-          warehouseOnly.find(
+          selectableBranches.find(
             (branch: BranchDTO) =>
               String(branch.branchCode || "").trim().toUpperCase() ===
               "MAIN_WH",
           ) ??
-          warehouseOnly[0];
+          selectableBranches[0];
 
         if (defaultWarehouse) {
           setValue("branchId", defaultWarehouse.id, {
@@ -386,6 +392,7 @@ export default function NewPurchaseRequestPage() {
     canAccessPurchaseRequests,
     currentUserBranch?.id,
     currentUserBranch?.name,
+    isSuperAdmin,
     setValue,
     warehouseId,
   ]);
@@ -658,7 +665,7 @@ export default function NewPurchaseRequestPage() {
     );
   }
 
-  if (!isCurrentWarehouseBranch) {
+  if (!isSuperAdmin && !isCurrentWarehouseBranch) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
         Chỉ kho tổng mới được tạo phiếu yêu cầu nhập NCC.
@@ -713,7 +720,7 @@ export default function NewPurchaseRequestPage() {
 
             <div>
               <label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
-                Kho tổng nhận hàng <span className="text-red-500">*</span>
+                {isSuperAdmin ? "Chi nhánh nhận hàng" : "Kho tổng nhận hàng"} <span className="text-red-500">*</span>
               </label>
               <select
                 {...register("branchId", {
@@ -733,7 +740,7 @@ export default function NewPurchaseRequestPage() {
                 )}
                 value={watchedBranchId || ""}
               >
-                <option value="">-- Chọn kho nhập --</option>
+                <option value="">-- Chọn chi nhánh nhập --</option>
                 {warehouseBranches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
