@@ -39,6 +39,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 // =================================================================
 // 1. ĐỊNH NGHĨA ZOD SCHEMA ĐỂ BẮT LỖI (VALIDATION)
@@ -89,6 +90,7 @@ function AdminExportFormContent() {
   const isAdmin = hasPermission(P.EXPORT_APPROVE);
   const canCreateExport = hasPermission(P.EXPORT_CREATE);
   const warehouseId = useAuthStore((state) => state.warehouseId);
+  const isSuperAdmin = normalizeRoleSlug(currentUser?.role) === "SUPER_ADMIN";
   const currentUserBranch = currentUser?.branch as
     | { id?: number; name?: string; branchType?: string; branchCode?: string }
     | undefined;
@@ -164,6 +166,18 @@ function AdminExportFormContent() {
   const isWarehouseBranch =
     isWarehouseOption(currentUserBranch) ||
     isWarehouseOption(currentUserBranchFromList);
+  const selectableSourceBranches = React.useMemo(
+    () =>
+      isSuperAdmin
+        ? branches.filter(
+            (branch: any) =>
+              String(branch.branchCode || branch.code || "")
+                .trim()
+                .toUpperCase() !== "SYSTEM_DEFECT",
+          )
+        : branches.filter(isWarehouseOption),
+    [branches, isSuperAdmin],
+  );
 
   const resolveReceiptBranchId = (receipt: any, branchList: any[]) => {
     const rawBranchId = receipt.branchId || receipt.branch?.id;
@@ -372,7 +386,14 @@ function AdminExportFormContent() {
           const branchList = Array.isArray(resB) ? resB : resB?.content || [];
           setBranches(branchList);
           if (!isEditMode) {
-            const warehouseBranches = branchList.filter(isWarehouseOption);
+            const warehouseBranches = isSuperAdmin
+              ? branchList.filter(
+                  (branch: any) =>
+                    String(branch.branchCode || branch.code || "")
+                      .trim()
+                      .toUpperCase() !== "SYSTEM_DEFECT",
+                )
+              : branchList.filter(isWarehouseOption);
             const preferredWarehouse =
               warehouseBranches.find(
                 (branch: any) =>
@@ -406,7 +427,7 @@ function AdminExportFormContent() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [currentUser?.branch?.id, isEditMode, setValue]);
+  }, [currentUser?.branch?.id, isEditMode, isSuperAdmin, setValue]);
 
   useEffect(() => {
     if (!isEditMode) {
@@ -453,7 +474,7 @@ function AdminExportFormContent() {
       return;
     }
 
-    if (!isWarehouseBranch) {
+    if (!isSuperAdmin && !isWarehouseBranch) {
       if (branches.length === 0 && !isWarehouseOption(currentUserBranch)) {
         return;
       }
@@ -466,6 +487,7 @@ function AdminExportFormContent() {
     canCreateExport,
     currentUser,
     currentUserBranch,
+    isSuperAdmin,
     isWarehouseBranch,
     router,
     watchExportType,
@@ -967,10 +989,8 @@ function AdminExportFormContent() {
                         </SelectTrigger>
                         <SelectContent className="rounded-md">
                           {field.value &&
-                            !branches.some(
-                              (b: any) =>
-                                isWarehouseOption(b) &&
-                                String(b.id) === String(field.value),
+                            !selectableSourceBranches.some(
+                              (branch: any) => String(branch.id) === String(field.value),
                             ) &&
                             branches
                               .filter(
@@ -982,7 +1002,7 @@ function AdminExportFormContent() {
                                   {b.name.toUpperCase()}
                                 </SelectItem>
                               ))}
-                          {branches.filter(isWarehouseOption).map((b: any) => (
+                          {selectableSourceBranches.map((b: any) => (
                             <SelectItem key={b.id} value={b.id.toString()}>
                               {b.name.toUpperCase()}
                             </SelectItem>

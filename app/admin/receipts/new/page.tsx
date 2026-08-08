@@ -51,6 +51,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 import {
   AlertDialog,
@@ -123,6 +124,7 @@ function AdminReceiptFormContent() {
   const canCreateReceipt = hasPermission(P.IMPORT_CREATE);
   const canUpdateReceipt = hasPermission(P.IMPORT_UPDATE);
   const isAdmin = hasPermission(P.IMPORT_APPROVE);
+  const isSuperAdmin = normalizeRoleSlug(currentUser?.role) === "SUPER_ADMIN";
   const currentUserBranch = currentUser?.branch as
     | { id?: number; name?: string; branchType?: string; branchCode?: string }
     | undefined;
@@ -259,7 +261,7 @@ function AdminReceiptFormContent() {
       return;
     }
 
-    if (!isWarehouseBranch) {
+    if (!isSuperAdmin && !isWarehouseBranch) {
       if (branches.length === 0 && !isWarehouseBranchLike(currentUserBranch)) {
         return;
       }
@@ -267,7 +269,7 @@ function AdminReceiptFormContent() {
       toast.error("Chỉ kho tổng mới được lập phiếu nhập từ nhà cung cấp.");
       router.replace("/admin/forbidden");
     }
-  }, [branches.length, canCreateReceipt, canUpdateReceipt, currentUser, currentUserBranch, isEditMode, isWarehouseBranch, router]);
+  }, [branches.length, canCreateReceipt, canUpdateReceipt, currentUser, currentUserBranch, isEditMode, isSuperAdmin, isWarehouseBranch, router]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -314,6 +316,12 @@ function AdminReceiptFormContent() {
   }, [branches, currentTargetBranch]);
 
   const branchSelectOptions = useMemo(() => {
+    if (isSuperAdmin) {
+      return branches.filter(
+        (b) => String(b.branchCode || b.code || "").trim().toUpperCase() !== "SYSTEM_DEFECT",
+      );
+    }
+
     const mainWarehouseBranches = branches.filter(
       (b) => b.branchCode === "MAIN_WH",
     );
@@ -344,7 +352,7 @@ function AdminReceiptFormContent() {
     return linkedBranchName
       ? [{ id: linkedBranchName, name: linkedBranchName, branchName: linkedBranchName }]
       : [];
-  }, [branches, branchNameParam, currentTargetBranch, isCreateFromPurchaseRequest]);
+  }, [branches, branchNameParam, currentTargetBranch, isCreateFromPurchaseRequest, isSuperAdmin]);
 
   const targetBranchId = selectedDestBranch?.id?.toString() || "";
 
@@ -738,11 +746,13 @@ function AdminReceiptFormContent() {
       const list = Array.isArray(data) ? data : data.content || [];
       setBranches(list);
       if (!isEditMode && !purchaseRequestIdParam && list.length > 0) {
-        const mainWh = list.find((b: any) => b.branchCode === "MAIN_WH");
-        if (mainWh) setValue("branchName", mainWh.name || mainWh.branchName);
+        const defaultBranch = isSuperAdmin
+          ? list.find((b: any) => String(b.branchCode || b.code || "").trim().toUpperCase() !== "SYSTEM_DEFECT")
+          : list.find((b: any) => b.branchCode === "MAIN_WH");
+        if (defaultBranch) setValue("branchName", defaultBranch.name || defaultBranch.branchName);
       }
     })();
-  }, [setValue, isEditMode, purchaseRequestIdParam]);
+  }, [setValue, isEditMode, isSuperAdmin, purchaseRequestIdParam]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
