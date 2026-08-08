@@ -38,23 +38,24 @@ export function PermissionGuard({
   children,
 }: PermissionGuardProps) {
   const { hasPermission, hasAnyPermission } = usePermissions();
-  const { isLoadingAuth } = useAuthStore();
+  const { isLoadingAuth, isLoadingPermissions } = useAuthStore();
   const router = useRouter();
+  const isCheckingAccess = isLoadingAuth || isLoadingPermissions;
 
   const isAllowed = (() => {
-    if (isLoadingAuth) return true; // chờ load xong mới quyết định
+    if (isCheckingAccess) return true; // chờ load xong mới quyết định
     if (permission) return hasPermission(permission);
     if (anyOf && anyOf.length > 0) return hasAnyPermission(anyOf);
     return true;
   })();
 
   useEffect(() => {
-    if (!isLoadingAuth && !isAllowed) {
+    if (!isCheckingAccess && !isAllowed) {
       router.replace(redirectTo);
     }
-  }, [isLoadingAuth, isAllowed, redirectTo, router]);
+  }, [isCheckingAccess, isAllowed, redirectTo, router]);
 
-  if (isLoadingAuth) {
+  if (isCheckingAccess) {
     return <PageLoadingSkeleton />;
   }
 

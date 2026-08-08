@@ -182,7 +182,7 @@ export default function AdminDashboard() {
     isLoading: isUserLoading,
     error: userError,
   } = useCurrentUser();
-  const { hasPermission, hasAnyPermission, isLoadingAuth } = usePermissions();
+  const { hasPermission, hasAnyPermission, isLoadingAuth, isLoadingPermissions } = usePermissions();
   const accessToken = useAuthStore((state) => state.accessToken);
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const [selectedBranchId, setSelectedBranchId] = useState<
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
     P.CHECK_VIEW,
   ]);
   const canRunProtectedQueries =
-    !isLoadingAuth && !!user && !!accessToken && canViewDashboard;
+    !isLoadingAuth && !isLoadingPermissions && !!user && !!accessToken && canViewDashboard;
 
   useEffect(() => {
     // Super Admin không bị khoá theo scopedBranchId dù tài khoản của họ có gắn branch_id
@@ -514,7 +514,7 @@ export default function AdminDashboard() {
     }
   };
 
-  if (isUserLoading || isLoadingAuth) {
+  if (isUserLoading || isLoadingAuth || isLoadingPermissions) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 rounded-[4px] border border-slate-200 bg-white">
         <Skeleton className="h-8 w-52 rounded-[4px]" />
