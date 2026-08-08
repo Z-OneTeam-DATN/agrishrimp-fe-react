@@ -83,7 +83,8 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { hasPermission, hasAnyPermission } = usePermissions();
-  const { isLoadingAuth, user, warehouseId } = useAuthStore();
+  const { isLoadingAuth, isLoadingPermissions, user, warehouseId } = useAuthStore();
+  const isCheckingAccess = isLoadingAuth || isLoadingPermissions;
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const hasAdminWorkspaceAccess = hasAnyPermission(
     ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
@@ -119,20 +120,20 @@ export default function AdminLayout({
   }, [isBranchScopedOrderUser, matchedRule, hasAnyPermission, hasPermission, pathname]);
 
   useEffect(() => {
-    if (!isLoadingAuth && hasAdminWorkspaceAccess) {
+    if (!isCheckingAccess && hasAdminWorkspaceAccess) {
       setLastWorkspace("/admin");
     }
-  }, [hasAdminWorkspaceAccess, isLoadingAuth]);
+  }, [hasAdminWorkspaceAccess, isCheckingAccess]);
 
   useEffect(() => {
-    if (!isLoadingAuth && !user) {
+    if (!isCheckingAccess && !user) {
       router.replace("/login");
     }
-  }, [isLoadingAuth, router, user]);
+  }, [isCheckingAccess, router, user]);
 
   useEffect(() => {
     if (
-      !isLoadingAuth &&
+      !isCheckingAccess &&
       user &&
       hasAdminWorkspaceAccess &&
       shouldRedirectFromAdminRoot
@@ -142,13 +143,13 @@ export default function AdminLayout({
   }, [
     defaultAdminRoute,
     hasAdminWorkspaceAccess,
-    isLoadingAuth,
+    isCheckingAccess,
     router,
     shouldRedirectFromAdminRoot,
     user,
   ]);
 
-  if (isLoadingAuth) {
+  if (isCheckingAccess) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />

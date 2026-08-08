@@ -14,6 +14,7 @@ interface AuthStore {
   refreshToken?: string | null;
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
+  isLoadingPermissions: boolean;
   warehouseId: number | null;
   permissions: string[];
   setAccessToken: (token: string | null) => void;
@@ -22,6 +23,7 @@ interface AuthStore {
   setUser: (user?: UserType) => void;
   setAuth: (accessToken: string | null, refreshToken: string | null) => void;
   setLoadingAuth: (isLoading: boolean) => void;
+  setLoadingPermissions: (isLoading: boolean) => void;
   setPermissions: (permissions: string[]) => void;
   clearAuth: () => void;
 }
@@ -32,6 +34,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   refreshToken: null,
   isAuthenticated: false,
   isLoadingAuth: true,
+  isLoadingPermissions: true,
   warehouseId: null,
   permissions: [],
   setAccessToken: (accessToken) => {
@@ -79,6 +82,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         refreshToken: data.refreshToken,
         isAuthenticated: true,
         isLoadingAuth: false,
+        isLoadingPermissions: true,
         warehouseId: warehouseId || state.warehouseId,
         permissions: [],
         user: updatedUser as UserType,
@@ -102,9 +106,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
   setAuth: (accessToken: string | null, refreshToken: string | null) =>
-    set({ accessToken, refreshToken, isAuthenticated: !!accessToken }),
+    set({ accessToken, refreshToken, isAuthenticated: !!accessToken, isLoadingPermissions: !!accessToken }),
   setLoadingAuth: (isLoadingAuth: boolean) => set({ isLoadingAuth }),
-  setPermissions: (permissions: string[]) => set({ permissions }),
+  setLoadingPermissions: (isLoadingPermissions: boolean) => set({ isLoadingPermissions }),
+  setPermissions: (permissions: string[]) => set({ permissions, isLoadingPermissions: false }),
   clearAuth: () =>
     set({
       accessToken: null,
@@ -112,6 +117,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       user: undefined,
       isAuthenticated: false,
       isLoadingAuth: false,
+      isLoadingPermissions: false,
       warehouseId: null,
       permissions: [],
     }),

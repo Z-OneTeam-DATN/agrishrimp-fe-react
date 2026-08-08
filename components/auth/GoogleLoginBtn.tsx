@@ -36,7 +36,9 @@ export default function GoogleLoginBtn() {
       try {
         permissions = await AuthService.getMyPermissionsNext();
         useAuthStore.getState().setPermissions(permissions);
-      } catch {}
+      } catch {
+        useAuthStore.getState().setPermissions([]);
+      }
 
       // Full page reload để layoutClient hydrate lại user đầy đủ từ API
       window.location.href = getPostLoginDestination(permissions, res.role);

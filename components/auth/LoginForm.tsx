@@ -81,7 +81,9 @@ export default function LoginForm() {
       try {
         permissions = await AuthService.getMyPermissionsNext();
         setPermissions(permissions);
-      } catch {}
+      } catch {
+        setPermissions([]);
+      }
 
       window.location.href = getPostLoginDestination(permissions, res.role);
     },

@@ -75,6 +75,7 @@ export default function SignupForm() {
         permissions = await AuthService.getMyPermissionsNext();
         setPermissions(permissions);
       } catch {
+        setPermissions([]);
         // A new customer account can continue with an empty permission list.
       }
 

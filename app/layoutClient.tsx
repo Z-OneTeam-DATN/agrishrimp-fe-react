@@ -113,7 +113,9 @@ export default function LayoutClient({
     setRefreshToken,
     clearAuth,
     setLoadingAuth,
+    setLoadingPermissions,
     isLoadingAuth,
+    isLoadingPermissions,
     setPermissions,
   } = useAuthStore();
 
@@ -304,6 +306,7 @@ export default function LayoutClient({
 
     if (!isAdminPage && !isProtectedPath && !hasSessionCookie && !cachedUser) {
       setLoadingAuth(false);
+      setLoadingPermissions(false);
       return;
     }
 
@@ -315,7 +318,7 @@ export default function LayoutClient({
       preferCache: true,
       background: !shouldBlockOnFirstLoad,
     });
-  }, [hydrateAuth, isAdminPage, isProtectedPath, setLoadingAuth]);
+  }, [hydrateAuth, isAdminPage, isProtectedPath, setLoadingAuth, setLoadingPermissions]);
 
   useEffect(() => {
     const revalidateAuth = () => {
@@ -390,7 +393,7 @@ export default function LayoutClient({
     };
   }, [isHideLayout]);
 
-  const showBlockingLoader = (isAdminPage || isProtectedPath) && isLoadingAuth;
+  const showBlockingLoader = (isAdminPage || isProtectedPath) && (isLoadingAuth || isLoadingPermissions);
 
   if (!isLoadingAuth && user?.mustChangePassword && !isChangePasswordPage) {
     return null;
