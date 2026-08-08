@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await fetch(`${JAVA_API_URL}/ghn/ward?district_id=${districtId}`, {
-      next: { revalidate: 86400 },
+      cache: "no-store",
     })
 
     if (!res.ok) {
@@ -18,11 +18,15 @@ export async function GET(request: NextRequest) {
     }
 
     const json = await res.json()
-    const wards = (json.data || []).map((w: any) => ({
-      wardId: w.WardID as number,    // integer — dùng cho branch.wardId
-      code: w.WardCode as string,    // string  — dùng cho wardCode (user + branch)
-      name: w.WardName as string,
-    }))
+    const wards = (json.data || [])
+      .map((w: any) => ({
+        wardId: w.WardID as number,    // integer — dùng cho branch.wardId
+        code: w.WardCode as string,    // string  — dùng cho wardCode (user + branch)
+        name: w.WardName as string,
+      }))
+      .sort((left: { name: string }, right: { name: string }) =>
+        left.name.localeCompare(right.name, "vi"),
+      )
     return NextResponse.json(wards)
   } catch {
     return NextResponse.json({ error: "Không thể tải phường/xã" }, { status: 500 })

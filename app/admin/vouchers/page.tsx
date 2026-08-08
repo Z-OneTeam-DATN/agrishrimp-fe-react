@@ -44,8 +44,16 @@ const getDiscountText = (voucher: Voucher) =>
     : `Giảm ${getDiscountValue(voucher).toLocaleString("vi-VN")}đ`;
 
 const getDisplayStatus = (voucher: Voucher): Voucher["status"] => {
-  const isExpired = new Date(voucher.endDate).getTime() < Date.now();
-  return isExpired ? "EXPIRED" : voucher.status;
+  if (voucher.status !== "ACTIVE") {
+    return voucher.status;
+  }
+
+  const endDate = new Date(voucher.endDate).getTime();
+  if (Number.isNaN(endDate)) {
+    return voucher.status;
+  }
+
+  return endDate < Date.now() ? "EXPIRED" : "ACTIVE";
 };
 
 const getStatusLabel = (status: Voucher["status"]) => {

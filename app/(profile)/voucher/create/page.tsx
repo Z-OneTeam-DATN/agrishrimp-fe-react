@@ -17,24 +17,9 @@ export default function CreateVoucherPage() {
     setIsSubmitting(true);
     try {
       await voucherService.saveToWallet(normalized);
-      toast.success(`Da luu ma ${normalized} vao vi`);
-
-      router.push("/voucher");
-      /*
-        toast.error("Voucher không tồn tại hoặc chưa được kích hoạt");
-        return;
-      }
-
-      const savedCodes = loadSavedVoucherCodes();
-      if (!savedCodes.includes(normalized)) {
-        savedCodes.push(normalized);
-        persistSavedVoucherCodes(savedCodes);
-      }
-
       toast.success(`Đã lưu mã ${normalized} vào ví`);
       router.push("/voucher");
-      */
-    } catch (error: any) {
+    } catch {
       toast.error("Không thể kiểm tra voucher lúc này");
     } finally {
       setIsSubmitting(false);
