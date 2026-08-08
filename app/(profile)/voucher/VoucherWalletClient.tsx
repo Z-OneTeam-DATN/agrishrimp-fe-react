@@ -63,7 +63,7 @@ export default function VoucherWalletClient() {
       setSavedVouchers(sortByNewest(saved));
       setAvailableVouchers(sortByNewest(available));
     } catch {
-      toast.error("Khong the tai du lieu voucher luc nay");
+      toast.error("Không thể tải dữ liệu voucher lúc này");
     } finally {
       setLoading(false);
     }
@@ -75,18 +75,18 @@ export default function VoucherWalletClient() {
 
   const handleCopy = (code: string) => {
     void navigator.clipboard.writeText(code);
-    toast.success(`Da sao chep ma: ${code}`);
+    toast.success(`Đã sao chép mã: ${code}`);
   };
 
   const handleSave = async (code: string) => {
     try {
       setSubmittingCode(code);
       await voucherService.saveToWallet(code);
-      toast.success(`Da luu voucher ${code} vao vi`);
+      toast.success(`Đã lưu voucher ${code} vào ví`);
       await loadWallet();
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message || "Khong the luu voucher vao vi",
+        error?.response?.data?.message || "Không thể lưu voucher vào ví",
       );
     } finally {
       setSubmittingCode(null);
@@ -97,11 +97,11 @@ export default function VoucherWalletClient() {
     try {
       setSubmittingCode(code);
       await voucherService.removeFromWallet(code);
-      toast.success(`Da go voucher ${code} khoi vi`);
+      toast.success(`Đã gỡ voucher ${code} khỏi ví`);
       await loadWallet();
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message || "Khong the xoa voucher khoi vi",
+        error?.response?.data?.message || "Không thể xóa voucher khỏi ví",
       );
     } finally {
       setSubmittingCode(null);
@@ -199,8 +199,8 @@ export default function VoucherWalletClient() {
                               <div className="mt-2 text-xs text-gray-500">
                                 Don toi thieu: {formatMoney(voucher.minOrderValue)}
                                 {isPercent
-                                  ? ` · Giam ${value}%${voucher.maxDiscount ? `, toi da ${formatMoney(voucher.maxDiscount)}` : ""}`
-                                  : ` · Giam ${formatMoney(value)}`}
+                                  ? ` Â· Giam ${value}%${voucher.maxDiscount ? `, toi da ${formatMoney(voucher.maxDiscount)}` : ""}`
+                                  : ` Â· Giam ${formatMoney(value)}`}
                               </div>
 
                               <div className="mt-2 text-xs text-gray-500">
@@ -332,7 +332,7 @@ export default function VoucherWalletClient() {
                             <p className="text-[11px] text-gray-500 mt-2 line-clamp-2">
                               Don toi thieu {formatMoney(voucher.minOrderValue)}
                               {isPercent && voucher.maxDiscount
-                                ? ` · Giam toi da ${formatMoney(voucher.maxDiscount)}`
+                                ? ` Â· Giam toi da ${formatMoney(voucher.maxDiscount)}`
                                 : ""}
                             </p>
 

@@ -16,12 +16,13 @@ export default function VoucherForm({
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!code.trim()) {
       setError("Vui lòng nhập mã voucher");
       return;
     }
+
     onSubmit(code);
   };
 
@@ -30,11 +31,11 @@ export default function VoucherForm({
       <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-6 py-4">
         <Link
           href="/voucher"
-          className="text-gray-500 hover:text-[#1965a2] transition-colors"
+          className="text-gray-500 transition-colors hover:text-[#1965a2]"
         >
           <ChevronLeft size={24} />
         </Link>
-        <h1 className="font-bold text-gray-800 text-lg">Lưu mã Voucher</h1>
+        <h1 className="text-lg font-bold text-gray-800">Lưu mã voucher</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 p-6 pb-20">
@@ -50,7 +51,7 @@ export default function VoucherForm({
 
         <div>
           <label className="mb-2 block text-xs font-bold text-gray-700">
-            Mã Voucher <span className="text-red-500">*</span>
+            Mã voucher <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
@@ -60,16 +61,15 @@ export default function VoucherForm({
             <input
               type="text"
               value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
+              onChange={(event) => {
+                setCode(event.target.value);
                 if (error) setError("");
               }}
-              className={`h-10 w-full rounded-lg border bg-white pl-10 pr-4 text-sm font-medium uppercase text-gray-900 outline-none transition-all placeholder:normal-case placeholder:text-gray-400
-                ${
-                  error
-                    ? "border-red-500 focus:ring-2 focus:ring-red-200"
-                    : "border-gray-300 focus:border-[#1965a2] focus:ring-2 focus:ring-[#1965a2]/20"
-                }`}
+              className={`h-10 w-full rounded-lg border bg-white pl-10 pr-4 text-sm font-medium uppercase text-gray-900 outline-none transition-all placeholder:normal-case placeholder:text-gray-400 ${
+                error
+                  ? "border-red-500 focus:ring-2 focus:ring-red-200"
+                  : "border-gray-300 focus:border-[#1965a2] focus:ring-2 focus:ring-[#1965a2]/20"
+              }`}
               placeholder="VD: SALE50, AGRI2025..."
               autoFocus
             />
@@ -94,7 +94,11 @@ export default function VoucherForm({
               disabled={isSubmitting}
               className="flex h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-[#1965a2] text-sm font-bold text-white shadow-md transition-all hover:bg-[#145486] disabled:opacity-70"
             >
-              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+              {isSubmitting ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <Save size={18} />
+              )}
               {isSubmitting ? "Đang lưu..." : "Lưu vào ví"}
             </button>
           </div>
@@ -103,4 +107,3 @@ export default function VoucherForm({
     </div>
   );
 }
-

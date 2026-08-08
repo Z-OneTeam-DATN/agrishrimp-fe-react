@@ -19,6 +19,9 @@ interface Props {
   hasError?: boolean
   className?: string
   placeholder?: string
+  province?: string
+  district?: string
+  ward?: string
 }
 
 export default function AddressSuggestionInput({
@@ -28,15 +31,20 @@ export default function AddressSuggestionInput({
   hasError = false,
   className = "",
   placeholder = "Số nhà, tên đường...",
+  province,
+  district,
+  ward,
 }: Props) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
 
     if (!value || value.length < 3) {
       setSuggestions([])
@@ -46,10 +54,18 @@ export default function AddressSuggestionInput({
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
+      const controller = new AbortController()
+      abortRef.current = controller
       try {
-        const res = await fetch(
-          `/api/ghn/address-suggestions?input=${encodeURIComponent(value)}`
-        )
+        const params = new URLSearchParams({ input: value })
+        if (province?.trim()) params.set("province", province.trim())
+        if (district?.trim()) params.set("district", district.trim())
+        if (ward?.trim()) params.set("ward", ward.trim())
+
+        const res = await fetch(`/api/ghn/address-suggestions?${params.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        })
         const data = await res.json()
         if (Array.isArray(data) && data.length > 0) {
           setSuggestions(data)
@@ -58,18 +74,25 @@ export default function AddressSuggestionInput({
           setSuggestions([])
           setOpen(false)
         }
-      } catch {
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return
+        }
         setSuggestions([])
         setOpen(false)
       } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null
+        }
         setLoading(false)
       }
     }, 400)
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
+      abortRef.current?.abort()
     }
-  }, [value])
+  }, [district, province, value, ward])
 
   // Close dropdown when clicking outside
   useEffect(() => {
