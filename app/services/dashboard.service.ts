@@ -14,6 +14,14 @@ import {
 
 const DASHBOARD_BASE_URL = "/admin/dashboard";
 
+type BusinessResultsParams = {
+  branchId?: string;
+  startDate?: string;
+  endDate?: string;
+  startMonth?: string;
+  endMonth?: string;
+};
+
 export const dashboardService = {
   getStats: async (branchId?: string): Promise<DashboardStats> => {
     const response = await apiJava.get<DashboardStats>(
@@ -53,6 +61,22 @@ export const dashboardService = {
       `${DASHBOARD_BASE_URL}/monthly-results`,
       {
         params: { yearMonth, branchId },
+      },
+    );
+    return response.data;
+  },
+
+  getBusinessResults: async ({
+    branchId,
+    startDate,
+    endDate,
+    startMonth,
+    endMonth,
+  }: BusinessResultsParams): Promise<MonthlyResults> => {
+    const response = await apiJava.get<MonthlyResults>(
+      `${DASHBOARD_BASE_URL}/business-results`,
+      {
+        params: { branchId, startDate, endDate, startMonth, endMonth },
       },
     );
     return response.data;

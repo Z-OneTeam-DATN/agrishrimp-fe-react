@@ -114,7 +114,7 @@ const WorkflowCard = ({
           </div>
           <div className="min-w-0">
             <h5
-              className="truncate text-[13px] font-bold uppercase leading-tight text-slate-800"
+              className="text-[13px] font-bold uppercase leading-tight text-slate-800"
               title={title}
             >
               {title}

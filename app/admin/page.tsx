@@ -94,6 +94,35 @@ const formatMonthLabel = (value: string) => {
   return `${Number(month)}/${year}`;
 };
 
+const toIsoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getCurrentMonthValue = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const getDefaultDateRange = () => {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  return {
+    start: toIsoDate(start),
+    end: toIsoDate(today),
+  };
+};
+
+const formatDateLabel = (value: string) => {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${Number(day)}/${month}/${year}`;
+};
+
+type DashboardPeriodMode = "today" | "date" | "month";
+
 const percentText = (value?: number | null) => {
   const amount = Number(value || 0);
   if (amount === 0) return "0%";
@@ -159,9 +188,13 @@ export default function AdminDashboard() {
   const [selectedBranchId, setSelectedBranchId] = useState<
     string | undefined
   >();
-  // "" nghĩa là chế độ mặc định (xem theo hôm nay). Có giá trị (yyyy-MM) thì 3 thẻ
-  // Doanh thu/Lợi nhuận/Đơn chuyển sang xem theo tháng đó, so với tháng liền trước.
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const defaultDateRange = useMemo(() => getDefaultDateRange(), []);
+  const currentMonthValue = useMemo(() => getCurrentMonthValue(), []);
+  const [periodMode, setPeriodMode] = useState<DashboardPeriodMode>("today");
+  const [fromDate, setFromDate] = useState(defaultDateRange.start);
+  const [toDate, setToDate] = useState(defaultDateRange.end);
+  const [fromMonth, setFromMonth] = useState(currentMonthValue);
+  const [toMonth, setToMonth] = useState(currentMonthValue);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [warehouseRefreshToken, setWarehouseRefreshToken] = useState(0);
 
@@ -226,15 +259,33 @@ export default function AdminDashboard() {
     enabled: canRunProtectedQueries,
   });
 
+  const isRangeMode = periodMode !== "today";
   const {
-    data: monthlyResults,
-    isLoading: isMonthlyLoading,
-    isError: isMonthlyError,
+    data: rangeResults,
+    isLoading: isRangeLoading,
+    isError: isRangeError,
   } = useQuery<MonthlyResults>({
-    queryKey: ["monthly-results", selectedMonth, selectedBranchId],
+    queryKey: [
+      "business-results",
+      periodMode,
+      fromDate,
+      toDate,
+      fromMonth,
+      toMonth,
+      selectedBranchId,
+    ],
     queryFn: () =>
-      dashboardService.getMonthlyResults(selectedMonth, selectedBranchId),
-    enabled: canRunProtectedQueries && !!selectedMonth,
+      dashboardService.getBusinessResults({
+        branchId: selectedBranchId,
+        startDate: periodMode === "date" ? fromDate : undefined,
+        endDate: periodMode === "date" ? toDate : undefined,
+        startMonth: periodMode === "month" ? fromMonth : undefined,
+        endMonth: periodMode === "month" ? toMonth : undefined,
+      }),
+    enabled:
+      canRunProtectedQueries &&
+      ((periodMode === "date" && !!fromDate && !!toDate) ||
+        (periodMode === "month" && !!fromMonth && !!toMonth)),
   });
 
   const { data: pendingSummary, isError: isPendingSummaryError } =
@@ -288,7 +339,7 @@ export default function AdminDashboard() {
   const hasLoadError =
     isStatsError ||
     isDailyError ||
-    isMonthlyError ||
+    isRangeError ||
     isPendingSummaryError ||
     isInventoryInfoError ||
     isTopProductsError ||
@@ -329,41 +380,51 @@ export default function AdminDashboard() {
     Number(inventoryInfo?.outOfStockCount || 0);
   const urgentWork = orderWorkload + inventoryRisk + backorderCount;
 
-  // Khi chọn tháng, 3 thẻ Doanh thu/Lợi nhuận/Đơn chuyển sang số liệu tháng đó (so với
-  // tháng trước) thay vì hôm nay (so với hôm qua). "Theo dõi tiền" ở panel Ưu tiên vẫn
-  // luôn dùng dailyResults vì mô tả của nó cố định là "trong ngày", không đổi theo bộ lọc.
-  const isMonthMode = Boolean(selectedMonth);
-  const periodLabel = isMonthMode
-    ? `tháng ${formatMonthLabel(selectedMonth)}`
-    : "hôm nay";
-  const comparisonLabel = isMonthMode ? "so với tháng trước" : "so với hôm qua";
-  const isPrimaryMetricsLoading = isMonthMode ? isMonthlyLoading : isDailyLoading;
-  const revenueValue = isMonthMode
-    ? monthlyResults?.currentMonthRevenue
+  // Bộ lọc này chỉ đổi 3 thẻ chỉ số vận hành đầu trang. Các panel ưu tiên/kho vẫn giữ
+  // phạm vi riêng của chúng để không làm sai ý nghĩa "hôm nay" hoặc số liệu tồn hiện tại.
+  const periodLabel =
+    periodMode === "date"
+      ? fromDate === toDate
+        ? `ngày ${formatDateLabel(fromDate)}`
+        : `từ ${formatDateLabel(fromDate)} đến ${formatDateLabel(toDate)}`
+      : periodMode === "month"
+        ? fromMonth === toMonth
+          ? `tháng ${formatMonthLabel(fromMonth)}`
+          : `từ tháng ${formatMonthLabel(fromMonth)} đến ${formatMonthLabel(toMonth)}`
+        : "hôm nay";
+  const comparisonLabel =
+    periodMode === "today"
+      ? "so với hôm qua"
+      : periodMode === "month" && fromMonth === toMonth
+        ? "so với tháng trước"
+        : "so với kỳ trước";
+  const isPrimaryMetricsLoading = isRangeMode ? isRangeLoading : isDailyLoading;
+  const revenueValue = isRangeMode
+    ? rangeResults?.currentMonthRevenue
     : dailyResults?.todayRevenue;
-  const revenuePercent = isMonthMode
-    ? monthlyResults?.revenueChangePercent
+  const revenuePercent = isRangeMode
+    ? rangeResults?.revenueChangePercent
     : dailyResults?.revenueChangePercent;
-  const revenueIsNew = isMonthMode
-    ? monthlyResults?.revenueIsNew
+  const revenueIsNew = isRangeMode
+    ? rangeResults?.revenueIsNew
     : dailyResults?.revenueIsNew;
-  const profitValue = isMonthMode
-    ? monthlyResults?.currentMonthProfit
+  const profitValue = isRangeMode
+    ? rangeResults?.currentMonthProfit
     : dailyResults?.todayProfit;
-  const profitPercent = isMonthMode
-    ? monthlyResults?.profitChangePercent
+  const profitPercent = isRangeMode
+    ? rangeResults?.profitChangePercent
     : dailyResults?.profitChangePercent;
-  const profitIsNew = isMonthMode
-    ? monthlyResults?.profitIsNew
+  const profitIsNew = isRangeMode
+    ? rangeResults?.profitIsNew
     : dailyResults?.profitIsNew;
-  const ordersValue = isMonthMode
-    ? monthlyResults?.currentMonthOrders
+  const ordersValue = isRangeMode
+    ? rangeResults?.currentMonthOrders
     : dailyResults?.todayOrders;
-  const ordersPercent = isMonthMode
-    ? monthlyResults?.orderChangePercent
+  const ordersPercent = isRangeMode
+    ? rangeResults?.orderChangePercent
     : dailyResults?.orderChangePercent;
-  const ordersIsNew = isMonthMode
-    ? monthlyResults?.orderIsNew
+  const ordersIsNew = isRangeMode
+    ? rangeResults?.orderIsNew
     : dailyResults?.orderIsNew;
 
   const salesRows = salesPerformance?.data ?? [];
@@ -435,6 +496,7 @@ export default function AdminDashboard() {
         queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
         queryClient.invalidateQueries({ queryKey: ["daily-results"] }),
         queryClient.invalidateQueries({ queryKey: ["monthly-results"] }),
+        queryClient.invalidateQueries({ queryKey: ["business-results"] }),
         queryClient.invalidateQueries({ queryKey: ["inventory-info"] }),
         queryClient.invalidateQueries({ queryKey: ["top-products"] }),
         queryClient.invalidateQueries({ queryKey: ["sales-performance"] }),
@@ -507,24 +569,77 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-1.5">
-            <input
-              type="month"
-              value={selectedMonth}
-              max={new Date().toISOString().slice(0, 7)}
-              onChange={(event) => setSelectedMonth(event.target.value)}
-              aria-label="Xem theo tháng"
-              className="h-10 rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] text-slate-700 shadow-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            {isMonthMode && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setSelectedMonth("")}
-                className="h-10 rounded-[4px] px-2 text-[12px] text-slate-500 hover:text-slate-700"
-              >
-                Xem hôm nay
-              </Button>
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+            <div className="flex w-full rounded-[4px] border border-slate-200 bg-white p-1 shadow-none sm:w-auto">
+              {[
+                { value: "today", label: "Hôm nay" },
+                { value: "date", label: "Theo ngày" },
+                { value: "month", label: "Theo tháng" },
+              ].map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setPeriodMode(option.value as DashboardPeriodMode)}
+                  className={`h-8 flex-1 rounded-[4px] px-3 text-[12px] font-semibold sm:flex-none ${
+                    periodMode === option.value
+                      ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+            {periodMode === "date" && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
+                  <span className="shrink-0">Từ ngày</span>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    max={toDate || defaultDateRange.end}
+                    onChange={(event) => setFromDate(event.target.value)}
+                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
+                  />
+                </label>
+                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
+                  <span className="shrink-0">Đến ngày</span>
+                  <input
+                    type="date"
+                    value={toDate}
+                    min={fromDate}
+                    max={defaultDateRange.end}
+                    onChange={(event) => setToDate(event.target.value)}
+                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
+                  />
+                </label>
+              </div>
+            )}
+            {periodMode === "month" && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
+                  <span className="shrink-0">Từ tháng</span>
+                  <input
+                    type="month"
+                    value={fromMonth}
+                    max={toMonth || currentMonthValue}
+                    onChange={(event) => setFromMonth(event.target.value)}
+                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
+                  />
+                </label>
+                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
+                  <span className="shrink-0">Đến tháng</span>
+                  <input
+                    type="month"
+                    value={toMonth}
+                    min={fromMonth}
+                    max={currentMonthValue}
+                    onChange={(event) => setToMonth(event.target.value)}
+                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
+                  />
+                </label>
+              </div>
             )}
           </div>
           {canSelectAllBranches && (

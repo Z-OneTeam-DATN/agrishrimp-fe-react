@@ -135,9 +135,12 @@ export const SupplierSchema = z.object({
 
     email: z
         .string()
-        .min(1, "Email không được để trống")
+        .trim()
         .max(100, "Email quá dài")
-        .email("Định dạng email không hợp lệ"),
+        .refine(
+            (value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+            "Định dạng email không hợp lệ",
+        ),
 
     // 3. Địa chỉ
     provinceId: z.string().min(1, "Vui lòng chọn Tỉnh/Thành phố"),
