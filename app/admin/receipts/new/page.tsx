@@ -83,6 +83,25 @@ function isWarehouseBranchLike(branch: any) {
   return name.includes("kho tong") || name.includes("warehouse");
 }
 
+function getFirstImageUrl(...sources: unknown[]): string {
+  for (const source of sources) {
+    if (Array.isArray(source)) {
+      const found: string = getFirstImageUrl(...source);
+      if (found) return found;
+      continue;
+    }
+
+    const url = String(source ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .find(Boolean);
+
+    if (url) return url;
+  }
+
+  return "";
+}
+
 const MAX_EXPIRY_PICKER_DATE = new Date(new Date().getFullYear() + 50, 11, 31);
 
 function AdminReceiptFormContent() {
@@ -427,7 +446,7 @@ function AdminReceiptFormContent() {
                   row["Lot"] ||
                   generateLotNumber(),
                 expiryDate: row["Hạn dùng"] || "",
-                imageUrl: match.imageUrl || "",
+                imageUrl: getFirstImageUrl(match.imageUrl, match.imageUrls),
                 note: "",
               }
             : null;
@@ -461,7 +480,7 @@ function AdminReceiptFormContent() {
         importPrice: undefined,
         lotNumber: generateLotNumber(),
         expiryDate: "",
-        imageUrl: v.imageUrl || "",
+        imageUrl: getFirstImageUrl(v.imageUrl, v.imageUrls),
         note: "",
       } as any);
   };
@@ -670,7 +689,7 @@ function AdminReceiptFormContent() {
           items: remainingItems.map((item) => ({
             productCode: item.productCode,
             productName: item.productName,
-            imageUrl: item.imageUrl || "",
+            imageUrl: getFirstImageUrl(item.imageUrl, (item as any).imageUrls),
             plannedQuantity: 0,
             requestedQuantity: item.requestedQty || 0,
             deliveredQuantity: item.deliveredQty || 0,
@@ -1052,7 +1071,10 @@ function AdminReceiptFormContent() {
                           />
                         </div>
                       ) : products.length > 0 ? (
-                        products.map((v) => (
+                        products.map((v) => {
+                          const productImage = getFirstImageUrl(v.imageUrl, v.imageUrls);
+
+                          return (
                           <div
                             key={v.sku}
                             className="p-2 border-b hover:bg-slate-50 cursor-pointer flex justify-between items-center text-xs"
@@ -1068,6 +1090,18 @@ function AdminReceiptFormContent() {
                                   onCheckedChange={() => toggleSelectedProduct(v.id)}
                                 />
                               </div>
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50">
+                                {productImage ? (
+                                  <img
+                                    src={productImage}
+                                    alt={v.productName}
+                                    className="h-full w-full object-cover"
+                                    onError={(event) => {
+                                      event.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                ) : null}
+                              </div>
                               <div className="flex flex-col">
                                 <span className="font-medium">{v.productName}</span>
                                 <span className="text-[10px] text-slate-400 font-mono">
@@ -1079,7 +1113,8 @@ function AdminReceiptFormContent() {
                               Tồn {v.quantity || 0}
                             </span>
                           </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <div className="p-10 text-center text-xs text-slate-400">
                           Không có sản phẩm
@@ -1178,6 +1213,18 @@ function AdminReceiptFormContent() {
                               <span className="mt-0.5 min-w-5 text-[11px] font-medium text-slate-400">
                                 {idx + 1}
                               </span>
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50">
+                                {item.imageUrl ? (
+                                  <img
+                                    src={getFirstImageUrl(item.imageUrl)}
+                                    alt={item.productName}
+                                    className="h-full w-full object-cover"
+                                    onError={(event) => {
+                                      event.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                ) : null}
+                              </div>
                               <div className="min-w-0">
                                 <div className="truncate text-[12.5px] font-semibold text-slate-800">
                                   {item.productName}

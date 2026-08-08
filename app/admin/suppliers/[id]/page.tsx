@@ -97,6 +97,25 @@ const CATALOG_PAGE_SIZE = 20;
 const HISTORY_PAGE_SIZE = 20;
 const STALE_CHECKING_DAYS = 14;
 
+const getFirstImageUrl = (...sources: unknown[]): string | undefined => {
+    for (const source of sources) {
+        if (Array.isArray(source)) {
+            const found: string | undefined = getFirstImageUrl(...source);
+            if (found) return found;
+            continue;
+        }
+
+        const url = String(source ?? "")
+            .split(",")
+            .map((item) => item.trim())
+            .find(Boolean);
+
+        if (url) return url;
+    }
+
+    return undefined;
+};
+
 interface FlatVariantCatalogItem {
     id: number;
     productVariantId: number;
@@ -499,7 +518,7 @@ export default function SupplierDetailPage() {
                             brandName: product.brandName || "",
                             origin: "",
                             categoryName: product.categoryName,
-                            imageUrl: variant.imageUrl || product.imageUrls?.[0],
+                            imageUrl: getFirstImageUrl(variant.imageUrl, product.imageUrls),
                             status: catalogRecord?.status,
                             note: catalogRecord?.note || "",
                             updatedAt: catalogRecord?.updatedAt,
@@ -528,7 +547,7 @@ export default function SupplierDetailPage() {
             );
             if (matchedProduct) {
                 const matchedVariant = matchedProduct.variants?.find((v) => v.id === c.productVariantId);
-                matchedImg = matchedVariant?.imageUrl || matchedProduct.imageUrls?.[0];
+                matchedImg = getFirstImageUrl(matchedVariant?.imageUrl, matchedProduct.imageUrls);
                 pName = matchedProduct.name;
                 pId = matchedProduct.id;
                 cName = matchedProduct.categoryName;
@@ -544,7 +563,7 @@ export default function SupplierDetailPage() {
                 brandName: bName || supplierRecord?.name || "",
                 origin: c.origin || "",
                 categoryName: cName,
-                imageUrl: matchedImg,
+                imageUrl: getFirstImageUrl(matchedImg, c.imageUrl),
                 status: c.status,
                 note: c.note || "",
                 updatedAt: c.updatedAt,
