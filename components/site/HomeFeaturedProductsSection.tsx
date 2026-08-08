@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { ChevronRight } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import { PublicProductService } from "@/app/services/publicProduct.service";
@@ -28,8 +28,11 @@ export default function HomeFeaturedProductsSection({
     (initialPage.number ?? 0) + 1 < (initialPage.totalPages ?? 0),
   );
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const loadMore = async () => {
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+
     setLoadingMore(true);
     try {
       const next = productPage + 1;
@@ -38,13 +41,36 @@ export default function HomeFeaturedProductsSection({
         size: initialPage.size || 18,
       });
 
-      setAllProducts((prev) => [...prev, ...(data.content ?? [])]);
-      setHasMore(next + 1 < data.totalPages);
-      setProductPage(next);
+      setAllProducts((prev) => {
+        const seenIds = new Set(prev.map((product) => product.id));
+        const newProducts = (data.content ?? []).filter(
+          (product) => !seenIds.has(product.id),
+        );
+        return [...prev, ...newProducts];
+      });
+      setHasMore(next + 1 < (data.totalPages ?? 0));
+      setProductPage(data.number ?? next);
     } finally {
       setLoadingMore(false);
     }
-  };
+  }, [hasMore, initialPage.size, loadingMore, productPage]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "360px 0px" },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
 
   const featuredDesktopProducts = allProducts.slice(0, 10);
   const featuredFirstRowProducts = featuredDesktopProducts.slice(
@@ -53,6 +79,9 @@ export default function HomeFeaturedProductsSection({
   );
   const featuredSecondRowProducts = featuredDesktopProducts.slice(5, 10);
   const shouldUseFeaturedShowcase = featuredDesktopProducts.length >= 10;
+  const desktopOverflowProducts = shouldUseFeaturedShowcase
+    ? allProducts.slice(10)
+    : [];
 
   return (
     <div className={`${HOME_CONTENT_CONTAINER_CLASS} mt-4`}>
@@ -140,17 +169,25 @@ export default function HomeFeaturedProductsSection({
             ))}
           </div>
 
+          {desktopOverflowProducts.length > 0 && (
+            <div className="mt-4 hidden grid-cols-5 gap-4 xl:grid">
+              {desktopOverflowProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+
           {hasMore && (
-            <div className="mt-5 text-center">
-              <button
-                type="button"
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="inline-flex items-center gap-2 rounded-full border border-primary px-8 py-2.5 text-[13px] font-semibold text-primary transition-colors hover:bg-primary hover:text-white disabled:opacity-60"
-              >
-                {loadingMore ? "Đang tải..." : "Xem thêm sản phẩm"}
-                {!loadingMore && <ChevronRight size={14} />}
-              </button>
+            <div
+              ref={loadMoreRef}
+              className="mt-5 flex min-h-12 items-center justify-center text-sm font-semibold text-primary"
+            >
+              {loadingMore && (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin" />
+                  Đang tải thêm sản phẩm...
+                </span>
+              )}
             </div>
           )}
         </>

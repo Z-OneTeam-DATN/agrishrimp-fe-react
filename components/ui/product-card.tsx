@@ -56,6 +56,7 @@ const animateFlyToCart = (e: React.MouseEvent) => {
 
 interface ProductCardProps {
   product: PublicProductListItem;
+  onNavigate?: () => void;
 }
 
 export function ProductCardSkeleton() {
@@ -78,7 +79,7 @@ export function ProductCardSkeleton() {
   );
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, onNavigate }: ProductCardProps) {
   const router = useRouter();
   const { fetchCartCount } = useCartStore();
   const [isAdding, setIsAdding] = useState(false);
@@ -157,6 +158,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/san-pham/${product.slug}`}
+      onClick={() => onNavigate?.()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="group relative flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#d9e4d9] hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
@@ -242,13 +244,13 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        <div className="mt-2 w-full pt-0">
-          <div className="flex items-center justify-between gap-3 rounded-full border border-transparent px-3 py-1.5 transition-colors duration-300 group-hover:border-[#4c72b7]">
+        <div className="mt-auto w-full pt-3">
+          <div className="flex min-h-[44px] items-center justify-between gap-3 rounded-full border border-transparent px-3 py-1.5 transition-colors duration-300 group-hover:border-[#4c72b7]">
             <button
               type="button"
               onClick={handleQuickAdd}
               disabled={isAdding || !firstVariant || product.isOutOfStock}
-              className="min-w-0 flex-1 whitespace-nowrap text-left text-[11px] font-semibold uppercase tracking-[0.02em] text-[#111111] transition-colors hover:text-[#1965a2] disabled:cursor-not-allowed disabled:text-gray-400"
+              className="min-w-0 flex-1 text-left text-[11px] font-semibold uppercase leading-tight tracking-[0.02em] text-[#111111] transition-colors hover:text-[#1965a2] disabled:cursor-not-allowed disabled:text-gray-400"
             >
               {isAdding ? "ĐANG THÊM..." : "THÊM VÀO GIỎ"}
             </button>

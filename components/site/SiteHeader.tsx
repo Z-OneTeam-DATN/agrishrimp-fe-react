@@ -532,7 +532,7 @@ export default function Header() {
   const renderAuthSection = () => {
     if (isLoading) {
       return (
-        <div className="flex h-11 min-w-[148px] items-center gap-2.5 px-2.5 animate-pulse xl:min-w-[164px]">
+        <div className="flex h-11 w-[148px] max-w-[148px] items-center gap-2.5 px-2.5 animate-pulse xl:w-[164px] xl:max-w-[164px]">
           <div className="h-8 w-8 rounded-full bg-white/20 shrink-0 xl:h-9 xl:w-9" />
           <div className="flex flex-1 flex-col gap-1.5 text-left">
             <div className="h-2 bg-white/20 rounded w-full" />
@@ -546,7 +546,7 @@ export default function Header() {
       return (
         <Link
           href="/login"
-          className="flex h-11 min-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-white transition-colors hover:bg-white/10 xl:min-w-[164px]"
+          className="flex h-11 w-[148px] max-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-white transition-colors hover:bg-white/10 xl:w-[164px] xl:max-w-[164px]"
         >
           <User size={16} className="shrink-0 text-white xl:h-[17px] xl:w-[17px]" />
           <div className="min-w-0 flex-1 text-left leading-tight">
@@ -560,7 +560,7 @@ export default function Header() {
     return (
       <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
         <DropdownMenuTrigger asChild>
-          <button className="flex h-11 min-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-left outline-none transition-colors hover:bg-white/10 xl:min-w-[164px]">
+          <button className="flex h-11 w-[148px] max-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-left outline-none transition-colors hover:bg-white/10 xl:w-[164px] xl:max-w-[164px]">
             <Avatar className="h-8 w-8 shrink-0 xl:h-8 xl:w-8">
               <AvatarImage src={getFullImageUrl(user?.avatar?.imageUrl || (user as any)?.avatarUrl) ?? ""} alt={getUserDisplayName()} className="object-cover" />
               <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">

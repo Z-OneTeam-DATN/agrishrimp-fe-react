@@ -125,7 +125,7 @@ export default function ImageSearchModal({ onClose }: Props) {
       className="fixed inset-0 z-[200] flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-16 overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mb-8">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl mb-8">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
@@ -273,16 +273,9 @@ export default function ImageSearchModal({ onClose }: Props) {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {results.map((product) => (
-                    <div key={product.id} className="relative">
-                      {product.similarity !== undefined && product.similarity > 0 && (
-                        <span className="absolute top-2 left-2 z-20 bg-[#1965a2] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm pointer-events-none">
-                          {Math.round(product.similarity * 100)}% phù hợp
-                        </span>
-                      )}
-                      <ProductCard product={product} />
-                    </div>
+                    <ProductCard key={product.id} product={product} onNavigate={onClose} />
                   ))}
                 </div>
               )}
