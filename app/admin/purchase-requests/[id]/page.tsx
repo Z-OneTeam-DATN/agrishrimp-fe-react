@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { InventoryApiService } from "@/app/services/inventory.service";
 import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
@@ -552,6 +553,10 @@ export default function PurchaseRequestDetailPage() {
                 );
                 const fulfilled =
                   deliveredQty >= requestedQty && requestedQty > 0;
+                const productImageSrc = resolveImageUrl(
+                  item.imageUrl,
+                  "/placeholder.svg",
+                );
                 return (
                   <tr
                     key={item.id ?? idx}
@@ -561,13 +566,14 @@ export default function PurchaseRequestDetailPage() {
                   >
                     <td className="px-4 py-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        {item.imageUrl && (
-                          <img
-                            src={item.imageUrl}
-                            alt=""
-                            className="h-7 w-7 shrink-0 rounded object-cover"
-                          />
-                        )}
+                        <img
+                          src={productImageSrc}
+                          alt=""
+                          className="h-7 w-7 shrink-0 rounded border border-slate-100 object-cover"
+                          onError={(event) => {
+                            event.currentTarget.src = "/placeholder.svg";
+                          }}
+                        />
                         <div className="min-w-0 flex-1">
                           <div
                             className="truncate text-[12.5px] font-semibold text-slate-800"
