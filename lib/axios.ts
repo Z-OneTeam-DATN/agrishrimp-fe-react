@@ -33,6 +33,9 @@ const DEFAULT_SERVER_API_BASE_URL =
     ? "http://api:8004/api"
     : "http://localhost:8004/api";
 
+const firstNonBlank = (...values: Array<string | undefined | null>) =>
+  values.find((value) => typeof value === "string" && value.trim().length > 0)?.trim();
+
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 
 const joinApiUrl = (baseURL: string, path: ApiPath) =>
@@ -40,7 +43,7 @@ const joinApiUrl = (baseURL: string, path: ApiPath) =>
 
 const getBrowserApiBaseUrl = () =>
   trimTrailingSlash(
-    process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_PUBLIC_API_BASE_URL,
+    firstNonBlank(process.env.NEXT_PUBLIC_API_URL, DEFAULT_PUBLIC_API_BASE_URL)!,
   );
 
 const isRelativeProxyBaseUrl = (value: string) =>
@@ -48,9 +51,20 @@ const isRelativeProxyBaseUrl = (value: string) =>
 
 const getServerApiBaseUrl = () =>
   trimTrailingSlash(
-    process.env.JAVA_API_URL ??
-      process.env.NEXT_PUBLIC_API_URL ??
+    firstNonBlank(
+      process.env.JAVA_API_URL,
+      process.env.NEXT_PUBLIC_API_URL,
       DEFAULT_SERVER_API_BASE_URL,
+    )!,
+  );
+
+const getServerAppBaseUrl = () =>
+  trimTrailingSlash(
+    firstNonBlank(
+      process.env.NEXT_SERVER_APP_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+      "https://agrishrimp.io.vn",
+    )!,
   );
 
 export const buildJavaApiUrl = (path: ApiPath) =>
@@ -462,9 +476,7 @@ const apiJava = createApi(
 const apiNext = createApi(
   typeof window !== "undefined"
     ? "/api"
-    : (process.env.NEXT_SERVER_APP_URL ??
-        process.env.NEXT_PUBLIC_APP_URL ??
-        "https://agrishrimp.io.vn") + "/api",
+    : `${getServerAppBaseUrl()}/api`,
   40000,
 );
 

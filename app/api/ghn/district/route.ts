@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await fetch(`${JAVA_API_URL}/ghn/district?province_id=${provinceId}`, {
-      next: { revalidate: 86400 },
+      cache: "no-store",
     })
 
     if (!res.ok) {
@@ -18,10 +18,14 @@ export async function GET(request: NextRequest) {
     }
 
     const json = await res.json()
-    const districts = (json.data || []).map((d: any) => ({
-      id: d.DistrictID,
-      name: d.DistrictName,
-    }))
+    const districts = (json.data || [])
+      .map((d: any) => ({
+        id: d.DistrictID,
+        name: d.DistrictName,
+      }))
+      .sort((left: { name: string }, right: { name: string }) =>
+        left.name.localeCompare(right.name, "vi"),
+      )
     return NextResponse.json(districts)
   } catch {
     return NextResponse.json({ error: "Không thể tải quận/huyện" }, { status: 500 })

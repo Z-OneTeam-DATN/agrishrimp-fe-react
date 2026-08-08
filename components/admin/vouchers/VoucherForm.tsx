@@ -153,6 +153,8 @@ const getFieldErrorsFromApiMessage = (message: string): VoucherFormErrors => {
     return { minOrderValue: message };
   }
   if (
+    normalizedMessage.includes("so lan su dung") ||
+    normalizedMessage.includes("su dung toi da") ||
     normalizedMessage.includes("luot su dung") ||
     normalizedMessage.includes("luot dung")
   ) {
@@ -255,7 +257,7 @@ const validateVoucherForm = (
   const usageLimit = toNumber(formData.usageLimit);
 
   if (formData.status === VOUCHER_STATUS_PLACEHOLDER) {
-    nextErrors.status = "Vui lĂ²ng chá»n tráº¡ng thĂ¡i";
+    nextErrors.status = "Vui lòng chọn trạng thái";
   }
   if (!formData.code.trim()) {
     nextErrors.code = "Mã voucher không hợp lệ, vui lòng tạo lại";
@@ -301,7 +303,7 @@ const validateVoucherForm = (
   if (isEmptyNumeric(formData.usageLimit)) {
     nextErrors.usageLimit = "Vui lòng nhập lượt dùng tối đa mỗi người";
   } else if (usageLimit <= 0) {
-    nextErrors.usageLimit = "Lượt dùng tối đa phải lớn hơn 0";
+    nextErrors.usageLimit = "Lượt dùng tối đa mỗi người phải lớn hơn 0";
   }
   if (!formData.startDate) {
     nextErrors.startDate = "Vui lòng chọn ngày bắt đầu";

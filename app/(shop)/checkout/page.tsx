@@ -484,6 +484,10 @@ export default function CheckoutPage() {
         )
 
         if (!refreshedVoucher || !refreshedVoucher.canApply) {
+            toast.info(
+                refreshedVoucher?.availabilityReason
+                || "Voucher đã được gỡ vì đơn hàng không còn đủ điều kiện áp dụng.",
+            )
             applyVoucher(null)
             return
         }
@@ -950,6 +954,36 @@ export default function CheckoutPage() {
             (voucher) => voucher.code.trim().toUpperCase() === appliedVoucherCode
         ) ?? null
     }, [availableVouchers, prepareOrderDisplayResponse?.voucherCode, selectedVoucher])
+
+    useEffect(() => {
+        const preparedVoucherCode = prepareOrderDisplayResponse?.voucherCode?.trim().toUpperCase() || ""
+        const selectedVoucherCode = selectedVoucher?.code.trim().toUpperCase() || ""
+
+        if (!selectedVoucherCode) {
+            return
+        }
+
+        if (!preparedVoucherCode) {
+            toast.info("Voucher đã được gỡ vì báo giá đơn hàng mới không còn đủ điều kiện áp dụng.")
+            setSelectedVoucher(null)
+            setVoucherInput("")
+            syncVoucherInUrl(null)
+            return
+        }
+
+        if (preparedVoucherCode !== selectedVoucherCode) {
+            const syncedVoucher = availableVouchers.find(
+                (voucher) => voucher.code.trim().toUpperCase() === preparedVoucherCode
+            )
+            setSelectedVoucher(syncedVoucher ?? null)
+            setVoucherInput(preparedVoucherCode)
+        }
+    }, [
+        availableVouchers,
+        prepareOrderDisplayResponse?.voucherCode,
+        selectedVoucher,
+        syncVoucherInUrl,
+    ])
 
     const handleConfirm = () => {
         if (rateLimitCooldown > 0) {

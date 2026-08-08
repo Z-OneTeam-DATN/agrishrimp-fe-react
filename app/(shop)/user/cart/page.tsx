@@ -123,6 +123,23 @@ const formatVoucherBenefit = (voucher: Voucher) => {
   return `Giảm ${formatMoney(value)}`;
 };
 
+type CartItemAvailabilityInput = Pick<CartItem, "stock" | "quantity">;
+
+const getCartItemAvailabilityMessage = (item: CartItemAvailabilityInput) => {
+  if (item.stock <= 0) {
+    return "Sản phẩm này hiện đã hết hàng hoặc ngừng bán.";
+  }
+
+  if (item.quantity > item.stock) {
+    return `Số lượng trong giỏ vượt tồn kho hiện có (${item.stock}).`;
+  }
+
+  return null;
+};
+
+const isCartItemSelectable = (item: CartItemAvailabilityInput) =>
+  getCartItemAvailabilityMessage(item) === null;
+
 function CartSkeleton() {
   return (
     <div className="min-h-screen bg-slate-50 py-6">
@@ -165,11 +182,13 @@ function CartSkeleton() {
 function QtyInput({
   value,
   onUpdate,
+  onInvalidEntry,
   disabled,
   compact = false,
 }: {
   value: number;
   onUpdate: (delta: number) => void;
+  onInvalidEntry?: (message: string) => void;
   disabled: boolean;
   compact?: boolean;
 }) {
@@ -184,8 +203,20 @@ function QtyInput({
   }, [value]);
 
   const commit = () => {
-    const parsed = parseInt(draft);
-    if (!isNaN(parsed) && parsed >= 1 && parsed !== value) {
+    const normalizedDraft = draft.trim();
+    if (!normalizedDraft) {
+      setDraft(String(value));
+      return;
+    }
+
+    const parsed = Number(normalizedDraft);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+      onInvalidEntry?.("Số lượng chỉ được nhập bằng số nguyên dương.");
+      setDraft(String(value));
+      return;
+    }
+
+    if (parsed !== value) {
       onUpdate(parsed - value);
     } else {
       setDraft(String(value));
@@ -208,6 +239,7 @@ function QtyInput({
       <input
         type="number"
         min={1}
+        step={1}
         value={draft}
         disabled={disabled}
         onChange={(e) => setDraft(e.target.value)}
@@ -288,7 +320,12 @@ export default function CartPage() {
       const data = (await cartService.getMyCart()) as Array<
         Omit<CartItem, "checked">
       >;
-      setItems(data.map((item) => ({ ...item, checked: true })));
+      setItems(
+        data.map((item) => ({
+          ...item,
+          checked: isCartItemSelectable(item),
+        })),
+      );
     } catch (error: unknown) {
       const apiError = error as {
         response?: { status?: number; data?: { message?: string } };
@@ -406,21 +443,47 @@ export default function CartPage() {
   const toggleCheck = (id: number) =>
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, checked: !item.checked } : item,
+        item.id === id
+          ? isCartItemSelectable(item)
+            ? { ...item, checked: !item.checked }
+            : item
+          : item,
       ),
     );
 
   const toggleCheckAll = (checked: boolean) =>
-    setItems((prev) => prev.map((item) => ({ ...item, checked })));
+    setItems((prev) =>
+      prev.map((item) => ({
+        ...item,
+        checked: checked && isCartItemSelectable(item),
+      })),
+    );
 
-  const checkedItems = items.filter((i) => i.checked);
+  const checkedItems = items.filter((item) => item.checked && isCartItemSelectable(item));
   const subTotal = checkedItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalCount = checkedItems.reduce((s, i) => s + i.quantity, 0);
-  const isAllChecked = items.length > 0 && items.every((i) => i.checked);
+  const selectableItems = items.filter(isCartItemSelectable);
+  const isAllChecked =
+    selectableItems.length > 0 && selectableItems.every((item) => item.checked);
   const savedVoucherCodeSet = useMemo(
     () => new Set(savedVoucherCodes),
     [savedVoucherCodes],
   );
+
+  useEffect(() => {
+    setItems((prev) => {
+      let changed = false;
+      const nextItems = prev.map((item) => {
+        if (!isCartItemSelectable(item) && item.checked) {
+          changed = true;
+          return { ...item, checked: false };
+        }
+        return item;
+      });
+
+      return changed ? nextItems : prev;
+    });
+  }, [items]);
 
   const recommendedVouchers = useMemo(() => {
     return availableVouchers
@@ -478,7 +541,9 @@ export default function CartPage() {
       selectedVoucher &&
       subTotal < toVoucherAmount(selectedVoucher.minOrderValue)
     ) {
+      toast.info("Voucher đã được gỡ vì đơn hàng không còn đủ giá trị tối thiểu.");
       setSelectedVoucher(null);
+      setVoucherInput("");
     }
   }, [selectedVoucher, subTotal]);
 
@@ -606,6 +671,7 @@ export default function CartPage() {
                   id="check-all"
                   className="h-4 w-4 cursor-pointer accent-blue-700"
                   checked={isAllChecked}
+                  disabled={selectableItems.length === 0}
                   onChange={(e) => toggleCheckAll(e.target.checked)}
                 />
                 <label
@@ -615,7 +681,7 @@ export default function CartPage() {
                   Chọn tất cả
                 </label>
                 <span className="ml-auto text-[11px] text-slate-500">
-                  {checkedItems.length}/{items.length} sản phẩm được chọn
+                  {checkedItems.length}/{selectableItems.length || items.length} sản phẩm hợp lệ được chọn
                 </span>
               </div>
 
@@ -633,6 +699,8 @@ export default function CartPage() {
                 {items.map((item) => {
                   const isUpdating = updatingItems[item.variantId];
                   const imageSrc = resolveImageUrl(item.image, "/placeholder.svg");
+                  const availabilityMessage = getCartItemAvailabilityMessage(item);
+                  const isSelectable = availabilityMessage === null;
                   const meta = [item.categoryName, item.brandName, item.productForm]
                     .filter(Boolean)
                     .join(" · ");
@@ -650,8 +718,15 @@ export default function CartPage() {
                           <input
                             type="checkbox"
                             checked={item.checked}
-                            onChange={() => toggleCheck(item.id)}
-                            className="h-4 w-4 shrink-0 cursor-pointer accent-blue-700"
+                            disabled={!isSelectable}
+                            onChange={() => {
+                              if (!isSelectable && availabilityMessage) {
+                                toast.error(availabilityMessage);
+                                return;
+                              }
+                              toggleCheck(item.id);
+                            }}
+                            className="h-4 w-4 shrink-0 cursor-pointer accent-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                           />
                           <Link href={resolveProductHref(item)} className="flex min-w-0 items-center gap-4 group">
                             <div className="relative h-20 w-20 shrink-0 overflow-hidden border border-slate-200 bg-slate-50">
@@ -670,6 +745,11 @@ export default function CartPage() {
                                 {item.name}
                               </p>
                               {meta && <p className="mt-1 truncate text-[11px] text-slate-500">{meta}</p>}
+                              {availabilityMessage && (
+                                <p className="mt-1 text-[11px] font-medium text-red-600">
+                                  {availabilityMessage}
+                                </p>
+                              )}
                             </div>
                           </Link>
                         </div>
@@ -684,7 +764,8 @@ export default function CartPage() {
                           ) : (
                             <QtyInput
                               value={item.quantity}
-                              disabled={isUpdating}
+                              disabled={isUpdating || item.stock <= 0}
+                              onInvalidEntry={(message) => toast.error(message)}
                               onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)}
                             />
                           )}
@@ -713,8 +794,15 @@ export default function CartPage() {
                           <input
                             type="checkbox"
                             checked={item.checked}
-                            onChange={() => toggleCheck(item.id)}
-                            className="mt-7 h-4 w-4 shrink-0 cursor-pointer accent-blue-700"
+                            disabled={!isSelectable}
+                            onChange={() => {
+                              if (!isSelectable && availabilityMessage) {
+                                toast.error(availabilityMessage);
+                                return;
+                              }
+                              toggleCheck(item.id);
+                            }}
+                            className="mt-7 h-4 w-4 shrink-0 cursor-pointer accent-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                           />
 
                           <Link href={resolveProductHref(item)} className="group relative h-[84px] w-[84px] shrink-0 overflow-hidden border border-slate-200 bg-slate-50">
@@ -739,6 +827,11 @@ export default function CartPage() {
                             </div>
 
                             {meta && <p className="mt-1 truncate text-[10px] text-slate-500">{meta}</p>}
+                            {availabilityMessage && (
+                              <p className="mt-1 text-[10px] font-medium text-red-600">
+                                {availabilityMessage}
+                              </p>
+                            )}
 
                             <div className="mt-3 flex items-end justify-between gap-3">
                               <div className="min-w-0">
@@ -758,8 +851,9 @@ export default function CartPage() {
                                 ) : (
                                   <QtyInput
                                     value={item.quantity}
-                                    disabled={isUpdating}
+                                    disabled={isUpdating || item.stock <= 0}
                                     compact
+                                    onInvalidEntry={(message) => toast.error(message)}
                                     onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)}
                                   />
                                 )}

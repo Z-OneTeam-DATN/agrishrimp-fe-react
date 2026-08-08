@@ -7,6 +7,7 @@ import { addressSchema, AddressFormValues } from "@/app/types/address.schema";
 import { locationService } from "@/app/services/address.service";
 import { Save, ChevronLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import AddressSuggestionInput, { AddressSuggestion } from "./AddressSuggestionInput";
 
 interface AddressFormProps {
@@ -39,6 +40,9 @@ const normalizeAddr = (str: string) =>
     .replace(/^(Thành phố|Thành Phố|Tỉnh|Quận|Huyện|Thị xã|Thị Xã|Phường|Xã|Thị trấn|Thị Trấn)\s+/i, "")
     .trim()
     .toLowerCase();
+
+const sortByName = <T extends { name: string }>(items: T[]) =>
+  [...items].sort((left, right) => left.name.localeCompare(right.name, "vi"));
 
 export default function AddressForm({
   initialValues,
@@ -80,11 +84,14 @@ export default function AddressForm({
   const districtId = watch("districtId");
   const wardCode = watch("wardCode");
   const specificAddress = watch("specificAddress");
+  const selectedProvince = provinces.find((p) => p.id.toString() === provinceId?.toString());
+  const selectedDistrict = districts.find((d) => d.id.toString() === districtId?.toString());
+  const selectedWard = wards.find((w) => w.code === wardCode);
 
   // Tải danh sách tỉnh/thành từ GHN
   useEffect(() => {
     locationService.getProvinces()
-      .then((data) => setProvinces(data ?? []))
+      .then((data) => setProvinces(sortByName(data ?? [])))
       .catch((err) => console.error("Lỗi tải tỉnh thành:", err));
   }, []);
 
@@ -97,7 +104,7 @@ export default function AddressForm({
     }
     setLoadingLoc(true);
     locationService.getDistricts(Number(provinceId))
-      .then((data) => setDistricts(data ?? []))
+      .then((data) => setDistricts(sortByName(data ?? [])))
       .catch((err) => console.error("Lỗi tải quận/huyện:", err))
       .finally(() => setLoadingLoc(false));
   }, [provinceId]);
@@ -111,7 +118,7 @@ export default function AddressForm({
     }
     setLoadingLoc(true);
     locationService.getWards(Number(districtId))
-      .then((data) => setWards(data ?? []))
+      .then((data) => setWards(sortByName(data ?? [])))
       .catch((err) => console.error("Lỗi tải phường/xã:", err))
       .finally(() => setLoadingLoc(false));
   }, [districtId]);
@@ -143,59 +150,95 @@ export default function AddressForm({
     setLoadingLoc(true);
 
     try {
-      // 1. Fill địa chỉ cụ thể bằng label đầy đủ
-      setValue("specificAddress", suggestion.label, { shouldValidate: true });
-
-      // 2. Match province
+      // 1. Match province
       const matchedProvince = provinces.find(
         (p) => normalizeAddr(p.name) === normalizeAddr(suggestion.province)
       );
-      if (!matchedProvince) return;
+      if (!matchedProvince) {
+        toast.error("Gợi ý địa chỉ chưa xác định được Tỉnh/Thành hợp lệ.");
+        return;
+      }
 
       setValue("provinceId", String(matchedProvince.id), { shouldValidate: true });
       setValue("districtId", "");
       setValue("wardCode", "");
 
-      // 3. Load + match district
+      // 2. Load + match district
       const fetchedDistricts: DistrictOption[] = await locationService.getDistricts(matchedProvince.id);
-      setDistricts(fetchedDistricts ?? []);
+      const sortedDistricts = sortByName(fetchedDistricts ?? []);
+      setDistricts(sortedDistricts);
 
       const normDistrict = normalizeAddr(suggestion.district);
       const matchedDistrict =
-        fetchedDistricts.find((d) => normalizeAddr(d.name) === normDistrict) ||
-        fetchedDistricts.find(
+        sortedDistricts.find((d) => normalizeAddr(d.name) === normDistrict) ||
+        sortedDistricts.find(
           (d) =>
             normalizeAddr(d.name).includes(normDistrict) ||
             normDistrict.includes(normalizeAddr(d.name))
         );
 
-      if (!matchedDistrict) return;
+      if (!matchedDistrict) {
+        toast.error("Gợi ý địa chỉ chưa khớp với Quận/Huyện đã chọn.");
+        return;
+      }
 
       setValue("districtId", String(matchedDistrict.id), { shouldValidate: true });
       setValue("wardCode", "");
 
-      // 4. Load + match ward
+      // 3. Load + match ward
       const fetchedWards: WardOption[] = await locationService.getWards(matchedDistrict.id);
-      setWards(fetchedWards ?? []);
+      const sortedWards = sortByName(fetchedWards ?? []);
+      setWards(sortedWards);
 
       const normWard = normalizeAddr(suggestion.ward);
       const matchedWard =
-        fetchedWards.find((w) => normalizeAddr(w.name) === normWard) ||
-        fetchedWards.find(
+        sortedWards.find((w) => normalizeAddr(w.name) === normWard) ||
+        sortedWards.find(
           (w) =>
             normalizeAddr(w.name).includes(normWard) ||
             normWard.includes(normalizeAddr(w.name))
         );
 
-      if (matchedWard) {
-        setValue("wardCode", matchedWard.code, { shouldValidate: true });
+      if (!matchedWard) {
+        toast.error("Gợi ý địa chỉ chưa đủ Phường/Xã hợp lệ. Vui lòng chọn bổ sung.");
+        return;
       }
+
+      setValue("wardCode", matchedWard.code, { shouldValidate: true });
+      setValue("specificAddress", suggestion.label, { shouldValidate: true });
     } catch (err) {
       console.error("Lỗi auto-fill địa chỉ:", err);
+      toast.error("Không thể áp dụng gợi ý địa chỉ lúc này.");
     } finally {
       autoFillRef.current = false;
       setLoadingLoc(false);
     }
+  };
+
+  const handleFormSubmit = (data: AddressFormValues) => {
+    const provinceValid = provinces.some(
+      (province) => province.id.toString() === data.provinceId.toString()
+    );
+    if (!provinceValid) {
+      toast.error("Tỉnh/Thành đã chọn không còn hợp lệ. Vui lòng chọn lại.");
+      return;
+    }
+
+    const districtValid = districts.some(
+      (district) => district.id.toString() === data.districtId.toString()
+    );
+    if (!districtValid) {
+      toast.error("Quận/Huyện không thuộc Tỉnh/Thành đã chọn. Vui lòng chọn lại.");
+      return;
+    }
+
+    const wardValid = wards.some((ward) => ward.code === data.wardCode);
+    if (!wardValid) {
+      toast.error("Phường/Xã không thuộc Quận/Huyện đã chọn. Vui lòng chọn lại.");
+      return;
+    }
+
+    onSubmit(data);
   };
 
   const inputClass = (hasError: boolean) => `
@@ -224,7 +267,7 @@ export default function AddressForm({
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className={compact ? "p-4 space-y-3" : "p-6 space-y-6 pb-20"}>
+      <form onSubmit={handleSubmit(handleFormSubmit)} className={compact ? "p-4 space-y-3" : "p-6 space-y-6 pb-20"}>
         {/* Họ tên & SĐT */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -318,6 +361,9 @@ export default function AddressForm({
             onSelect={handleSelectSuggestion}
             hasError={!!errors.specificAddress}
             className={inputClass(!!errors.specificAddress)}
+            province={selectedProvince?.name}
+            district={selectedDistrict?.name}
+            ward={selectedWard?.name}
             placeholder="Số nhà, tên đường..."
           />
           {errors.specificAddress && (
