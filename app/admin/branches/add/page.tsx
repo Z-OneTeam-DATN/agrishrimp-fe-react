@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { AdminBranchSchema, AdminBranchForm } from "@/app/types/admin.schema";
 import { branchService } from "@/app/services/branchService";
 import { EmployeeService } from "@/app/services/employee.service";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 const PROVINCE_API_BASE = "https://provinces.open-api.vn/api/v2";
 const NO_DISTRICT_VALUE = "__province_direct__";
@@ -147,6 +148,11 @@ const resolveLocationOption = (
       )
     );
   });
+};
+
+const isBranchManagerCandidate = (staff: any) => {
+  const roleSlug = normalizeRoleSlug(staff?.role);
+  return Boolean(roleSlug) && roleSlug !== "CUSTOMER" && roleSlug !== "AGRONOMIST";
 };
 
 const fetchProvinceOpenApi = async (url: string) => {
@@ -341,7 +347,7 @@ export default function AddBranchPage() {
     return matchedDistrict ? String(getDistId(matchedDistrict)) : candidates[0];
   };
 
-  // --- 1. KHỞI TẠO DỮ LIỆU & LỌC ROLE ID (1,2,3) ---
+  // --- 1. KHỞI TẠO DỮ LIỆU ---
   useEffect(() => {
     const initData = async () => {
       try {
@@ -349,13 +355,11 @@ export default function AddBranchPage() {
           EmployeeService.getAll({
             size: 500,
             status: "ACTIVE",
-            permissionCode: "BRANCH_VIEW",
           }),
           fetchProvinceOpenApi(`${PROVINCE_API_BASE}/`),
           branchService.getAll(),
         ]);
 
-        // Backend filters employees by BRANCH_VIEW permission.
         const rawStaffs = extractArray(empRes);
         setStaffs(rawStaffs);
 
@@ -893,6 +897,7 @@ export default function AddBranchPage() {
     return staffs.filter((staff) => {
       const staffId = Number(staff?.id);
       if (Number.isNaN(staffId) || staffId <= 0) return false;
+      if (!isBranchManagerCandidate(staff)) return false;
       if (selectedManagerId && staffId === selectedManagerId) return true;
 
       if (isEditMode && currentBranchManagerIds.has(staffId)) {
