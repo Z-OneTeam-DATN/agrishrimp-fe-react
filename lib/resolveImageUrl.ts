@@ -3,11 +3,18 @@ const BACKEND_ORIGIN =
 
 const FRONTEND_ASSET_PREFIXES = ["/placeholder", "/images/", "/icons/", "/_next/"];
 
+function getFirstImageUrl(imagePath?: string | null) {
+  return String(imagePath ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .find(Boolean);
+}
+
 export function resolveImageUrl(
   imagePath?: string | null,
   fallback = "/placeholder.png",
 ) {
-  const normalized = imagePath?.trim();
+  const normalized = getFirstImageUrl(imagePath);
 
   if (!normalized) {
     return fallback;
@@ -15,10 +22,26 @@ export function resolveImageUrl(
 
   if (
     normalized.startsWith("data:image") ||
-    normalized.startsWith("blob:") ||
-    normalized.startsWith("http://") ||
-    normalized.startsWith("https://")
+    normalized.startsWith("blob:")
   ) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    try {
+      const imageUrl = new URL(normalized);
+      const backendUrl = new URL(BACKEND_ORIGIN);
+
+      if (
+        imageUrl.hostname === "api" ||
+        imageUrl.hostname === "host.docker.internal"
+      ) {
+        return `${backendUrl.origin}${imageUrl.pathname}${imageUrl.search}${imageUrl.hash}`;
+      }
+    } catch {
+      return normalized;
+    }
+
     return normalized;
   }
 

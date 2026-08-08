@@ -26,6 +26,7 @@ import {
 import { useCartStore } from "@/stores/useCartStore";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import {
   Minus,
   Plus,
@@ -273,7 +274,7 @@ export default function CartPage() {
         productName: item.name,
         variantName: item.variant,
         unitPrice: item.price,
-        imageUrl: item.image,
+        imageUrl: resolveImageUrl(item.image, "/placeholder.svg"),
       }));
 
       setCheckoutStoreItems(normalizedItems);
@@ -631,6 +632,7 @@ export default function CartPage() {
               <div className="divide-y divide-slate-200">
                 {items.map((item) => {
                   const isUpdating = updatingItems[item.variantId];
+                  const imageSrc = resolveImageUrl(item.image, "/placeholder.svg");
                   const meta = [item.categoryName, item.brandName, item.productForm]
                     .filter(Boolean)
                     .join(" · ");
@@ -654,7 +656,7 @@ export default function CartPage() {
                           <Link href={resolveProductHref(item)} className="flex min-w-0 items-center gap-4 group">
                             <div className="relative h-20 w-20 shrink-0 overflow-hidden border border-slate-200 bg-slate-50">
                               <Image
-                                src={item.image || "/placeholder.svg"}
+                                src={imageSrc}
                                 alt={item.name}
                                 fill
                                 className="object-cover"
@@ -717,7 +719,7 @@ export default function CartPage() {
 
                           <Link href={resolveProductHref(item)} className="group relative h-[84px] w-[84px] shrink-0 overflow-hidden border border-slate-200 bg-slate-50">
                             <Image
-                              src={item.image || "/placeholder.svg"}
+                              src={imageSrc}
                               alt={item.name}
                               fill
                               className="object-cover"
