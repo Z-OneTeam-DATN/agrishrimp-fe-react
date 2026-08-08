@@ -77,6 +77,19 @@ interface Province {
     full_name: string;
 }
 
+interface TaxLookupInfo {
+    name: string;
+    address: string;
+    owner: string;
+    phone: string;
+    email: string;
+    status: string;
+    issueDate: string;
+    taxAuthority: string;
+    mainBusinessSector: string;
+    fieldStatuses: Record<string, string>;
+}
+
 type TabValue = "info" | "catalog" | "history";
 type CatalogFilterValue = "ALL" | SupplierProductCatalogStatus;
 
@@ -212,6 +225,25 @@ const normalizePhone = (raw?: string | null): string => {
     return trimmed;
 };
 
+const cleanLookupText = (value?: string | null): string => value?.trim() || "";
+
+const normalizeLookupStatus = (raw?: string | null): SupplierFormValues["status"] | "" => {
+    const status = cleanLookupText(raw).toLowerCase();
+    if (!status) return "";
+
+    if (
+        status.includes("ngừng") ||
+        status.includes("ngung") ||
+        status.includes("inactive") ||
+        status.includes("terminated") ||
+        status.includes("closed")
+    ) {
+        return "inactive";
+    }
+
+    return "active";
+};
+
 export default function SupplierDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -253,6 +285,7 @@ export default function SupplierDetailPage() {
         reset,
         watch,
         setValue,
+        trigger,
         formState: { errors },
     } = useForm<SupplierFormValues>({
         resolver: zodResolver(SupplierSchema),
@@ -375,40 +408,59 @@ export default function SupplierDetailPage() {
         setValue("mainBusinessSector", "", { shouldValidate: false });
 
         try {
-            const businessInfo = await supplierService.lookupTaxCode(taxCode);
+            const businessInfo = await supplierService.lookupTaxCode(taxCode) as TaxLookupInfo;
             if (businessInfo) {
-                if (businessInfo.name) setValue("name", businessInfo.name, { shouldValidate: true });
-                if (businessInfo.address) {
-                    setValue("addressDetail", businessInfo.address, { shouldValidate: true });
-                    const detectedId = detectProvince(businessInfo.address);
-                    if (detectedId) setValue("provinceId", detectedId, { shouldValidate: true });
-                }
-                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: true });
-                const normalizedPhone = normalizePhone(businessInfo.phone);
-                if (normalizedPhone) setValue("phone", normalizedPhone, { shouldValidate: true });
-                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: true });
-                if (businessInfo.issueDate) {
-                    const formatted = formatDateForInput(businessInfo.issueDate);
-                    if (formatted) setValue("issueDate", formatted, { shouldValidate: true });
-                }
-                if (businessInfo.taxAuthority) {
-                    setValue("taxAuthority", businessInfo.taxAuthority, { shouldValidate: true });
-                }
-                if (businessInfo.mainBusinessSector) {
-                    setValue("mainBusinessSector", businessInfo.mainBusinessSector, { shouldValidate: true });
-                }
-                const missingFields: string[] = [];
-                const statuses = businessInfo.fieldStatuses as Record<string, string> | undefined;
-                if (statuses) {
-                    if (statuses.name !== "FOUND" && statuses.name !== "VERIFIED") missingFields.push("Tên công ty");
-                    if (statuses.owner !== "FOUND" && statuses.owner !== "VERIFIED") missingFields.push("Người đại diện");
-                    if (statuses.issueDate !== "FOUND" && statuses.issueDate !== "VERIFIED") missingFields.push("Ngày thành lập");
-                    if (statuses.mainBusinessSector !== "FOUND" && statuses.mainBusinessSector !== "VERIFIED") missingFields.push("Ngành nghề");
-                }
-                if (missingFields.length > 0) {
-                    toast.warning(`Tra cứu thành công. Một số thông tin chưa tìm được: ${missingFields.join(", ")}`);
+                const lookupValues = {
+                    name: cleanLookupText(businessInfo.name),
+                    addressDetail: cleanLookupText(businessInfo.address),
+                    provinceId: businessInfo.address ? detectProvince(businessInfo.address) : "",
+                    contactName: cleanLookupText(businessInfo.owner),
+                    phone: normalizePhone(businessInfo.phone),
+                    email: cleanLookupText(businessInfo.email),
+                    status: normalizeLookupStatus(businessInfo.status),
+                    issueDate: formatDateForInput(businessInfo.issueDate),
+                    taxAuthority: cleanLookupText(businessInfo.taxAuthority),
+                    mainBusinessSector: cleanLookupText(businessInfo.mainBusinessSector),
+                };
+
+                if (lookupValues.name) setValue("name", lookupValues.name, { shouldValidate: true });
+                if (lookupValues.addressDetail) setValue("addressDetail", lookupValues.addressDetail, { shouldValidate: true });
+                if (lookupValues.provinceId) setValue("provinceId", lookupValues.provinceId, { shouldValidate: true });
+                if (lookupValues.contactName) setValue("contactName", lookupValues.contactName, { shouldValidate: true });
+                if (lookupValues.phone) setValue("phone", lookupValues.phone, { shouldValidate: true });
+                if (lookupValues.email) setValue("email", lookupValues.email, { shouldValidate: true });
+                if (lookupValues.status) setValue("status", lookupValues.status, { shouldValidate: true });
+                if (lookupValues.issueDate) setValue("issueDate", lookupValues.issueDate, { shouldValidate: true });
+                if (lookupValues.taxAuthority) setValue("taxAuthority", lookupValues.taxAuthority, { shouldValidate: true });
+                if (lookupValues.mainBusinessSector) setValue("mainBusinessSector", lookupValues.mainBusinessSector, { shouldValidate: true });
+
+                const lookupMissingFields: string[] = [];
+                if (!lookupValues.name) lookupMissingFields.push("Tên công ty");
+                if (!lookupValues.contactName) lookupMissingFields.push("Người đại diện");
+                if (!lookupValues.phone) lookupMissingFields.push("SĐT");
+                if (!lookupValues.issueDate) lookupMissingFields.push("Ngày thành lập");
+                if (!lookupValues.taxAuthority) lookupMissingFields.push("Cơ quan thuế");
+                if (!lookupValues.mainBusinessSector) lookupMissingFields.push("Ngành nghề");
+                if (!lookupValues.addressDetail) lookupMissingFields.push("Địa chỉ");
+                if (!lookupValues.provinceId) lookupMissingFields.push("Tỉnh/Thành phố");
+
+                await trigger([
+                    "name",
+                    "contactName",
+                    "phone",
+                    "email",
+                    "issueDate",
+                    "taxAuthority",
+                    "mainBusinessSector",
+                    "addressDetail",
+                    "provinceId",
+                    "status",
+                ]);
+
+                if (lookupMissingFields.length > 0) {
+                    toast.warning(`Tra cứu MST thành công nhưng nguồn dữ liệu còn thiếu: ${lookupMissingFields.join(", ")}. Vui lòng bổ sung để form đầy đủ.`);
                 } else {
-                    toast.success("Đã tra cứu và đối soát đầy đủ thông tin doanh nghiệp thành công!");
+                    toast.success("Đã tra cứu, đối soát và điền đầy đủ thông tin trên form thành công!");
                 }
             } else {
                 toast.error("Không tìm thấy doanh nghiệp với MST này.");
@@ -1044,7 +1096,7 @@ export default function SupplierDetailPage() {
                                             {errors.mainBusinessSector && <p className="text-[10px] text-red-500 mt-1">{errors.mainBusinessSector.message}</p>}
                                         </div>
                                         <div>
-                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Email liên hệ *</Label>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Email liên hệ</Label>
                                             <div className="relative">
                                                 <Input {...register("email")} className="h-[40px] pr-10 text-[13px]" />
                                                 {copyButton("Email", supplierData.email)}
@@ -1676,4 +1728,3 @@ export default function SupplierDetailPage() {
         </TooltipProvider>
     );
 }
-
