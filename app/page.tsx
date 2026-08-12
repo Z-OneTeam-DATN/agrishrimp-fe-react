@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Tag } from "lucide-react";
 
-import JsonLd from "@/components/seo/JsonLd";
 import Banner from "@/components/site/SiteBanner";
 import HomeFeaturedProductsSection from "@/components/site/HomeFeaturedProductsSection";
 import HomeRecommendedProductsSection from "@/components/site/HomeRecommendedProductsSection";
@@ -13,7 +12,6 @@ import { getPublicBanners } from "@/app/services/banner.service";
 import { getPublicBlogPosts } from "@/app/services/blog.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
-import { breadcrumbJsonLd, organizationJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -100,10 +98,7 @@ export default async function Home() {
   };
 
   return (
-    <>
-      <JsonLd data={organizationJsonLd()} />
-      <JsonLd data={breadcrumbJsonLd([{ name: "Trang chủ", path: "/" }])} />
-      <div className="bg-[#f5f5f5] pb-10">
+    <div className="bg-[#f5f5f5] pb-10">
       <div className="w-full pt-0">
         <div className="mx-auto w-full max-w-[1440px] px-0 sm:px-4 md:px-6 xl:px-8">
           <div className="overflow-hidden">
@@ -111,48 +106,6 @@ export default async function Home() {
           </div>
         </div>
       </div>
-
-      <section className={`${HOME_CONTENT_CONTAINER_CLASS} mt-4`}>
-        <div className="rounded-md border border-blue-100 bg-white px-4 py-6 shadow-sm md:px-8 md:py-8">
-          <p className="text-sm font-semibold uppercase tracking-normal text-blue-700">
-            AgriShrimp
-          </p>
-          <h1 className="mt-2 max-w-4xl text-2xl font-black leading-tight text-slate-950 md:text-4xl">
-            AI Chẩn Đoán Bệnh Tôm & Giải Pháp Nuôi Tôm AgriShrimp
-          </h1>
-          <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-700 md:text-base">
-            AgriShrimp kết nối AI Doctor, kho tri thức bệnh tôm, blog kỹ thuật
-            nuôi tôm và catalog vật tư thủy sản để hỗ trợ bà con tra cứu thông
-            tin và sản phẩm phù hợp.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link
-              href="/chan-doan-benh-tom-bang-ai"
-              className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800"
-            >
-              Chẩn đoán bệnh tôm bằng AI
-            </Link>
-            <Link
-              href="/benh-tom"
-              className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-800 hover:border-blue-500 hover:text-blue-700"
-            >
-              Kho bệnh tôm
-            </Link>
-            <Link
-              href="/vat-tu-thuy-san"
-              className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-800 hover:border-blue-500 hover:text-blue-700"
-            >
-              Vật tư thủy sản
-            </Link>
-            <Link
-              href="/blog"
-              className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-800 hover:border-blue-500 hover:text-blue-700"
-            >
-              Blog kiến thức nuôi tôm
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {partnerBrands.length > 0 && (
         <div className="mt-4 w-full">
@@ -203,7 +156,7 @@ export default async function Home() {
                 return (
                   <Link
                     key={category.id}
-                    href={category.slug ? `/danh-muc/${category.slug}` : `/san-pham?categoryId=${category.id}`}
+                    href={`/san-pham?categoryId=${category.id}`}
                     className="group block h-full w-[38vw] min-w-[138px] max-w-[158px] shrink-0 snap-start sm:w-[30vw] sm:min-w-[150px] sm:max-w-[176px] md:w-full md:max-w-[360px] md:justify-self-center"
                   >
                     <div
@@ -234,7 +187,6 @@ export default async function Home() {
       <HomeFeaturedProductsSection initialPage={firstPage} />
 
       <HomeLatestBlogSection initialPosts={latestPosts.content ?? []} />
-      </div>
-    </>
+    </div>
   );
 }

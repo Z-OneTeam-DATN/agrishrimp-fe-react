@@ -72,11 +72,6 @@ export default function BlogPostForm({
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [excerpt, setExcerpt] = useState(initialData?.excerpt ?? "");
   const [content, setContent] = useState(initialData?.content ?? "");
-  const [seoTitle, setSeoTitle] = useState(initialData?.seoTitle ?? "");
-  const [metaDescription, setMetaDescription] = useState(initialData?.metaDescription ?? "");
-  const [canonicalUrl, setCanonicalUrl] = useState(initialData?.canonicalUrl ?? "");
-  const [focusKeyword, setFocusKeyword] = useState(initialData?.focusKeyword ?? "");
-  const [coverImageAlt, setCoverImageAlt] = useState(initialData?.coverImageAlt ?? "");
   const [status, setStatus] = useState<"" | "DRAFT" | "IN_REVIEW" | "PUBLISHED">(initialData?.status ?? "");
   const [categoryId, setCategoryId] = useState<string>(
     initialData?.category ? String(initialData.category.id) : ""
@@ -374,11 +369,6 @@ export default function BlogPostForm({
         title: title.trim(),
         excerpt: excerpt.trim() || undefined,
         content,
-        seoTitle: seoTitle.trim() || undefined,
-        metaDescription: metaDescription.trim() || undefined,
-        canonicalUrl: canonicalUrl.trim() || undefined,
-        focusKeyword: focusKeyword.trim() || undefined,
-        coverImageAlt: coverImageAlt.trim() || undefined,
         status,
         categoryId: categoryId ? Number(categoryId) : undefined,
         tagIds: selectedTagIds,
@@ -485,7 +475,7 @@ export default function BlogPostForm({
             <Select
               value={status || undefined}
               onValueChange={(value) => {
-                setStatus(value as "DRAFT" | "IN_REVIEW" | "PUBLISHED");
+                setStatus(value as "DRAFT" | "PUBLISHED");
                 if (errors.status) {
                   setErrors((prev) => ({ ...prev, status: undefined }));
                 }
@@ -565,73 +555,6 @@ export default function BlogPostForm({
               className="min-h-[88px] resize-none border-slate-200 bg-white text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400"
               rows={3}
             />
-          </div>
-
-          <div className="space-y-4 rounded-[4px] border border-slate-200 bg-slate-50/60 p-4 md:col-span-12">
-            <div>
-              <Label className={fieldLabelClass}>Thiết lập SEO</Label>
-              <p className="mt-0.5 text-[10px] text-slate-400">
-                Các trường này dùng để tối ưu hiển thị Google; focus keyword chỉ là ghi chú biên tập nội bộ.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-              <div className="space-y-1.5 md:col-span-6">
-                <Label className={fieldLabelClass}>SEO title</Label>
-                <Input
-                  value={seoTitle}
-                  onChange={(e) => setSeoTitle(e.target.value)}
-                  placeholder="Để trống sẽ dùng tiêu đề bài viết"
-                  className={cn(fieldControlClass, "border-slate-200 bg-white")}
-                  maxLength={255}
-                />
-              </div>
-
-              <div className="space-y-1.5 md:col-span-6">
-                <Label className={fieldLabelClass}>Alt ảnh bìa</Label>
-                <Input
-                  value={coverImageAlt}
-                  onChange={(e) => setCoverImageAlt(e.target.value)}
-                  placeholder="Mô tả đúng nội dung ảnh bìa"
-                  className={cn(fieldControlClass, "border-slate-200 bg-white")}
-                  maxLength={255}
-                />
-              </div>
-
-              <div className="space-y-1.5 md:col-span-12">
-                <Label className={fieldLabelClass}>Meta description</Label>
-                <Textarea
-                  value={metaDescription}
-                  onChange={(e) => setMetaDescription(e.target.value)}
-                  placeholder="Để trống sẽ dùng mô tả ngắn hoặc trích nội dung bài viết"
-                  className="min-h-[76px] resize-none border-slate-200 bg-white text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400"
-                  maxLength={320}
-                  rows={2}
-                />
-              </div>
-
-              <div className="space-y-1.5 md:col-span-6">
-                <Label className={fieldLabelClass}>Canonical URL</Label>
-                <Input
-                  value={canonicalUrl}
-                  onChange={(e) => setCanonicalUrl(e.target.value)}
-                  placeholder="Để trống sẽ dùng /blog/slug hiện tại"
-                  className={cn(fieldControlClass, "border-slate-200 bg-white")}
-                  maxLength={500}
-                />
-              </div>
-
-              <div className="space-y-1.5 md:col-span-6">
-                <Label className={fieldLabelClass}>Focus keyword</Label>
-                <Input
-                  value={focusKeyword}
-                  onChange={(e) => setFocusKeyword(e.target.value)}
-                  placeholder="Ghi chú nội bộ, không xuất ra meta keywords"
-                  className={cn(fieldControlClass, "border-slate-200 bg-white")}
-                  maxLength={255}
-                />
-              </div>
-            </div>
           </div>
 
           <div className="space-y-2 md:col-span-12">

@@ -18,8 +18,7 @@ const SUPPORT_LINKS = [
 ];
 
 const ABOUT_LINKS = [
-  { label: "Giới thiệu công ty", href: "/gioi-thieu" },
-  { label: "Vật tư thủy sản", href: "/vat-tu-thuy-san" },
+  { label: "Giới thiệu công ty", href: "/about" },
   { label: "Tin tức & Blog",     href: "/blog" },
   { label: "Hệ thống đại lý",   href: "/store-locator" },
   { label: "Tuyển dụng",         href: "/careers" },

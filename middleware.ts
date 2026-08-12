@@ -34,11 +34,6 @@ const ADMIN_ROUTE_PERMISSIONS: { path: string; permission: string }[] = [
 const PUBLIC_PATHS = [
   "/",
   "/san-pham",
-  "/danh-muc",
-  "/vat-tu-thuy-san",
-  "/chan-doan-benh-tom-bang-ai",
-  "/benh-tom",
-  "/gioi-thieu",
   "/product",
   "/category",
   "/store",
@@ -173,67 +168,6 @@ function handleAuth(req: NextRequest): NextResponse {
 
 const VISITOR_COOKIE = "visitor_id";
 
-type PublicCategoryForRedirect = {
-  id?: number;
-  slug?: string | null;
-};
-
-async function resolveLegacyCategoryRedirect(req: NextRequest) {
-  const path = req.nextUrl.pathname;
-  if (path !== "/san-pham") return null;
-
-  const params = req.nextUrl.searchParams;
-  const keys = Array.from(params.keys());
-  const categoryId = params.get("categoryId");
-
-  if (!categoryId || keys.length !== 1) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(new URL("/api/public/categories", req.url), {
-      headers: { accept: "application/json" },
-      cache: "no-store",
-    });
-    if (!response.ok) return null;
-
-    const categories = (await response.json()) as PublicCategoryForRedirect[];
-    const category = categories.find((item) => String(item.id) === categoryId);
-    if (!category?.slug) return null;
-
-    return NextResponse.redirect(new URL(`/danh-muc/${category.slug}`, req.url), 301);
-  } catch {
-    return null;
-  }
-}
-
-function shouldNoindex(path: string, search: string) {
-  if (
-    path.startsWith("/admin") ||
-    path.startsWith("/account") ||
-    path.startsWith("/ai-doctor") ||
-    path.startsWith("/login") ||
-    path.startsWith("/signup") ||
-    path.startsWith("/reset-password") ||
-    path.startsWith("/profile") ||
-    path.startsWith("/edit-profile") ||
-    path.startsWith("/address") ||
-    path.startsWith("/orders") ||
-    path.startsWith("/voucher") ||
-    path.startsWith("/checkout") ||
-    path.startsWith("/cart") ||
-    path.startsWith("/user/cart") ||
-    path.startsWith("/user/checkout") ||
-    path.startsWith("/chat") ||
-    path.startsWith("/advisor") ||
-    path.startsWith("/agronomist")
-  ) {
-    return true;
-  }
-
-  return Boolean(search) && (path === "/san-pham" || path === "/blog");
-}
-
 // "Lượt truy cập" ở trang tổng quan đo traffic khách ghé storefront, không tính thao tác
 // nội bộ của nhân viên trong /admin nên các đường dẫn quản trị bị loại khỏi tracking.
 function isTrackablePath(path: string) {
@@ -242,24 +176,13 @@ function isTrackablePath(path: string) {
     !path.startsWith("/api") &&
     !path.startsWith("/images") &&
     path !== "/favicon.ico" &&
-    path !== "/robots.txt" &&
-    path !== "/sitemap.xml" &&
     !path.startsWith("/admin")
   );
 }
 
-export async function middleware(req: NextRequest, event: NextFetchEvent) {
-  const legacyCategoryRedirect = await resolveLegacyCategoryRedirect(req);
-  if (legacyCategoryRedirect) {
-    return legacyCategoryRedirect;
-  }
-
+export function middleware(req: NextRequest, event: NextFetchEvent) {
   const res = handleAuth(req);
   const path = req.nextUrl.pathname;
-
-  if (shouldNoindex(path, req.nextUrl.search)) {
-    res.headers.set("X-Robots-Tag", "noindex, follow");
-  }
 
   if (isTrackablePath(path)) {
     let visitorId = req.cookies.get(VISITOR_COOKIE)?.value;

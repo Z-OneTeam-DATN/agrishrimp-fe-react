@@ -47,7 +47,7 @@ export interface ProductListItem {
   supplierName?: string;
   brandId?: number;
   brandName?: string;
-  category?: { id: number; name: string; slug?: string | null };
+  category?: { id: number; name: string };
   imageUrls: string[];
   variants: ProductVariant[];
   soldCount?: number;
@@ -150,7 +150,6 @@ export interface PublicProductVariant {
 export interface PublicProductCategory {
   id: number;
   name: string;
-  slug?: string | null;
 }
 
 export interface PublicProductListItem {

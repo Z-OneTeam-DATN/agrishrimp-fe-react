@@ -60,12 +60,10 @@ export default function MegaMenuDropdown() {
 
   const parents = categories.filter((c) => !c.parentId || c.parentId === 0);
   const getChildren = (pid: number) => categories.filter((c) => c.parentId === pid && c.parentId !== 0);
-  const categoryHref = (category: CategoryDTO) =>
-    category.slug ? `/danh-muc/${category.slug}` : `/san-pham?categoryId=${category.id}`;
   return (
     <div ref={wrapperRef} className="relative flex h-full items-center" onMouseLeave={scheduleClose}>
       <Link
-        href="/vat-tu-thuy-san"
+        href="/san-pham"
         aria-expanded={isOpen}
         aria-haspopup="menu"
         onMouseEnter={open}
@@ -109,7 +107,7 @@ export default function MegaMenuDropdown() {
                       onMouseEnter={() => setActiveParentId(cat.id)}
                     >
                       <Link
-                        href={categoryHref(cat)}
+                        href={`/san-pham?categoryId=${cat.id}`}
                         onClick={() => setIsOpen(false)}
                         className={`flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3 transition-colors ${
                           isActive
@@ -133,7 +131,7 @@ export default function MegaMenuDropdown() {
                           {children.map((child) => (
                             <Link
                               key={child.id}
-                              href={categoryHref(child)}
+                              href={`/san-pham?categoryId=${child.id}`}
                               onClick={() => setIsOpen(false)}
                               className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 text-[12px] text-gray-700 transition-colors last:border-b-0 hover:bg-slate-50 hover:text-[#2f5f98]"
                             >

@@ -173,17 +173,3 @@ export const getPublicCategories = async (): Promise<CategoryDTO[]> => {
 
   return publicCategoriesInFlight;
 };
-
-export const getPublicCategoryBySlug = async (
-  slug: string,
-): Promise<CategoryDTO | null> => {
-  try {
-    const response = await apiJava.get<CategoryDTO>(
-      buildJavaApiUrl(`/public/categories/slug/${slug}` as any),
-      { isPublic: true } as any,
-    );
-    return normalizeCategoryItem(response.data);
-  } catch {
-    return null;
-  }
-};
