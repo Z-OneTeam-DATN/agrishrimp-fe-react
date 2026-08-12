@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/axios";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import {
   AgronomistPanel,
@@ -132,6 +133,22 @@ const optionalText = (value: string) => {
 
 const numberOrFallback = (value: number, fallback: number) =>
   Number.isFinite(Number(value)) ? Number(value) : fallback;
+
+const resolveProductOptionImage = (product: PublicProductListItem) => {
+  const imageCandidates = [
+    ...(product.variants ?? []).flatMap((variant) =>
+      (variant.imageUrl || "").split(","),
+    ),
+    ...(product.imageUrls ?? []).flatMap((imageUrl) =>
+      (imageUrl || "").split(","),
+    ),
+  ]
+    .map((imageUrl) => imageUrl.trim())
+    .filter((imageUrl) => imageUrl && imageUrl !== "/placeholder.svg");
+
+  const firstImage = imageCandidates[0];
+  return firstImage ? resolveImageUrl(firstImage, "/placeholder.svg") : null;
+};
 
 function buildDiseasePayload(form: DiseaseFormState): DiseasePayload {
   return {
@@ -376,10 +393,7 @@ export default function DiseaseForm({
       (productsQuery.data ?? []).map((product: PublicProductListItem) => ({
         id: product.id,
         label: `${product.name} #${product.id}`,
-        imageUrl:
-          product.variants?.find((variant) => variant.imageUrl)?.imageUrl ||
-          product.imageUrls?.[0] ||
-          null,
+        imageUrl: resolveProductOptionImage(product),
       })),
     [productsQuery.data],
   );

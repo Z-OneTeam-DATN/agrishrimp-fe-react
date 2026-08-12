@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Check, ChevronDown, ImageOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -168,6 +168,13 @@ function ProductThumb({
   label: string;
   className: string;
 }) {
+  const [hasImageError, setHasImageError] = useState(false);
+  const shouldShowImage = Boolean(imageUrl) && !hasImageError;
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [imageUrl]);
+
   return (
     <span
       className={cn(
@@ -175,13 +182,15 @@ function ProductThumb({
         className,
       )}
     >
-      {imageUrl ? (
+      {shouldShowImage ? (
         <Image
-          src={imageUrl}
+          src={imageUrl!}
           alt={label}
           fill
+          unoptimized
           sizes="36px"
-          className="object-cover"
+          className="object-contain p-0.5"
+          onError={() => setHasImageError(true)}
         />
       ) : (
         <ImageOff className="h-4 w-4" />

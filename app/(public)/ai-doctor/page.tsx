@@ -301,7 +301,9 @@ export default function AiDoctorChatPage() {
         return;
       }
 
-      pushEntry({ kind: "bot-plain", text: data.message });
+      // Tu Buoc "cho vao bang" — message gio la HTML co cau truc (bang benh nghi ngo + anh neu co),
+      // khong con la van ban thuan, nen render bang bot-html (dangerouslySetInnerHTML) thay vi bot-plain.
+      pushEntry({ kind: "bot-html", html: data.message });
 
       if (data.type === "ESCALATED") {
         setClarifySession(null);
@@ -587,7 +589,7 @@ export default function AiDoctorChatPage() {
                   )}
 
                   {entry.text && (
-                    <div className="max-w-[88%] rounded-[18px] rounded-br-md bg-[#1965A2] px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
+                    <div className="max-w-[88%] whitespace-pre-line rounded-[18px] rounded-br-md bg-[#1965A2] px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
                       {entry.text}
                     </div>
                   )}
@@ -615,7 +617,7 @@ export default function AiDoctorChatPage() {
                   <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
                     <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
                   </div>
-                  <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
+                  <div className="max-w-[78%] whitespace-pre-line rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
                     {entry.text}
                   </div>
                 </div>
@@ -637,7 +639,7 @@ export default function AiDoctorChatPage() {
                         dangerouslySetInnerHTML={{ __html: diagnosis.aiDescription as string }}
                       />
                     ) : (
-                      <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
+                      <div className="max-w-[78%] whitespace-pre-line rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
                         {diagnosis.signsSummary || "Bác sĩ đã xem xong ảnh của bà con."}
                       </div>
                     )}
