@@ -12,6 +12,8 @@ import {
   UserCircle,
   Building2,
   FileBarChart,
+  FileSpreadsheet,
+  FlaskConical,
   Settings,
   Truck,
   TrendingUp,
@@ -27,6 +29,7 @@ import {
   Image as ImageIcon,
   BookOpen,
   MessageCircle,
+  NotebookPen,
   Stethoscope,
   History,
 } from "lucide-react";
@@ -123,6 +126,29 @@ const INVENTORY_CHECK_PERMISSIONS = [
   P.CHECK_DELETE,
 ];
 
+const CUSTOMER_CHAT_PERMISSIONS = [
+  P.CUSTOMER_ADVISOR_USE,
+  P.CHAT_VIEW,
+];
+
+const AI_KNOWLEDGE_SECTION_PERMISSIONS = [
+  P.AGRONOMIST_WORKSPACE_USE,
+  P.AI_KNOWLEDGE_VIEW,
+  P.AI_KNOWLEDGE_CREATE,
+  P.AI_KNOWLEDGE_UPDATE,
+  P.AI_KNOWLEDGE_APPROVE,
+  P.AI_IMPORT_KNOWLEDGE,
+  P.AI_CASE_REVIEW,
+];
+
+const AI_KNOWLEDGE_DISEASE_PERMISSIONS = [
+  P.AGRONOMIST_WORKSPACE_USE,
+  P.AI_KNOWLEDGE_VIEW,
+  P.AI_KNOWLEDGE_CREATE,
+  P.AI_KNOWLEDGE_UPDATE,
+  P.AI_IMPORT_KNOWLEDGE,
+];
+
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { user, accessToken, isLoadingAuth } = useAuthStore();
@@ -136,6 +162,7 @@ export default function AdminSidebar() {
   const canAccessExports = hasAnyPermission(EXPORT_PERMISSIONS);
   const canAccessTransfers = hasAnyPermission(TRANSFER_PERMISSIONS);
   const canAccessInventoryChecks = hasAnyPermission(INVENTORY_CHECK_PERMISSIONS);
+  const canAccessCustomerChat = hasAnyPermission(CUSTOMER_CHAT_PERMISSIONS);
   const canAccessRoleModule = hasAnyPermission([
     P.ROLE_VIEW,
     P.ROLE_CREATE,
@@ -166,7 +193,7 @@ export default function AdminSidebar() {
     P.ORDER_VIEW,
     P.VOUCHER_VIEW,
     P.CUSTOMER_VIEW,
-  ]);
+  ]) || canAccessCustomerChat;
   const canViewCatalogSection = hasAnyPermission([
     P.PRODUCT_VIEW,
     P.CATEGORY_VIEW,
@@ -193,9 +220,28 @@ export default function AdminSidebar() {
   const canAccessOrderManagement =
     hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
   const canViewBannerSection = hasPermission(P.BANNER_VIEW);
-  const canViewBlogSection = hasPermission(P.BLOG_VIEW);
+  const canViewBlogSection = hasAnyPermission([
+    P.BLOG_VIEW,
+    P.BLOG_CREATE,
+    P.BLOG_EDIT,
+    P.BLOG_DELETE,
+    P.BLOG_APPROVE,
+  ]);
+  const canManageAiKnowledgeDiseases = hasAnyPermission(
+    AI_KNOWLEDGE_DISEASE_PERMISSIONS,
+  );
+  const canViewAiKnowledgeCategories = hasAnyPermission([
+    P.AGRONOMIST_WORKSPACE_USE,
+    P.AI_KNOWLEDGE_VIEW,
+    P.AI_KNOWLEDGE_CREATE,
+    P.AI_KNOWLEDGE_UPDATE,
+  ]);
+  const canReviewAiCases = hasPermission(P.AI_CASE_REVIEW);
+  const canImportAiKnowledge = hasPermission(P.AI_IMPORT_KNOWLEDGE);
   const canApproveAiKnowledge = hasPermission(P.AI_KNOWLEDGE_APPROVE);
-  const canViewAiKnowledgeSection = canApproveAiKnowledge;
+  const canViewAiKnowledgeSection = hasAnyPermission(
+    AI_KNOWLEDGE_SECTION_PERMISSIONS,
+  );
   const workspaceLabel = hasAnyPermission([P.ROLE_VIEW, P.STAFF_VIEW, P.BRANCH_VIEW])
     ? "Quản trị"
     : hasAnyPermission([
@@ -695,12 +741,12 @@ export default function AdminSidebar() {
                   color="text-blue-400"
                 />
               )}
-              {hasPermission(P.CHAT_VIEW) && (
+              {canAccessCustomerChat && (
                 <SidebarLink
-                  href="/chat"
+                  href="/admin/chat"
                   icon={MessageCircle}
                   label="Chat khách hàng"
-                  active={pathname === "/chat" || isActive("/admin/chat")}
+                  active={isActive("/admin/chat")}
                   color="text-blue-400"
                 />
               )}
@@ -834,13 +880,60 @@ export default function AdminSidebar() {
               AI Doctor
             </p>
             <div className="space-y-0.5">
-              <SidebarLink
-                href="/admin/ai-knowledge/approvals"
-                icon={Stethoscope}
-                label="Duyệt phác đồ"
-                active={isActive("/admin/ai-knowledge/approvals")}
-                color="text-emerald-400"
-              />
+              {canManageAiKnowledgeDiseases && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/diseases"
+                  icon={NotebookPen}
+                  label="Quản lý phác đồ"
+                  active={isActive("/admin/ai-knowledge/diseases")}
+                  color="text-emerald-400"
+                />
+              )}
+              {canViewAiKnowledgeCategories && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/categories"
+                  icon={Tags}
+                  label="Danh mục bệnh"
+                  active={isActive("/admin/ai-knowledge/categories")}
+                  color="text-emerald-400"
+                />
+              )}
+              {canReviewAiCases && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/review"
+                  icon={Stethoscope}
+                  label="Câu hỏi chưa đáp"
+                  active={isActive("/admin/ai-knowledge/review")}
+                  color="text-emerald-400"
+                />
+              )}
+              {canImportAiKnowledge && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/import"
+                  icon={FileSpreadsheet}
+                  label="Import Excel"
+                  active={isActive("/admin/ai-knowledge/import")}
+                  color="text-emerald-400"
+                />
+              )}
+              {canApproveAiKnowledge && (
+                <>
+                  <SidebarLink
+                    href="/admin/ai-knowledge/approvals"
+                    icon={ShieldCheck}
+                    label="Duyệt phác đồ"
+                    active={isActive("/admin/ai-knowledge/approvals")}
+                    color="text-emerald-400"
+                  />
+                  <SidebarLink
+                    href="/admin/ai-knowledge/tester"
+                    icon={FlaskConical}
+                    label="Chat thử nghiệm"
+                    active={isActive("/admin/ai-knowledge/tester")}
+                    color="text-emerald-400"
+                  />
+                </>
+              )}
             </div>
           </section>
         )}

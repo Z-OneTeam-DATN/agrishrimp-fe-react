@@ -59,6 +59,7 @@ export default function AgronomistDiseasesPage() {
   return (
     <PermissionGuard
       anyOf={[
+        P.AGRONOMIST_WORKSPACE_USE,
         P.AI_KNOWLEDGE_VIEW,
         P.AI_KNOWLEDGE_CREATE,
         P.AI_KNOWLEDGE_UPDATE,
@@ -105,7 +106,7 @@ function AgronomistDiseasesContent() {
 
   useEffect(() => {
     if (searchParams.get("panel") === "import" && canImportKnowledge) {
-      router.replace("/agronomist/import", { scroll: false });
+      router.replace("/admin/ai-knowledge/import", { scroll: false });
     }
   }, [canImportKnowledge, router, searchParams]);
 
@@ -192,7 +193,7 @@ function AgronomistDiseasesContent() {
                   Tải file mẫu
                 </button>
                 <Link
-                  href="/agronomist/import"
+                  href="/admin/ai-knowledge/import"
                   className={agronomistOutlineButtonClassName}
                 >
                   <FileSpreadsheet className="h-4 w-4" />
@@ -202,7 +203,7 @@ function AgronomistDiseasesContent() {
             ) : null}
             {canCreate ? (
               <Link
-                href="/agronomist/diseases/new"
+                href="/admin/ai-knowledge/diseases/new"
                 className={agronomistPrimaryButtonClassName}
               >
                 <Plus className="h-4 w-4" />
@@ -327,7 +328,7 @@ function AgronomistDiseasesContent() {
                     </td>
                     <td className="px-4 py-4 align-top">
                       <div className="flex justify-center gap-2">
-                        <Link href={`/agronomist/diseases/${item.id}/edit`}>
+                        <Link href={`/admin/ai-knowledge/diseases/${item.id}/edit`}>
                           <Button
                             type="button"
                             variant="outline"

@@ -4,11 +4,8 @@ import { isAdminRole } from "@/lib/roles";
 export const ADVISOR_WORKSPACE_PERMISSIONS = [P.CUSTOMER_ADVISOR_USE] as const;
 export const AGRONOMIST_WORKSPACE_PERMISSIONS = [P.AGRONOMIST_WORKSPACE_USE] as const;
 export const LAST_WORKSPACE_STORAGE_KEY = "lastWorkspace";
-export type WorkspaceRoute = "/admin" | "/agronomist" | "/chat";
+export type WorkspaceRoute = "/admin";
 
-// LƯU Ý: KHÔNG thêm P.BLOG_VIEW vào đây — quyền này giờ cũng được cấp cho vai trò kỹ sư (workspace
-// /agronomist/blog) để họ gửi bài chờ duyệt, nên nếu tính vào đây thì kỹ sư sẽ "lọt" được vào cả
-// khu vực /admin (sidebar hiện ra, "Quay lại quản trị" hiện ra) dù không có quyền admin thật nào.
 export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.DASHBOARD_VIEW,
   P.ACTIVITY_LOG_VIEW,
@@ -32,7 +29,20 @@ export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.PURCHASE_REQUEST_VIEW,
   P.BANNER_VIEW,
   P.SETTING_VIEW,
+  P.BLOG_VIEW,
+  P.BLOG_CREATE,
+  P.BLOG_EDIT,
+  P.BLOG_DELETE,
+  P.BLOG_APPROVE,
   P.CHAT_VIEW,
+  P.CUSTOMER_ADVISOR_USE,
+  P.AGRONOMIST_WORKSPACE_USE,
+  P.AI_KNOWLEDGE_VIEW,
+  P.AI_KNOWLEDGE_CREATE,
+  P.AI_KNOWLEDGE_UPDATE,
+  P.AI_KNOWLEDGE_APPROVE,
+  P.AI_IMPORT_KNOWLEDGE,
+  P.AI_CASE_REVIEW,
 ] as const;
 
 export const ACTIVITY_LOG_PERMISSIONS = [P.ACTIVITY_LOG_VIEW] as const;
@@ -65,14 +75,6 @@ export function getAvailableWorkspaces(
     workspaces.push("/admin");
   }
 
-  if (hasAgronomistWorkspacePermission(permissions)) {
-    workspaces.push("/agronomist");
-  }
-
-  if (hasAdvisorWorkspacePermission(permissions)) {
-    workspaces.push("/chat");
-  }
-
   return workspaces;
 }
 
@@ -82,9 +84,7 @@ export function getLastWorkspace(): WorkspaceRoute | null {
   }
 
   const workspace = window.localStorage.getItem(LAST_WORKSPACE_STORAGE_KEY);
-  return workspace === "/admin" || workspace === "/chat" || workspace === "/agronomist"
-    ? workspace
-    : null;
+  return workspace === "/admin" ? workspace : null;
 }
 
 export function setLastWorkspace(workspace: WorkspaceRoute) {
@@ -107,10 +107,33 @@ const ADMIN_PERMISSION_DESTINATIONS: Array<{
   { permissions: [P.ORDER_VIEW], href: "/admin/orders" },
   { permissions: [P.CUSTOMER_VIEW], href: "/admin/customers" },
   { permissions: [P.VOUCHER_VIEW], href: "/admin/vouchers" },
+  { permissions: [P.CUSTOMER_ADVISOR_USE, P.CHAT_VIEW], href: "/admin/chat" },
+  {
+    permissions: [
+      P.AGRONOMIST_WORKSPACE_USE,
+      P.AI_KNOWLEDGE_VIEW,
+      P.AI_KNOWLEDGE_CREATE,
+      P.AI_KNOWLEDGE_UPDATE,
+      P.AI_IMPORT_KNOWLEDGE,
+    ],
+    href: "/admin/ai-knowledge/diseases",
+  },
+  { permissions: [P.AI_CASE_REVIEW], href: "/admin/ai-knowledge/review" },
+  { permissions: [P.AI_KNOWLEDGE_APPROVE], href: "/admin/ai-knowledge/approvals" },
   { permissions: [P.PRODUCT_VIEW], href: "/admin/products" },
   { permissions: [P.CATEGORY_VIEW], href: "/admin/categories" },
   { permissions: [P.ATTRIBUTE_VIEW], href: "/admin/variants" },
   { permissions: [P.BANNER_VIEW], href: "/admin/banners" },
+  {
+    permissions: [
+      P.BLOG_VIEW,
+      P.BLOG_CREATE,
+      P.BLOG_EDIT,
+      P.BLOG_DELETE,
+      P.BLOG_APPROVE,
+    ],
+    href: "/admin/blog/posts",
+  },
   { permissions: [P.PURCHASE_REQUEST_VIEW], href: "/admin/purchase-requests" },
   { permissions: [P.IMPORT_VIEW], href: "/admin/receipts" },
   { permissions: [P.EXPORT_VIEW], href: "/admin/exports" },
@@ -146,9 +169,7 @@ export function getPostLoginDestination(permissions: string[] = [], roleSlug?: s
     return "/";
   }
 
-  // Admin/super-admin luôn vào thẳng /admin, bỏ qua "lastWorkspace" đã nhớ trước đó — tránh bị
-  // dẫn nhầm sang /agronomist hay /chat chỉ vì lần trước tài khoản này từng ghé workspace đó
-  // (VD để test tính năng của kỹ sư/tư vấn).
+  // Admin/super-admin luôn vào thẳng /admin, bỏ qua lựa chọn workspace đã nhớ trước đó.
   if (isAdminRole(roleSlug)) {
     return "/admin";
   }
@@ -156,24 +177,12 @@ export function getPostLoginDestination(permissions: string[] = [], roleSlug?: s
   const availableWorkspaces = getAvailableWorkspaces(permissions);
   const lastWorkspace = getLastWorkspace();
 
-  if (
-    lastWorkspace &&
-    lastWorkspace !== "/admin" &&
-    availableWorkspaces.includes(lastWorkspace)
-  ) {
+  if (lastWorkspace && availableWorkspaces.includes(lastWorkspace)) {
     return lastWorkspace;
   }
 
   if (availableWorkspaces.includes("/admin")) {
     return getDefaultAdminRoute(permissions);
-  }
-
-  if (availableWorkspaces.includes("/agronomist")) {
-    return "/agronomist";
-  }
-
-  if (availableWorkspaces.includes("/chat")) {
-    return "/chat";
   }
 
   return "/";

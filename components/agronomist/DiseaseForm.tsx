@@ -395,7 +395,7 @@ export default function DiseaseForm({
       toast.success(
         "Đã lưu phác đồ. Phác đồ đang ở trạng thái chờ Admin duyệt trước khi AI dùng để trả lời.",
       );
-      router.push("/agronomist/diseases");
+      router.push("/admin/ai-knowledge/diseases");
     },
     onError: (error: unknown) => {
       const message = getErrorMessage(error) || "Không thể lưu phác đồ.";
@@ -887,7 +887,7 @@ export default function DiseaseForm({
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/agronomist/diseases")}
+          onClick={() => router.push("/admin/ai-knowledge/diseases")}
           className={cn(agronomistOutlineButtonClassName, "h-10 px-6")}
         >
           Hủy

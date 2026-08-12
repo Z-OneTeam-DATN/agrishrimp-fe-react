@@ -6,8 +6,6 @@ import {
   LogOut,
   MapPin,
   Clock,
-  MessageCircle,
-  Stethoscope,
 } from "lucide-react";
 import NotificationBell from "@/components/site/NotificationBell";
 import {
@@ -36,10 +34,6 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
 import { P } from "@/lib/permissions";
-import {
-  ADVISOR_WORKSPACE_PERMISSIONS,
-  AGRONOMIST_WORKSPACE_PERMISSIONS,
-} from "@/lib/workspace-permissions";
 import {
   ADMIN_ORDER_STATUS_PAGES,
   getAdminOrderStatusHref,
@@ -122,6 +116,14 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/vouchers/add": "Thêm voucher",
   "/admin/vouchers/edit": "Cập nhật voucher",
   "/admin/shipping/overview": "Tổng quan giao hàng",
+  "/admin/ai-knowledge": "AI Doctor",
+  "/admin/ai-knowledge/categories": "Danh mục bệnh",
+  "/admin/ai-knowledge/diseases": "Quản lý phác đồ",
+  "/admin/ai-knowledge/diseases/new": "Thêm phác đồ",
+  "/admin/ai-knowledge/diseases/edit": "Chỉnh sửa phác đồ",
+  "/admin/ai-knowledge/import": "Import Excel",
+  "/admin/ai-knowledge/review": "Câu hỏi chưa đáp",
+  "/admin/ai-knowledge/tester": "Chat thử nghiệm",
   "/admin/ai-knowledge/approvals": "Duyệt phác đồ",
 };
 
@@ -144,15 +146,9 @@ export default function AdminTopHeader() {
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
-  const { hasPermission, hasAnyPermission } = usePermissions();
+  const { hasPermission } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const canAccessAdvisorWorkspace = hasAnyPermission(
-    ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]
-  );
-  const canAccessAgronomistWorkspace = hasAnyPermission(
-    AGRONOMIST_WORKSPACE_PERMISSIONS as unknown as string[]
-  );
   const shouldFetchBranchDirectory =
     !!accessToken &&
     hasPermission(P.BRANCH_VIEW) &&
@@ -384,25 +380,6 @@ export default function AdminTopHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
-            {canAccessAdvisorWorkspace ? (
-              <DropdownMenuItem asChild className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
-                <Link href="/chat">
-                  <MessageCircle className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
-                  <span className="text-[13px] font-medium">Qua chat</span>
-                </Link>
-              </DropdownMenuItem>
-            ) : null}
-            {canAccessAgronomistWorkspace ? (
-              <DropdownMenuItem asChild className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
-                <Link href="/agronomist/diseases">
-                  <Stethoscope className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
-                  <span className="text-[13px] font-medium">Qua AI Doctor</span>
-                </Link>
-              </DropdownMenuItem>
-            ) : null}
-            {(canAccessAdvisorWorkspace || canAccessAgronomistWorkspace) ? (
-              <DropdownMenuSeparator className="bg-slate-50 mx-2" />
-            ) : null}
             <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
               <User className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
               <span className="text-[13px] font-medium">Hồ sơ cá nhân</span>

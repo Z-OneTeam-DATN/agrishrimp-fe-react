@@ -46,13 +46,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
+import { EmployeeService } from "@/app/services/employee.service";
 import type {
   AiDiseaseKnowledge,
   AiKnowledgeChatConfig,
   AiKnowledgeStatus,
 } from "@/app/types/ai-knowledge.types";
+import type { UserResponse } from "@/app/types/employee.schema";
 
 const PAGE_SIZE = 20;
 
@@ -121,6 +130,7 @@ export default function AdminAiKnowledgeApprovalsPage() {
     fallbackContactName: "",
     fallbackContactPhone: "",
   });
+  const [selectedEngineerId, setSelectedEngineerId] = useState("");
   const [rejectTarget, setRejectTarget] = useState<AiDiseaseKnowledge | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -134,6 +144,38 @@ export default function AdminAiKnowledgeApprovalsPage() {
     queryFn: () => aiKnowledgeService.getConfig(),
   });
 
+  const engineersQuery = useQuery({
+    queryKey: ["employees", "agronomist-contact-options"],
+    queryFn: async () => {
+      const response = await EmployeeService.getAll({
+        permissionCode: P.AGRONOMIST_WORKSPACE_USE,
+        status: "ACTIVE",
+        page: 0,
+        size: 200,
+        sort: "fullName,asc",
+      });
+
+      return response.content ?? [];
+    },
+    enabled: isContactDialogOpen,
+  });
+
+  const engineerOptions = useMemo(
+    () =>
+      (engineersQuery.data ?? []).filter(
+        (employee: UserResponse) => employee.status === "ACTIVE",
+      ),
+    [engineersQuery.data],
+  );
+
+  const selectedEngineer = useMemo(
+    () =>
+      engineerOptions.find(
+        (employee) => String(employee.id) === selectedEngineerId,
+      ),
+    [engineerOptions, selectedEngineerId],
+  );
+
   useEffect(() => {
     if (configQuery.data) {
       setContactForm({
@@ -143,14 +185,53 @@ export default function AdminAiKnowledgeApprovalsPage() {
     }
   }, [configQuery.data]);
 
+  useEffect(() => {
+    if (!configQuery.data || engineerOptions.length === 0) {
+      setSelectedEngineerId("");
+      return;
+    }
+
+    const fallbackName = configQuery.data.fallbackContactName ?? "";
+    const fallbackPhone = configQuery.data.fallbackContactPhone ?? "";
+    const matchedEngineer = engineerOptions.find((employee) => {
+      const samePhone =
+        Boolean(fallbackPhone) && employee.phoneNumber === fallbackPhone;
+      const sameName =
+        Boolean(fallbackName) &&
+        normalizeSearch(employee.fullName) === normalizeSearch(fallbackName);
+
+      return samePhone || (sameName && !fallbackPhone);
+    });
+
+    if (matchedEngineer) {
+      setSelectedEngineerId(String(matchedEngineer.id));
+      setContactForm({
+        fallbackContactName: matchedEngineer.fullName,
+        fallbackContactPhone: matchedEngineer.phoneNumber ?? "",
+      });
+      return;
+    }
+
+    setSelectedEngineerId("");
+  }, [configQuery.data, engineerOptions]);
+
   const contactMutation = useMutation({
     mutationFn: () => {
+      if (!selectedEngineer) {
+        throw new Error("Vui lòng chọn kỹ sư liên hệ từ danh sách.");
+      }
+
+      const engineerPhone = selectedEngineer.phoneNumber?.trim();
+      if (!engineerPhone) {
+        throw new Error("Kỹ sư được chọn chưa có số điện thoại.");
+      }
+
       const current: Partial<AiKnowledgeChatConfig> = configQuery.data ?? {};
       return aiKnowledgeService.updateConfig({
         greetingMessage: current.greetingMessage,
         fallbackMessage: current.fallbackMessage,
-        fallbackContactName: contactForm.fallbackContactName,
-        fallbackContactPhone: contactForm.fallbackContactPhone,
+        fallbackContactName: selectedEngineer.fullName,
+        fallbackContactPhone: engineerPhone,
       });
     },
     onSuccess: async () => {
@@ -298,6 +379,19 @@ export default function AdminAiKnowledgeApprovalsPage() {
     rejectMutation.isPending ||
     visibilityMutation.isPending ||
     deleteMutation.isPending;
+
+  const handleSelectEngineer = (engineerId: string) => {
+    const engineer = engineerOptions.find(
+      (employee) => String(employee.id) === engineerId,
+    );
+    if (!engineer) return;
+
+    setSelectedEngineerId(engineerId);
+    setContactForm({
+      fallbackContactName: engineer.fullName,
+      fallbackContactPhone: engineer.phoneNumber ?? "",
+    });
+  };
 
   const handleRefresh = async () => {
     await diseasesQuery.refetch();
@@ -504,7 +598,7 @@ export default function AdminAiKnowledgeApprovalsPage() {
                                 label="Sửa phác đồ"
                                 className="hover:text-blue-600"
                                 onClick={() =>
-                                  router.push(`/agronomist/diseases/${item.id}/edit`)
+                                  router.push(`/admin/ai-knowledge/diseases/${item.id}/edit`)
                                 }
                               >
                                 <Pencil size={15} />
@@ -700,20 +794,46 @@ export default function AdminAiKnowledgeApprovalsPage() {
           <div className="space-y-4 px-6 py-5">
             <div>
               <label className="text-[11px] font-bold uppercase text-slate-500">
-                Tên kỹ sư
+                Chọn kỹ sư
               </label>
-              <Input
-                type="text"
-                value={contactForm.fallbackContactName}
-                onChange={(event) =>
-                  setContactForm((current) => ({
-                    ...current,
-                    fallbackContactName: event.target.value,
-                  }))
+              <Select
+                value={selectedEngineerId || undefined}
+                onValueChange={handleSelectEngineer}
+                disabled={
+                  engineersQuery.isLoading || engineerOptions.length === 0
                 }
-                placeholder="VD: Kỹ sư Nam"
-                className="mt-1.5 h-[38px] border-slate-200 bg-white text-[13px] shadow-none"
-              />
+              >
+                <SelectTrigger className="mt-1.5 h-[38px] border-slate-200 bg-white text-[13px] shadow-none">
+                  <SelectValue
+                    placeholder={
+                      engineersQuery.isLoading
+                        ? "Đang tải danh sách kỹ sư..."
+                        : "Chọn kỹ sư liên hệ"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {engineerOptions.map((employee) => (
+                    <SelectItem
+                      key={employee.id}
+                      value={String(employee.id)}
+                      className="text-[13px]"
+                    >
+                      {employee.fullName}
+                      {employee.phoneNumber ? ` - ${employee.phoneNumber}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {engineersQuery.isError ? (
+                <p className="mt-1.5 text-[11px] text-rose-500">
+                  Không thể tải danh sách kỹ sư.
+                </p>
+              ) : engineerOptions.length === 0 && !engineersQuery.isLoading ? (
+                <p className="mt-1.5 text-[11px] text-slate-400">
+                  Chưa có nhân sự đang hoạt động được cấp quyền kỹ sư.
+                </p>
+              ) : null}
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase text-slate-500">
@@ -722,14 +842,9 @@ export default function AdminAiKnowledgeApprovalsPage() {
               <Input
                 type="text"
                 value={contactForm.fallbackContactPhone}
-                onChange={(event) =>
-                  setContactForm((current) => ({
-                    ...current,
-                    fallbackContactPhone: event.target.value,
-                  }))
-                }
-                placeholder="VD: 0909123456"
-                className="mt-1.5 h-[38px] border-slate-200 bg-white text-[13px] shadow-none"
+                readOnly
+                placeholder="Tự hiển thị sau khi chọn kỹ sư"
+                className="mt-1.5 h-[38px] cursor-not-allowed border-slate-200 bg-slate-50 text-[13px] text-slate-600 shadow-none"
               />
             </div>
           </div>
@@ -746,7 +861,11 @@ export default function AdminAiKnowledgeApprovalsPage() {
             <Button
               type="button"
               onClick={() => contactMutation.mutate()}
-              disabled={contactMutation.isPending}
+              disabled={
+                !selectedEngineer ||
+                !selectedEngineer.phoneNumber?.trim() ||
+                contactMutation.isPending
+              }
               className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {contactMutation.isPending ? (

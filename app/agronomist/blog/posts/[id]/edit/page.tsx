@@ -46,7 +46,7 @@ export default function EditAgronomistBlogPostPage() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-1.5 text-sm text-slate-400 mb-3">
-          <Link href="/agronomist/blog/posts" className="hover:text-blue-600 transition-colors font-medium">
+          <Link href="/admin/blog/posts" className="hover:text-blue-600 transition-colors font-medium">
             Bài viết blog
           </Link>
           <ChevronRight size={14} />
@@ -55,7 +55,7 @@ export default function EditAgronomistBlogPostPage() {
         <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Chỉnh sửa bài viết</h1>
         <p className="mt-1 text-sm text-slate-500 line-clamp-1">{post.title}</p>
       </div>
-      <BlogPostForm categories={categories} initialData={post} redirectBasePath="/agronomist/blog/posts" stickyFooter={false} />
+      <BlogPostForm categories={categories} initialData={post} redirectBasePath="/admin/blog/posts" stickyFooter={false} />
     </div>
   );
 }

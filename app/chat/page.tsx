@@ -1,5 +1,5 @@
-import AdminChatPage from "@/app/admin/chat/page";
+import { redirect } from "next/navigation";
 
 export default function ChatPage() {
-  return <AdminChatPage />;
+  redirect("/admin/chat");
 }

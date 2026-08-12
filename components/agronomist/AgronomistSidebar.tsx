@@ -16,14 +16,14 @@ import { P } from "@/lib/permissions";
 
 const AGRONOMIST_NAV_ITEMS = [
   {
-    href: "/agronomist/categories",
+    href: "/admin/ai-knowledge/categories",
     label: "Quản lý danh mục",
     icon: Tags,
     permissions: [P.AI_KNOWLEDGE_VIEW],
     exact: false,
   },
   {
-    href: "/agronomist/diseases",
+    href: "/admin/ai-knowledge/diseases",
     label: "Quản lý phác đồ",
     icon: NotebookPen,
     permissions: [
@@ -35,28 +35,28 @@ const AGRONOMIST_NAV_ITEMS = [
     exact: false,
   },
   {
-    href: "/agronomist/review",
+    href: "/admin/ai-knowledge/review",
     label: "Câu hỏi chưa đáp",
     icon: Stethoscope,
     permissions: [P.AI_CASE_REVIEW],
     exact: false,
   },
   {
-    href: "/agronomist/import",
+    href: "/admin/ai-knowledge/import",
     label: "Import Excel",
     icon: FileSpreadsheet,
     permissions: [P.AI_IMPORT_KNOWLEDGE],
     exact: false,
   },
   {
-    href: "/agronomist/tester",
+    href: "/admin/ai-knowledge/tester",
     label: "Chat thử nghiệm",
     icon: FlaskConical,
     permissions: [P.AI_KNOWLEDGE_APPROVE],
     exact: false,
   },
   {
-    href: "/agronomist/blog/posts",
+    href: "/admin/blog/posts",
     label: "Bài viết blog",
     icon: Newspaper,
     permissions: [P.BLOG_VIEW, P.BLOG_CREATE],
@@ -64,9 +64,8 @@ const AGRONOMIST_NAV_ITEMS = [
   },
 ] as const;
 
-// Sidebar rieng cho khu vuc /agronomist — nam canh SiteHeader/SiteNavbar chung cua site (khong
-// tu dung header/avatar/dong ho rieng nhu ban cu), chi lo phan dieu huong giua cac muc quan ly tri
-// thuc AI Doctor de categories/review/tester khong bi "mo coi" (khong co duong dan nao toi).
+// Sidebar cũ của khu kỹ sư, giữ lại cho tương thích nếu còn import ở đâu đó.
+// Các link hiện trỏ về admin vì khu /agronomist không còn là workspace riêng.
 export function AgronomistSidebar() {
   const pathname = usePathname();
   const { hasPermission } = usePermissions();

@@ -55,7 +55,7 @@ export default function EditDiseasePage() {
       <div>
         <div className="mb-3 flex items-center gap-1.5 text-[12px] text-slate-400">
           <Link
-            href="/agronomist/diseases"
+            href="/admin/ai-knowledge/diseases"
             className="font-medium transition-colors hover:text-[#252896]"
           >
             Phác đồ điều trị
@@ -67,7 +67,7 @@ export default function EditDiseasePage() {
           title="Chỉnh sửa phác đồ"
           actions={
             <Link
-              href="/agronomist/diseases"
+              href="/admin/ai-knowledge/diseases"
               className={agronomistOutlineButtonClassName}
             >
               Quay lại

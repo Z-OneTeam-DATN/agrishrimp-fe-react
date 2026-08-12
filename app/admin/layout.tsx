@@ -70,9 +70,17 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/inventory-checks", anyOf: [P.CHECK_VIEW, P.CHECK_CREATE, P.CHECK_UPDATE, P.CHECK_APPROVE, P.CHECK_CANCEL, P.CHECK_DELETE] },
   { path: "/admin/settings", permission: P.SETTING_VIEW },
   { path: "/admin/banners", permission: P.BANNER_VIEW },
-  { path: "/admin/blog", permission: P.BLOG_VIEW },
-  { path: "/admin/chat", permission: P.CHAT_VIEW },
+  { path: "/admin/blog", anyOf: [P.BLOG_VIEW, P.BLOG_CREATE, P.BLOG_EDIT, P.BLOG_DELETE, P.BLOG_APPROVE] },
+  { path: "/admin/chat", anyOf: [P.CUSTOMER_ADVISOR_USE, P.CHAT_VIEW] },
   { path: "/admin/ai-knowledge/approvals", permission: P.AI_KNOWLEDGE_APPROVE },
+  { path: "/admin/ai-knowledge/categories", anyOf: [P.AGRONOMIST_WORKSPACE_USE, P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE] },
+  { path: "/admin/ai-knowledge/diseases/new", permission: P.AI_KNOWLEDGE_CREATE },
+  { path: "/admin/ai-knowledge/diseases/", permission: P.AI_KNOWLEDGE_UPDATE },
+  { path: "/admin/ai-knowledge/diseases", anyOf: [P.AGRONOMIST_WORKSPACE_USE, P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE, P.AI_IMPORT_KNOWLEDGE] },
+  { path: "/admin/ai-knowledge/import", permission: P.AI_IMPORT_KNOWLEDGE },
+  { path: "/admin/ai-knowledge/review", permission: P.AI_CASE_REVIEW },
+  { path: "/admin/ai-knowledge/tester", permission: P.AI_KNOWLEDGE_APPROVE },
+  { path: "/admin/ai-knowledge", anyOf: [P.AGRONOMIST_WORKSPACE_USE, P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE, P.AI_KNOWLEDGE_APPROVE, P.AI_IMPORT_KNOWLEDGE, P.AI_CASE_REVIEW] },
 ];
 
 export default function AdminLayout({

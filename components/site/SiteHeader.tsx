@@ -603,7 +603,7 @@ export default function Header() {
           </DropdownMenuItem>
           {isAgronomist && (
             <DropdownMenuItem asChild className="p-0 rounded-lg">
-              <Link href="/agronomist/diseases" className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg cursor-pointer">
+              <Link href="/admin/ai-knowledge/diseases" className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg cursor-pointer">
                 <NotebookPen size={15} className="text-gray-500" />
                 <span className="text-sm text-gray-700">Quản lý phác đồ</span>
               </Link>

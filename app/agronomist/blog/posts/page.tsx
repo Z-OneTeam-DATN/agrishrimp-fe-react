@@ -202,7 +202,7 @@ export default function AgronomistBlogPostsPage() {
 
           {canCreate && (
             <div className="flex flex-wrap justify-end gap-2">
-              <Link href="/agronomist/blog/posts/new">
+              <Link href="/admin/blog/posts/new">
                 <Button className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
                   <Plus size={15} className="mr-1.5" />
                   Viết bài mới
@@ -270,7 +270,7 @@ export default function AgronomistBlogPostsPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           {canEdit && (
-                            <Link href={`/agronomist/blog/posts/${post.id}/edit`}>
+                            <Link href={`/admin/blog/posts/${post.id}/edit`}>
                               <Button variant="ghost" size="icon" title="Chỉnh sửa" className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-blue-50 hover:text-blue-600">
                                 <Edit size={14} />
                               </Button>

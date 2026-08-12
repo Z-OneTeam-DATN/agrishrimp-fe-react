@@ -18,7 +18,7 @@ export default function NewAgronomistBlogPostPage() {
           Viết bài mới
         </h1>
       </div>
-      <BlogPostForm categories={categories} redirectBasePath="/agronomist/blog/posts" stickyFooter={false} />
+      <BlogPostForm categories={categories} redirectBasePath="/admin/blog/posts" stickyFooter={false} />
     </div>
   );
 }

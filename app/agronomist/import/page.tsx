@@ -80,7 +80,7 @@ function AgronomistImportContent() {
     onSuccess: (data) => {
       setPreview(data);
       toast.success(`Đã import ${data.validRows} dòng hợp lệ.`);
-      router.push("/agronomist/diseases");
+      router.push("/admin/ai-knowledge/diseases");
     },
     onError: (error: unknown) =>
       toast.error(getErrorMessage(error) || "Không thể xác nhận import."),
@@ -193,7 +193,7 @@ function AgronomistImportContent() {
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#dcdfe8] bg-white px-6 py-4 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] lg:left-[260px]">
           <div className="ml-auto flex max-w-[420px] items-center justify-end gap-4">
             <Link
-              href="/agronomist/diseases"
+              href="/admin/ai-knowledge/diseases"
               className="inline-flex h-[38px] items-center px-4 text-[14px] font-semibold text-[#d2453f]"
             >
               Hủy import

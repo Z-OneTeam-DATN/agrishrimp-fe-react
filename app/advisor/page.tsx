@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AdvisorRootPage() {
-  redirect("/chat");
+  redirect("/admin/chat");
 }
