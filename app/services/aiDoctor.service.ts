@@ -146,6 +146,20 @@ export const aiDoctorService = {
     return response.data;
   },
 
+  async generatePrescriptionForSubStage(
+    diagnosisId: string | number,
+    stageIndex: number,
+    subStageIndex: number,
+  ) {
+    const response = await apiJava.post<AiDoctorDiagnosisResponse>(
+      `/ai-doctor/diagnosis/${diagnosisId}/prescription/stages/${stageIndex}/sub-stages/${subStageIndex}`,
+      {},
+      { timeout: 120000 },
+    );
+    persistDiagnosis(response.data);
+    return response.data;
+  },
+
   saveClientImage(diagnosisId: string | number, clientImageUrl: string) {
     if (!canUseStorage()) return null;
 

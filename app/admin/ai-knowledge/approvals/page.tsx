@@ -110,6 +110,18 @@ function countProducts(item: AiDiseaseKnowledge) {
       const normalizedName = name.trim();
       if (normalizedName) extraNames.add(normalizedName);
     });
+    (stage.subStages ?? []).forEach((subStage) => {
+      (subStage.products ?? []).forEach((product) =>
+        productIds.add(product.id),
+      );
+      (subStage.productIds ?? []).forEach((productId) =>
+        productIds.add(productId),
+      );
+      (subStage.extraProductNames ?? []).forEach((name) => {
+        const normalizedName = name.trim();
+        if (normalizedName) extraNames.add(normalizedName);
+      });
+    });
   });
 
   return productIds.size + extraNames.size;
@@ -131,7 +143,9 @@ export default function AdminAiKnowledgeApprovalsPage() {
     fallbackContactPhone: "",
   });
   const [selectedEngineerId, setSelectedEngineerId] = useState("");
-  const [rejectTarget, setRejectTarget] = useState<AiDiseaseKnowledge | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<AiDiseaseKnowledge | null>(
+    null,
+  );
   const [rejectReason, setRejectReason] = useState("");
 
   const diseasesQuery = useQuery({
@@ -236,7 +250,9 @@ export default function AdminAiKnowledgeApprovalsPage() {
     },
     onSuccess: async () => {
       toast.success("Đã cập nhật thông tin kỹ sư liên hệ.");
-      await queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "config"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["ai-knowledge", "config"],
+      });
       setIsContactDialogOpen(false);
     },
     onError: (error: any) =>
@@ -423,7 +439,10 @@ export default function AdminAiKnowledgeApprovalsPage() {
             >
               <RefreshCcw
                 size={15}
-                className={cn("mr-2", diseasesQuery.isFetching && "animate-spin")}
+                className={cn(
+                  "mr-2",
+                  diseasesQuery.isFetching && "animate-spin",
+                )}
               />
               Làm mới
             </Button>
@@ -598,7 +617,9 @@ export default function AdminAiKnowledgeApprovalsPage() {
                                 label="Sửa phác đồ"
                                 className="hover:text-blue-600"
                                 onClick={() =>
-                                  router.push(`/admin/ai-knowledge/diseases/${item.id}/edit`)
+                                  router.push(
+                                    `/admin/ai-knowledge/diseases/${item.id}/edit`,
+                                  )
                                 }
                               >
                                 <Pencil size={15} />
@@ -740,8 +761,8 @@ export default function AdminAiKnowledgeApprovalsPage() {
               Yêu cầu chỉnh sửa
             </DialogTitle>
             <DialogDescription className="mt-1 text-[12px] text-slate-500">
-              Phác đồ &quot;{rejectTarget?.nameVi}&quot; sẽ chuyển về trạng thái Nháp. Lý do sẽ
-              hiển thị cho kỹ sư khi họ mở lại để sửa.
+              Phác đồ &quot;{rejectTarget?.nameVi}&quot; sẽ chuyển về trạng thái
+              Nháp. Lý do sẽ hiển thị cho kỹ sư khi họ mở lại để sửa.
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 py-5">
@@ -766,7 +787,10 @@ export default function AdminAiKnowledgeApprovalsPage() {
               disabled={!rejectReason.trim() || rejectMutation.isPending}
               onClick={() =>
                 rejectTarget &&
-                rejectMutation.mutate({ id: rejectTarget.id, reason: rejectReason.trim() })
+                rejectMutation.mutate({
+                  id: rejectTarget.id,
+                  reason: rejectReason.trim(),
+                })
               }
               className="h-[38px] bg-amber-600 px-4 text-[13px] font-medium hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -1067,43 +1091,80 @@ function DiseaseDetailDialog({
                       <p className="text-[12px] font-semibold text-slate-800">
                         {stage.stageTitle || `Giai đoạn ${index + 1}`}
                       </p>
-                      <div className="mt-3">
-                        <p className="mb-2 text-[11px] font-semibold text-slate-400">
-                          Hướng dẫn
+                      {stage.stageSigns ? (
+                        <p className="mt-2 text-[12px] leading-6 text-slate-600">
+                          {stage.stageSigns}
                         </p>
-                        <TextList items={stage.instructions} />
-                      </div>
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <DetailField
-                          label="Sản phẩm đã liên kết"
-                          value={
-                            stage.products?.length ? (
-                              <div className="space-y-1">
-                                {stage.products.map((product) => (
-                                  <p key={product.id}>{product.name}</p>
-                                ))}
-                              </div>
-                            ) : (
-                              "Chưa có"
-                            )
-                          }
-                        />
-                        <DetailField
-                          label="Sản phẩm nhập tay"
-                          value={
-                            stage.extraProductNames?.length ? (
-                              <div className="space-y-1">
-                                {stage.extraProductNames.map(
-                                  (name, itemIndex) => (
-                                    <p key={`${name}-${itemIndex}`}>{name}</p>
-                                  ),
-                                )}
-                              </div>
-                            ) : (
-                              "Chưa có"
-                            )
-                          }
-                        />
+                      ) : null}
+                      {stage.treatmentGoal ? (
+                        <p className="mt-2 text-[12px] leading-6 text-slate-600">
+                          <span className="font-semibold">Mục tiêu: </span>
+                          {stage.treatmentGoal}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 space-y-3">
+                        {(stage.subStages?.length
+                          ? stage.subStages
+                          : [
+                              {
+                                subStageTitle: stage.stageTitle,
+                                instructions: stage.instructions,
+                                products: stage.products,
+                                extraProductNames: stage.extraProductNames,
+                              },
+                            ]
+                        ).map((subStage, subStageIndex) => (
+                          <div
+                            key={`${subStage.subStageTitle}-${subStageIndex}`}
+                            className="rounded-[4px] border border-slate-100 bg-slate-50 p-3"
+                          >
+                            <p className="text-[12px] font-semibold text-slate-700">
+                              {index + 1}.{subStageIndex + 1} —{" "}
+                              {subStage.subStageTitle ||
+                                `Giai đoạn con ${subStageIndex + 1}`}
+                            </p>
+                            <div className="mt-3">
+                              <p className="mb-2 text-[11px] font-semibold text-slate-400">
+                                Hướng dẫn
+                              </p>
+                              <TextList items={subStage.instructions} />
+                            </div>
+                            <div className="mt-3 grid gap-3 md:grid-cols-2">
+                              <DetailField
+                                label="Sản phẩm đã liên kết"
+                                value={
+                                  subStage.products?.length ? (
+                                    <div className="space-y-1">
+                                      {subStage.products.map((product) => (
+                                        <p key={product.id}>{product.name}</p>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    "Chưa có"
+                                  )
+                                }
+                              />
+                              <DetailField
+                                label="Sản phẩm nhập tay"
+                                value={
+                                  subStage.extraProductNames?.length ? (
+                                    <div className="space-y-1">
+                                      {subStage.extraProductNames.map(
+                                        (name, itemIndex) => (
+                                          <p key={`${name}-${itemIndex}`}>
+                                            {name}
+                                          </p>
+                                        ),
+                                      )}
+                                    </div>
+                                  ) : (
+                                    "Chưa có"
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))

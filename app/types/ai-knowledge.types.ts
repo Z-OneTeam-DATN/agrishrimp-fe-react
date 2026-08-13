@@ -1,4 +1,9 @@
-export type AiKnowledgeStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "DISABLED" | "ARCHIVED";
+export type AiKnowledgeStatus =
+  | "DRAFT"
+  | "IN_REVIEW"
+  | "APPROVED"
+  | "DISABLED"
+  | "ARCHIVED";
 export type AiReviewCaseStatus = "NEW" | "IN_PROGRESS" | "RESOLVED" | "IGNORED";
 
 export interface AiKnowledgeCategory {
@@ -18,12 +23,23 @@ export interface AiSuggestedProduct {
   webUrl?: string | null;
 }
 
-export interface AiKnowledgeTreatmentStage {
-  stageTitle: string;
+export interface AiKnowledgeTreatmentSubStage {
+  subStageTitle: string;
   instructions: string[];
   productIds: number[];
   products: AiSuggestedProduct[];
   extraProductNames: string[];
+}
+
+export interface AiKnowledgeTreatmentStage {
+  stageTitle: string;
+  stageSigns?: string | null;
+  treatmentGoal?: string | null;
+  instructions: string[];
+  productIds: number[];
+  products: AiSuggestedProduct[];
+  extraProductNames: string[];
+  subStages?: AiKnowledgeTreatmentSubStage[];
 }
 
 export interface AiKeywordAnswerSet {

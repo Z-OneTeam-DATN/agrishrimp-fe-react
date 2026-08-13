@@ -153,20 +153,27 @@ function ProductCard({ product }: { product: AiDoctorSuggestedProduct }) {
 function StageSelectionCard({
   message,
   options,
-  selectingStageIndex,
+  selectionType,
+  selectingOptionKey,
   onSelect,
 }: {
   message?: string;
   options: AiDoctorTreatmentStageOption[];
-  selectingStageIndex: number | null;
-  onSelect: (stageIndex: number) => void;
+  selectionType?: "STAGE" | "SUB_STAGE";
+  selectingOptionKey: string | null;
+  onSelect: (option: AiDoctorTreatmentStageOption) => void;
 }) {
+  const title =
+    selectionType === "SUB_STAGE" ? "Chọn giai đoạn con" : "Chọn giai đoạn";
+  const getOptionKey = (option: AiDoctorTreatmentStageOption) =>
+    selectionType === "SUB_STAGE"
+      ? `${option.stageIndex}-${option.subStageIndex ?? ""}`
+      : String(option.stageIndex);
+
   return (
     <div className="overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm">
       <div className="border-b border-[#c8d7f1] bg-[#eaf2fc] px-5 py-4">
-        <h3 className="text-base font-extrabold text-[#12385a]">
-          Chọn giai đoạn bệnh
-        </h3>
+        <h3 className="text-base font-extrabold text-[#12385a]">{title}</h3>
         <p className="mt-1 text-sm leading-relaxed text-slate-600">
           {message ||
             "Bà con chọn đúng giai đoạn hiện tại để bác sĩ đưa phác đồ phù hợp."}
@@ -175,20 +182,29 @@ function StageSelectionCard({
 
       <div className="divide-y divide-slate-100 p-3">
         {options.map((option) => {
-          const isSelecting = selectingStageIndex === option.stageIndex;
+          const optionKey = getOptionKey(option);
+          const isSelecting = selectingOptionKey === optionKey;
+          const optionNumber =
+            selectionType === "SUB_STAGE"
+              ? option.subStageNumber
+              : option.stageNumber;
+          const optionTitle =
+            selectionType === "SUB_STAGE"
+              ? option.subStageTitle || option.stageTitle
+              : option.stageTitle;
           return (
             <button
-              key={option.stageIndex}
+              key={optionKey}
               type="button"
-              onClick={() => onSelect(option.stageIndex)}
-              disabled={selectingStageIndex !== null}
+              onClick={() => onSelect(option)}
+              disabled={selectingOptionKey !== null}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f2f7fb] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-extrabold text-[#1965A2]">
-                {option.stageNumber}
+                {optionNumber}
               </span>
               <span className="min-w-0 flex-1 text-sm font-semibold leading-relaxed text-slate-800">
-                {option.stageTitle || `Giai đoạn ${option.stageNumber}`}
+                {optionTitle || `Giai đoạn ${optionNumber}`}
               </span>
               {isSelecting ? (
                 <Loader2
@@ -310,7 +326,7 @@ export default function TreatmentResultPage() {
   const rawDiagnosisId = searchParams.get("id");
   const [diagnosisId, setDiagnosisId] = useState<string | null>(rawDiagnosisId);
   const [addingKey, setAddingKey] = useState<string | null>(null);
-  const [selectingStageIndex, setSelectingStageIndex] = useState<number | null>(
+  const [selectingOptionKey, setSelectingOptionKey] = useState<string | null>(
     null,
   );
   const [prescriptionState, setPrescriptionState] =
@@ -391,23 +407,38 @@ export default function TreatmentResultPage() {
     }
   };
 
-  const handleSelectStage = async (stageIndex: number) => {
-    if (!diagnosisId || selectingStageIndex !== null) return;
-    setSelectingStageIndex(stageIndex);
+  const handleSelectStageOption = async (
+    option: AiDoctorTreatmentStageOption,
+  ) => {
+    if (!diagnosisId || selectingOptionKey !== null) return;
+    const isSubStage = stageSelection?.selectionType === "SUB_STAGE";
+    const optionKey = isSubStage
+      ? `${option.stageIndex}-${option.subStageIndex ?? ""}`
+      : String(option.stageIndex);
+    setSelectingOptionKey(optionKey);
     try {
-      const data = await aiDoctorService.generatePrescriptionForStage(
-        diagnosisId,
-        stageIndex,
-      );
+      const data =
+        isSubStage && typeof option.subStageIndex === "number"
+          ? await aiDoctorService.generatePrescriptionForSubStage(
+              diagnosisId,
+              option.stageIndex,
+              option.subStageIndex,
+            )
+          : await aiDoctorService.generatePrescriptionForStage(
+              diagnosisId,
+              option.stageIndex,
+            );
       setPrescriptionData(data);
       setPrescriptionState("loaded");
-      toast.success("Đã chọn giai đoạn và lập phác đồ phù hợp.");
+      if (!data.stageSelection?.options?.length) {
+        toast.success("Đã chọn giai đoạn và lập phác đồ phù hợp.");
+      }
     } catch {
       toast.error(
         "Không thể lấy phác đồ cho giai đoạn này. Bà con thử lại nhé.",
       );
     } finally {
-      setSelectingStageIndex(null);
+      setSelectingOptionKey(null);
     }
   };
 
@@ -807,8 +838,9 @@ export default function TreatmentResultPage() {
                 <StageSelectionCard
                   message={stageSelection.message}
                   options={stageSelection.options}
-                  selectingStageIndex={selectingStageIndex}
-                  onSelect={handleSelectStage}
+                  selectionType={stageSelection.selectionType}
+                  selectingOptionKey={selectingOptionKey}
+                  onSelect={handleSelectStageOption}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-center text-gray-400">

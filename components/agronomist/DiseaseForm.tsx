@@ -52,11 +52,18 @@ const TREATMENT_STAGE_QUILL_MODULES = {
   ],
 };
 
-type KnowledgeStageForm = {
-  stageTitle: string;
+type KnowledgeSubStageForm = {
+  subStageTitle: string;
   instructionsText: string;
   productIds: number[];
   extraProductNamesText: string;
+};
+
+type KnowledgeStageForm = {
+  stageTitle: string;
+  stageSignsText: string;
+  treatmentGoalText: string;
+  subStages: KnowledgeSubStageForm[];
 };
 
 type DiseaseFormState = {
@@ -101,15 +108,25 @@ type DiseasePayload = {
   status: string;
   treatmentStages: {
     stageTitle: string;
-    instructions: string[];
-    productIds: number[];
-    extraProductNames: string[];
+    stageSigns?: string;
+    treatmentGoal?: string;
+    subStages: {
+      subStageTitle: string;
+      instructions: string[];
+      productIds: number[];
+      extraProductNames: string[];
+    }[];
   }[];
+};
+
+type SubStageFormErrors = {
+  subStageTitle?: string;
+  instructionsText?: string;
 };
 
 type StageFormErrors = {
   stageTitle?: string;
-  instructionsText?: string;
+  subStages?: Record<number, SubStageFormErrors>;
 };
 
 type DiseaseFormErrors = {
@@ -125,12 +142,23 @@ type DiseaseFormErrors = {
   submit?: string;
 };
 
-const EMPTY_STAGE: KnowledgeStageForm = {
-  stageTitle: "",
+const EMPTY_SUB_STAGE: KnowledgeSubStageForm = {
+  subStageTitle: "",
   instructionsText: "",
   productIds: [],
   extraProductNamesText: "",
 };
+
+const createEmptySubStage = (): KnowledgeSubStageForm => ({
+  ...EMPTY_SUB_STAGE,
+});
+
+const createEmptyStage = (): KnowledgeStageForm => ({
+  stageTitle: "",
+  stageSignsText: "",
+  treatmentGoalText: "",
+  subStages: [createEmptySubStage()],
+});
 
 const inputClassName = agronomistInputClassName;
 const textareaClassName = cn("resize-none", agronomistTextareaClassName);
@@ -145,10 +173,7 @@ const splitLines = (value: string) =>
 const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
 
 const escapeStageHtml = (value: string) =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const isHtmlEmpty = (value: string) => {
   const normalized = value
@@ -229,22 +254,34 @@ function buildDiseasePayload(form: DiseaseFormState): DiseasePayload {
     status: form.status,
     treatmentStages: form.treatmentStages
       .map((stage) => {
-        const instructions = stageInstructionsToPayload(
-          stage.instructionsText,
-        );
         return {
           stageTitle: stage.stageTitle.trim(),
-          instructions,
-          productIds: stage.productIds,
-          extraProductNames: splitLines(stage.extraProductNamesText),
+          stageSigns: optionalText(stage.stageSignsText),
+          treatmentGoal: optionalText(stage.treatmentGoalText),
+          subStages: stage.subStages
+            .map((subStage) => ({
+              subStageTitle: subStage.subStageTitle.trim(),
+              instructions: stageInstructionsToPayload(
+                subStage.instructionsText,
+              ),
+              productIds: subStage.productIds,
+              extraProductNames: splitLines(subStage.extraProductNamesText),
+            }))
+            .filter(
+              (subStage) =>
+                subStage.subStageTitle ||
+                subStage.instructions.length > 0 ||
+                subStage.productIds.length > 0 ||
+                subStage.extraProductNames.length > 0,
+            ),
         };
       })
       .filter(
         (stage) =>
           stage.stageTitle ||
-          stage.instructions.length > 0 ||
-          stage.productIds.length > 0 ||
-          stage.extraProductNames.length > 0,
+          stage.stageSigns ||
+          stage.treatmentGoal ||
+          stage.subStages.length > 0,
       ),
   };
 }
@@ -272,23 +309,74 @@ function validateDiseasePayload(
 
   let hasStage = false;
   form.treatmentStages.forEach((stage, index) => {
-    const instructions = stageInstructionsToPayload(stage.instructionsText);
-    const extraProductNames = splitLines(stage.extraProductNamesText);
+    let hasSubStage = false;
+    const subStageErrors: Record<number, SubStageFormErrors> = {};
     const hasStageContent =
       Boolean(stage.stageTitle.trim()) ||
-      instructions.length > 0 ||
-      stage.productIds.length > 0 ||
-      extraProductNames.length > 0;
+      Boolean(stage.stageSignsText.trim()) ||
+      Boolean(stage.treatmentGoalText.trim()) ||
+      stage.subStages.some((subStage) => {
+        const instructions = stageInstructionsToPayload(
+          subStage.instructionsText,
+        );
+        const extraProductNames = splitLines(subStage.extraProductNamesText);
+        return (
+          Boolean(subStage.subStageTitle.trim()) ||
+          instructions.length > 0 ||
+          subStage.productIds.length > 0 ||
+          extraProductNames.length > 0
+        );
+      });
 
     if (!hasStageContent) return;
     hasStage = true;
 
     const stageErrors: StageFormErrors = {};
     if (!stage.stageTitle.trim())
-      stageErrors.stageTitle = "Vui lòng nhập tên giai đoạn.";
-    if (instructions.length === 0)
-      stageErrors.instructionsText = "Vui lòng nhập ít nhất một hướng dẫn.";
-    if (stageErrors.stageTitle || stageErrors.instructionsText) {
+      stageErrors.stageTitle = "Vui lòng nhập tên giai đoạn lớn.";
+
+    stage.subStages.forEach((subStage, subStageIndex) => {
+      const instructions = stageInstructionsToPayload(
+        subStage.instructionsText,
+      );
+      const extraProductNames = splitLines(subStage.extraProductNamesText);
+      const hasSubStageContent =
+        Boolean(subStage.subStageTitle.trim()) ||
+        instructions.length > 0 ||
+        subStage.productIds.length > 0 ||
+        extraProductNames.length > 0;
+      if (!hasSubStageContent) return;
+      hasSubStage = true;
+
+      const currentSubStageErrors: SubStageFormErrors = {};
+      if (!subStage.subStageTitle.trim()) {
+        currentSubStageErrors.subStageTitle =
+          "Vui lòng nhập tên giai đoạn con.";
+      }
+      if (instructions.length === 0) {
+        currentSubStageErrors.instructionsText =
+          "Vui lòng nhập ít nhất một hướng dẫn.";
+      }
+      if (
+        currentSubStageErrors.subStageTitle ||
+        currentSubStageErrors.instructionsText
+      ) {
+        subStageErrors[subStageIndex] = currentSubStageErrors;
+      }
+    });
+
+    if (!hasSubStage) {
+      subStageErrors[0] = {
+        subStageTitle: "Vui lòng nhập tên giai đoạn con.",
+        instructionsText: "Vui lòng nhập ít nhất một hướng dẫn.",
+      };
+    }
+
+    if (Object.keys(subStageErrors).length > 0) {
+      stageErrors.subStages = subStageErrors;
+    }
+
+    if (stageErrors.stageTitle || stageErrors.subStages) {
       errors.stages = { ...(errors.stages ?? {}), [index]: stageErrors };
     }
   });
@@ -296,8 +384,13 @@ function validateDiseasePayload(
   if (!hasStage) {
     errors.stages = {
       0: {
-        stageTitle: "Vui lòng nhập tên giai đoạn.",
-        instructionsText: "Vui lòng nhập ít nhất một hướng dẫn.",
+        stageTitle: "Vui lòng nhập tên giai đoạn lớn.",
+        subStages: {
+          0: {
+            subStageTitle: "Vui lòng nhập tên giai đoạn con.",
+            instructionsText: "Vui lòng nhập ít nhất một hướng dẫn.",
+          },
+        },
       },
     };
   }
@@ -318,7 +411,7 @@ function hasFormErrors(errors: DiseaseFormErrors) {
     ([key, value]) => key !== "stages" && Boolean(value),
   );
   const hasStageError = Object.values(errors.stages ?? {}).some(
-    (stage) => Boolean(stage.stageTitle) || Boolean(stage.instructionsText),
+    (stage) => Boolean(stage.stageTitle) || Boolean(stage.subStages),
   );
   return hasFieldError || hasStageError;
 }
@@ -341,9 +434,17 @@ function firstFormError(errors: DiseaseFormErrors) {
   }
 
   const firstStageError = Object.values(errors.stages ?? {}).find(
-    (stage) => stage.stageTitle || stage.instructionsText,
+    (stage) => stage.stageTitle || stage.subStages,
   );
-  return firstStageError?.stageTitle || firstStageError?.instructionsText || "";
+  const firstSubStageError = Object.values(
+    firstStageError?.subStages ?? {},
+  ).find((subStage) => subStage.subStageTitle || subStage.instructionsText);
+  return (
+    firstStageError?.stageTitle ||
+    firstSubStageError?.subStageTitle ||
+    firstSubStageError?.instructionsText ||
+    ""
+  );
 }
 
 function mapApiErrorToFormErrors(message: string): DiseaseFormErrors {
@@ -391,7 +492,7 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
       priority: 0,
       canonical: false,
       status: "IN_REVIEW",
-      treatmentStages: [EMPTY_STAGE],
+      treatmentStages: [createEmptyStage()],
     };
   }
 
@@ -416,15 +517,35 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
     status: item.status,
     treatmentStages:
       item.treatmentStages.length > 0
-        ? item.treatmentStages.map((stage) => ({
-            stageTitle: stage.stageTitle,
-            instructionsText: stageInstructionsToEditorHtml(
-              stage.instructions,
-            ),
-            productIds: stage.productIds ?? [],
-            extraProductNamesText: (stage.extraProductNames ?? []).join("\n"),
-          }))
-        : [EMPTY_STAGE],
+        ? item.treatmentStages.map((stage) => {
+            const subStages =
+              stage.subStages && stage.subStages.length > 0
+                ? stage.subStages
+                : [
+                    {
+                      subStageTitle: stage.stageTitle,
+                      instructions: stage.instructions,
+                      productIds: stage.productIds,
+                      extraProductNames: stage.extraProductNames,
+                    },
+                  ];
+            return {
+              stageTitle: stage.stageTitle,
+              stageSignsText: stage.stageSigns || "",
+              treatmentGoalText: stage.treatmentGoal || "",
+              subStages: subStages.map((subStage) => ({
+                subStageTitle: subStage.subStageTitle,
+                instructionsText: stageInstructionsToEditorHtml(
+                  subStage.instructions,
+                ),
+                productIds: subStage.productIds ?? [],
+                extraProductNamesText: (subStage.extraProductNames ?? []).join(
+                  "\n",
+                ),
+              })),
+            };
+          })
+        : [createEmptyStage()],
   };
 }
 
@@ -523,7 +644,7 @@ export default function DiseaseForm({
     }));
     setForm((current) => ({
       ...current,
-      treatmentStages: [...current.treatmentStages, { ...EMPTY_STAGE }],
+      treatmentStages: [...current.treatmentStages, createEmptyStage()],
     }));
   };
 
@@ -541,6 +662,100 @@ export default function DiseaseForm({
           : current.treatmentStages.filter(
               (_, stageIndex) => stageIndex !== index,
             ),
+    }));
+  };
+
+  const updateSubStage = (
+    stageIndex: number,
+    subStageIndex: number,
+    patch: Partial<KnowledgeSubStageForm>,
+  ) => {
+    setFormErrors((current) => {
+      const stages = { ...(current.stages ?? {}) };
+      const stageErrors = stages[stageIndex];
+      if (stageErrors?.subStages) {
+        const subStages = { ...stageErrors.subStages };
+        delete subStages[subStageIndex];
+        stages[stageIndex] = {
+          ...stageErrors,
+          subStages: Object.keys(subStages).length > 0 ? subStages : undefined,
+        };
+      }
+      if (
+        stages[stageIndex] &&
+        !stages[stageIndex].stageTitle &&
+        !stages[stageIndex].subStages
+      ) {
+        delete stages[stageIndex];
+      }
+      return {
+        ...current,
+        stages: Object.keys(stages).length > 0 ? stages : undefined,
+        submit: undefined,
+      };
+    });
+    setForm((current) => ({
+      ...current,
+      treatmentStages: current.treatmentStages.map(
+        (stage, currentStageIndex) =>
+          currentStageIndex === stageIndex
+            ? {
+                ...stage,
+                subStages: stage.subStages.map(
+                  (subStage, currentSubStageIndex) =>
+                    currentSubStageIndex === subStageIndex
+                      ? { ...subStage, ...patch }
+                      : subStage,
+                ),
+              }
+            : stage,
+      ),
+    }));
+  };
+
+  const addSubStage = (stageIndex: number) => {
+    setFormErrors((current) => ({
+      ...current,
+      stages: undefined,
+      submit: undefined,
+    }));
+    setForm((current) => ({
+      ...current,
+      treatmentStages: current.treatmentStages.map(
+        (stage, currentStageIndex) =>
+          currentStageIndex === stageIndex
+            ? {
+                ...stage,
+                subStages: [...stage.subStages, createEmptySubStage()],
+              }
+            : stage,
+      ),
+    }));
+  };
+
+  const removeSubStage = (stageIndex: number, subStageIndex: number) => {
+    setFormErrors((current) => ({
+      ...current,
+      stages: undefined,
+      submit: undefined,
+    }));
+    setForm((current) => ({
+      ...current,
+      treatmentStages: current.treatmentStages.map(
+        (stage, currentStageIndex) =>
+          currentStageIndex === stageIndex
+            ? {
+                ...stage,
+                subStages:
+                  stage.subStages.length === 1
+                    ? stage.subStages
+                    : stage.subStages.filter(
+                        (_, currentSubStageIndex) =>
+                          currentSubStageIndex !== subStageIndex,
+                      ),
+              }
+            : stage,
+      ),
     }));
   };
 
@@ -885,81 +1100,190 @@ export default function DiseaseForm({
                     Bỏ giai đoạn
                   </Button>
                 </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-[12px] font-semibold text-[#232323]">
-                      Tên giai đoạn
-                    </Label>
-                    <Input
-                      value={stage.stageTitle}
-                      onChange={(event) =>
-                        updateStage(index, { stageTitle: event.target.value })
-                      }
-                      aria-invalid={Boolean(stageErrors?.stageTitle)}
-                      className={cn(
-                        inputClassName,
-                        stageErrors?.stageTitle && invalidFieldClassName,
-                      )}
-                    />
-                    <FieldError message={stageErrors?.stageTitle} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[12px] font-semibold text-[#232323]">
-                      Sản phẩm áp dụng
-                    </Label>
-                    <ProductMultiSelect
-                      options={productOptions}
-                      value={stage.productIds}
-                      onChange={(productIds) =>
-                        updateStage(index, { productIds })
-                      }
-                      loading={productsQuery.isLoading}
-                      emptyMessage="Chưa có sản phẩm đang hoạt động trong catalog."
-                    />
-                  </div>
-                </div>
                 <div className="mt-4 space-y-2">
                   <Label className="text-[12px] font-semibold text-[#232323]">
-                    Hướng dẫn điều trị
+                    Tên giai đoạn lớn
                   </Label>
-                  <div
-                    aria-invalid={Boolean(stageErrors?.instructionsText)}
+                  <Input
+                    value={stage.stageTitle}
+                    onChange={(event) =>
+                      updateStage(index, { stageTitle: event.target.value })
+                    }
+                    aria-invalid={Boolean(stageErrors?.stageTitle)}
                     className={cn(
-                      "overflow-hidden rounded-[4px] border border-[#d0d7e6] bg-white [&_.ql-container]:min-h-[180px] [&_.ql-container]:border-0 [&_.ql-container]:text-[13px] [&_.ql-editor]:min-h-[180px] [&_.ql-editor]:leading-6 [&_.ql-toolbar]:border-0 [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-[#e1e4ec]",
-                      stageErrors?.instructionsText &&
-                        "border-rose-500 ring-2 ring-rose-100",
+                      inputClassName,
+                      stageErrors?.stageTitle && invalidFieldClassName,
                     )}
-                  >
-                    <ReactQuill
-                      theme="snow"
-                      value={stage.instructionsText}
-                      onChange={(value) =>
-                        updateStage(index, {
-                          instructionsText: value,
-                        })
-                      }
-                      modules={TREATMENT_STAGE_QUILL_MODULES}
-                      placeholder="Nhập hướng dẫn điều trị..."
-                    />
-                  </div>
-                  <FieldError message={stageErrors?.instructionsText} />
+                  />
+                  <FieldError message={stageErrors?.stageTitle} />
                 </div>
 
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2">
                     <Label className="text-[12px] font-semibold text-[#232323]">
-                      Tên thuốc/sản phẩm khác
+                      Dấu hiệu của giai đoạn lớn
                     </Label>
                     <Textarea
-                      value={stage.extraProductNamesText}
+                      value={stage.stageSignsText}
                       onChange={(event) =>
                         updateStage(index, {
-                          extraProductNamesText: event.target.value,
+                          stageSignsText: event.target.value,
                         })
                       }
                       rows={4}
                       className={textareaClassName}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[12px] font-semibold text-[#232323]">
+                      Mục tiêu xử lý
+                    </Label>
+                    <Textarea
+                      value={stage.treatmentGoalText}
+                      onChange={(event) =>
+                        updateStage(index, {
+                          treatmentGoalText: event.target.value,
+                        })
+                      }
+                      rows={4}
+                      className={textareaClassName}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[4px] border border-[#e8ebf1] bg-[#f7f8fa] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-[12px] font-semibold uppercase text-slate-600">
+                      Giai đoạn con
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => addSubStage(index)}
+                      className="h-8 rounded-[4px] border-[#c9cedd] bg-white text-[12px] font-medium text-slate-700 shadow-none hover:bg-white"
+                    >
+                      <Plus size={13} className="mr-1.5" />
+                      Thêm giai đoạn con
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {stage.subStages.map((subStage, subStageIndex) => {
+                      const subStageErrors =
+                        stageErrors?.subStages?.[subStageIndex];
+                      return (
+                        <div
+                          key={`${index}-${subStageIndex}-${subStage.subStageTitle}`}
+                          className="rounded-[4px] border border-[#e1e4ec] bg-white p-4"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[12px] font-semibold text-[#232323]">
+                              Giai đoạn {index + 1}.{subStageIndex + 1}
+                            </p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() =>
+                                removeSubStage(index, subStageIndex)
+                              }
+                              className="h-8 rounded-[4px] text-[12px] font-medium text-[#d2453f] hover:bg-rose-50"
+                            >
+                              Bỏ giai đoạn con
+                            </Button>
+                          </div>
+
+                          <div className="mt-4 grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label className="text-[12px] font-semibold text-[#232323]">
+                                Tên giai đoạn con
+                              </Label>
+                              <Input
+                                value={subStage.subStageTitle}
+                                onChange={(event) =>
+                                  updateSubStage(index, subStageIndex, {
+                                    subStageTitle: event.target.value,
+                                  })
+                                }
+                                aria-invalid={Boolean(
+                                  subStageErrors?.subStageTitle,
+                                )}
+                                className={cn(
+                                  inputClassName,
+                                  subStageErrors?.subStageTitle &&
+                                    invalidFieldClassName,
+                                )}
+                              />
+                              <FieldError
+                                message={subStageErrors?.subStageTitle}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[12px] font-semibold text-[#232323]">
+                                Sản phẩm áp dụng
+                              </Label>
+                              <ProductMultiSelect
+                                options={productOptions}
+                                value={subStage.productIds}
+                                onChange={(productIds) =>
+                                  updateSubStage(index, subStageIndex, {
+                                    productIds,
+                                  })
+                                }
+                                loading={productsQuery.isLoading}
+                                emptyMessage="Chưa có sản phẩm đang hoạt động trong catalog."
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-4 space-y-2">
+                            <Label className="text-[12px] font-semibold text-[#232323]">
+                              Hướng dẫn điều trị
+                            </Label>
+                            <div
+                              aria-invalid={Boolean(
+                                subStageErrors?.instructionsText,
+                              )}
+                              className={cn(
+                                "overflow-hidden rounded-[4px] border border-[#d0d7e6] bg-white [&_.ql-container]:min-h-[180px] [&_.ql-container]:border-0 [&_.ql-container]:text-[13px] [&_.ql-editor]:min-h-[180px] [&_.ql-editor]:leading-6 [&_.ql-toolbar]:border-0 [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-[#e1e4ec]",
+                                subStageErrors?.instructionsText &&
+                                  "border-rose-500 ring-2 ring-rose-100",
+                              )}
+                            >
+                              <ReactQuill
+                                theme="snow"
+                                value={subStage.instructionsText}
+                                onChange={(value) =>
+                                  updateSubStage(index, subStageIndex, {
+                                    instructionsText: value,
+                                  })
+                                }
+                                modules={TREATMENT_STAGE_QUILL_MODULES}
+                                placeholder="Nhập hướng dẫn điều trị..."
+                              />
+                            </div>
+                            <FieldError
+                              message={subStageErrors?.instructionsText}
+                            />
+                          </div>
+
+                          <div className="mt-4 space-y-2">
+                            <Label className="text-[12px] font-semibold text-[#232323]">
+                              Tên thuốc/sản phẩm khác
+                            </Label>
+                            <Textarea
+                              value={subStage.extraProductNamesText}
+                              onChange={(event) =>
+                                updateSubStage(index, subStageIndex, {
+                                  extraProductNamesText: event.target.value,
+                                })
+                              }
+                              rows={4}
+                              className={textareaClassName}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

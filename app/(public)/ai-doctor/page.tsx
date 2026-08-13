@@ -73,21 +73,30 @@ type DiagnosePayload = {
 function StageSelectionBubble({
   message,
   options,
-  pendingStageIndex,
+  selectionType,
+  pendingOptionKey,
   disabled,
   onSelect,
 }: {
   message?: string;
   options: AiDoctorTreatmentStageOption[];
-  pendingStageIndex: number | null;
+  selectionType?: "STAGE" | "SUB_STAGE";
+  pendingOptionKey: string | null;
   disabled: boolean;
-  onSelect: (stageIndex: number) => void;
+  onSelect: (option: AiDoctorTreatmentStageOption) => void;
 }) {
+  const title =
+    selectionType === "SUB_STAGE" ? "Chọn giai đoạn con" : "Chọn giai đoạn";
+  const getOptionKey = (option: AiDoctorTreatmentStageOption) =>
+    selectionType === "SUB_STAGE"
+      ? `${option.stageIndex}-${option.subStageIndex ?? ""}`
+      : String(option.stageIndex);
+
   return (
     <div className="ml-[42px] w-full max-w-[78%] overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm">
       <div className="border-b border-[#c8d7f1] bg-[#eaf2fc] px-4 py-3">
         <div className="text-[13px] font-extrabold uppercase text-[#1965A2]">
-          Chọn giai đoạn bệnh
+          {title}
         </div>
         <p className="mt-1 text-[12px] leading-relaxed text-slate-600">
           {message ||
@@ -97,20 +106,29 @@ function StageSelectionBubble({
 
       <div className="divide-y divide-slate-100 p-2">
         {options.map((option) => {
-          const isPending = pendingStageIndex === option.stageIndex;
+          const optionKey = getOptionKey(option);
+          const isPending = pendingOptionKey === optionKey;
+          const optionNumber =
+            selectionType === "SUB_STAGE"
+              ? option.subStageNumber
+              : option.stageNumber;
+          const optionTitle =
+            selectionType === "SUB_STAGE"
+              ? option.subStageTitle || option.stageTitle
+              : option.stageTitle;
           return (
             <button
-              key={option.stageIndex}
+              key={optionKey}
               type="button"
               disabled={disabled}
-              onClick={() => onSelect(option.stageIndex)}
+              onClick={() => onSelect(option)}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f2f7fb] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-extrabold text-[#1965A2]">
-                {option.stageNumber}
+                {optionNumber}
               </span>
               <span className="min-w-0 flex-1 text-[13px] font-semibold leading-relaxed text-slate-800">
-                {option.stageTitle || `Giai đoạn ${option.stageNumber}`}
+                {optionTitle || `Giai đoạn ${optionNumber}`}
               </span>
               {isPending ? (
                 <Loader2
@@ -307,7 +325,7 @@ export default function AiDoctorChatPage() {
   );
   const [pendingStageChoice, setPendingStageChoice] = useState<{
     diagnosisId: string;
-    stageIndex: number;
+    optionKey: string;
   } | null>(null);
 
   const nextEntryId = () => `e${entryIdRef.current++}`;
@@ -502,12 +520,27 @@ export default function AiDoctorChatPage() {
     mutationFn: ({
       diagnosisId,
       stageIndex,
+      subStageIndex,
     }: {
       diagnosisId: string;
       stageIndex: number;
-    }) => aiDoctorService.generatePrescriptionForStage(diagnosisId, stageIndex),
+      subStageIndex?: number;
+    }) =>
+      typeof subStageIndex === "number"
+        ? aiDoctorService.generatePrescriptionForSubStage(
+            diagnosisId,
+            stageIndex,
+            subStageIndex,
+          )
+        : aiDoctorService.generatePrescriptionForStage(diagnosisId, stageIndex),
     onMutate: (variables) => {
-      setPendingStageChoice(variables);
+      setPendingStageChoice({
+        diagnosisId: variables.diagnosisId,
+        optionKey:
+          typeof variables.subStageIndex === "number"
+            ? `${variables.stageIndex}-${variables.subStageIndex}`
+            : String(variables.stageIndex),
+      });
     },
     onSuccess: (data, variables) => {
       setEntries((prev) =>
@@ -523,11 +556,14 @@ export default function AiDoctorChatPage() {
             diagnosis: {
               ...entry.diagnosis,
               ...data,
-              stageSelection: undefined,
+              stageSelection: data.stageSelection,
             },
           };
         }),
       );
+      if (data.stageSelection?.options?.length) {
+        return;
+      }
       toast.success("Đã chọn giai đoạn và lập phác đồ phù hợp.");
       router.push(
         `/ai-doctor/result?id=${data.diagnosisId || variables.diagnosisId}`,
@@ -648,9 +684,18 @@ export default function AiDoctorChatPage() {
     router.push(`/ai-doctor/result?id=${diagnosisId}`);
   };
 
-  const selectStage = (diagnosisId: string, stageIndex: number) => {
+  const selectStageOption = (
+    diagnosisId: string,
+    option: AiDoctorTreatmentStageOption,
+    selectionType?: "STAGE" | "SUB_STAGE",
+  ) => {
     if (!diagnosisId || stagePrescriptionMutation.isPending) return;
-    stagePrescriptionMutation.mutate({ diagnosisId, stageIndex });
+    stagePrescriptionMutation.mutate({
+      diagnosisId,
+      stageIndex: option.stageIndex,
+      subStageIndex:
+        selectionType === "SUB_STAGE" ? option.subStageIndex : undefined,
+    });
   };
 
   const goToToday = () => {
@@ -876,15 +921,20 @@ export default function AiDoctorChatPage() {
                     <StageSelectionBubble
                       message={diagnosis.stageSelection.message}
                       options={diagnosis.stageSelection.options}
-                      pendingStageIndex={
+                      selectionType={diagnosis.stageSelection.selectionType}
+                      pendingOptionKey={
                         pendingStageChoice?.diagnosisId ===
                         diagnosis.diagnosisId
-                          ? pendingStageChoice.stageIndex
+                          ? pendingStageChoice.optionKey
                           : null
                       }
                       disabled={stagePrescriptionMutation.isPending}
-                      onSelect={(stageIndex) =>
-                        selectStage(diagnosis.diagnosisId, stageIndex)
+                      onSelect={(option) =>
+                        selectStageOption(
+                          diagnosis.diagnosisId,
+                          option,
+                          diagnosis.stageSelection?.selectionType,
+                        )
                       }
                     />
                   ) : !diagnosis.needsClarification &&

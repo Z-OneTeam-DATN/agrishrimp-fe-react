@@ -9,19 +9,29 @@ export interface AiDoctorSuggestedProduct {
 
 export interface AiDoctorTreatmentStage {
   stageTitle: string;
+  stageSigns?: string | null;
+  treatmentGoal?: string | null;
   instructions: string[];
   products: AiDoctorSuggestedProduct[];
   extraProductNames?: string[];
+  subStages?: AiDoctorTreatmentStage[];
 }
 
 export interface AiDoctorTreatmentStageOption {
   stageIndex: number;
   stageNumber: number;
   stageTitle: string;
+  subStageIndex?: number;
+  subStageNumber?: string;
+  subStageTitle?: string;
 }
 
 export interface AiDoctorTreatmentStageSelection {
   required: boolean;
+  selectionType?: "STAGE" | "SUB_STAGE";
+  selectedStageIndex?: number;
+  selectedStageNumber?: number;
+  selectedStageTitle?: string;
   message: string;
   options: AiDoctorTreatmentStageOption[];
 }
