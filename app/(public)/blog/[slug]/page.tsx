@@ -616,6 +616,7 @@ export default function BlogDetailPage() {
                   "[&_.blog-table-wrap_table]:m-0 [&_.blog-table-wrap_table]:min-w-[860px] [&_.blog-table-wrap_table]:w-full [&_.blog-table-wrap_table]:border-collapse [&_.blog-table-wrap_table]:text-left [&_.blog-table-wrap_table]:text-[12.5px] [&_.blog-table-wrap_table]:leading-5",
                   "[&_.blog-table-wrap_th]:whitespace-nowrap [&_.blog-table-wrap_th]:border-b [&_.blog-table-wrap_th]:border-slate-200 [&_.blog-table-wrap_th]:bg-slate-50 [&_.blog-table-wrap_th]:px-3 [&_.blog-table-wrap_th]:py-2.5 [&_.blog-table-wrap_th]:font-semibold [&_.blog-table-wrap_th]:text-slate-500",
                   "[&_.blog-table-wrap_td]:border-b [&_.blog-table-wrap_td]:border-slate-100 [&_.blog-table-wrap_td]:px-3 [&_.blog-table-wrap_td]:py-3 [&_.blog-table-wrap_td]:align-top [&_.blog-table-wrap_td]:text-slate-700 [&_.blog-table-wrap_td]:[overflow-wrap:anywhere]",
+                  "[&_.blog-table-wrap_tr:first-child_td]:whitespace-nowrap [&_.blog-table-wrap_tr:first-child_td]:bg-slate-50 [&_.blog-table-wrap_tr:first-child_td]:font-semibold [&_.blog-table-wrap_tr:first-child_td]:text-slate-500",
                   "[&_span]:whitespace-normal [&_img]:mx-auto"
                 )}
                 dangerouslySetInnerHTML={{ __html: normalizedContentHtml }}
