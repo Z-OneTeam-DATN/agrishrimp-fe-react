@@ -56,6 +56,47 @@ const getStageTotal = (products: AiDoctorSuggestedProduct[] = []) =>
     0,
   );
 
+const getVisibleDiseaseImageUrls = (imageUrls?: string[]) =>
+  (imageUrls ?? [])
+    .map((imageUrl) => imageUrl.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+function DiseaseReferenceImageGrid({
+  imageUrls,
+  diseaseName,
+}: {
+  imageUrls?: string[];
+  diseaseName?: string;
+}) {
+  const visibleImageUrls = getVisibleDiseaseImageUrls(imageUrls);
+
+  if (visibleImageUrls.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {visibleImageUrls.map((imageUrl, index) => (
+        <div
+          key={`${imageUrl}-${index}`}
+          className="relative h-24 overflow-hidden rounded-md border border-slate-100 bg-slate-50"
+        >
+          <Image
+            src={imageUrl}
+            alt={
+              diseaseName
+                ? `Ảnh minh họa ${diseaseName}`
+                : "Ảnh minh họa bệnh tôm"
+            }
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
 
 function TreatmentInstructionList({
@@ -355,6 +396,9 @@ export default function TreatmentResultPage() {
 
   const diagnosis = diagnosisQuery.data;
   const diagnosisImageUrl = diagnosis?.imageUrl ?? diagnosis?.clientImageUrl;
+  const diseaseImageUrls = getVisibleDiseaseImageUrls(
+    diagnosis?.disease?.imageUrls,
+  );
   const causes = prescriptionData?.causes ?? diagnosis?.causes ?? [];
   const signsSummary =
     prescriptionData?.signsSummary ?? diagnosis?.signsSummary ?? null;
@@ -689,6 +733,18 @@ export default function TreatmentResultPage() {
                       </div>
                     )}
                   </div>
+
+                  {diseaseImageUrls.length > 0 && (
+                    <div className="border-b border-slate-100 p-3">
+                      <div className="mb-2 text-[10px] font-bold uppercase text-slate-400">
+                        Ảnh minh họa bệnh trong phác đồ
+                      </div>
+                      <DiseaseReferenceImageGrid
+                        imageUrls={diseaseImageUrls}
+                        diseaseName={diagnosis.disease?.nameVi}
+                      />
+                    </div>
+                  )}
 
                   <div className="p-4">
                     <h2 className="mb-0.5 text-lg font-extrabold leading-tight text-red-700">

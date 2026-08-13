@@ -146,6 +146,75 @@ function StageSelectionBubble({
   );
 }
 
+const getVisibleDiseaseImageUrls = (imageUrls?: string[]) =>
+  (imageUrls ?? [])
+    .map((imageUrl) => imageUrl.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+function DiseaseReferenceImageGrid({
+  imageUrls,
+  diseaseName,
+}: {
+  imageUrls?: string[];
+  diseaseName?: string;
+}) {
+  const visibleImageUrls = getVisibleDiseaseImageUrls(imageUrls);
+
+  if (visibleImageUrls.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      {visibleImageUrls.map((imageUrl, index) => (
+        <div
+          key={`${imageUrl}-${index}`}
+          className="relative h-36 overflow-hidden rounded-xl border border-slate-100 bg-slate-50"
+        >
+          <Image
+            src={imageUrl}
+            alt={
+              diseaseName
+                ? `Ảnh minh họa ${diseaseName}`
+                : "Ảnh minh họa bệnh tôm"
+            }
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DiseaseReferenceImages({
+  imageUrls,
+  diseaseName,
+  className = "",
+}: {
+  imageUrls?: string[];
+  diseaseName?: string;
+  className?: string;
+}) {
+  if (getVisibleDiseaseImageUrls(imageUrls).length === 0) return null;
+
+  return (
+    <div
+      className={`ml-[42px] w-full max-w-[78%] overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm ${className}`}
+    >
+      <div className="border-b border-[#c8d7f1] bg-[#eaf2fc] px-4 py-2 text-[12px] font-extrabold uppercase text-[#1965A2]">
+        Ảnh minh họa bệnh trong phác đồ
+      </div>
+      <div className="p-3">
+        <DiseaseReferenceImageGrid
+          imageUrls={imageUrls}
+          diseaseName={diseaseName}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Dung chung de phat lai (replay) 1 ngay bat ky — vua cho "khoi phuc hom nay" luc mount, vua cho
 // "xem lai 1 ngay cu" khi bam sidebar. idPrefix de tranh dung id voi cac entry dang go song.
 const mapTurnsToEntries = (
@@ -915,6 +984,11 @@ export default function AiDoctorChatPage() {
                     )}
                   </div>
 
+                  <DiseaseReferenceImages
+                    imageUrls={diagnosis.disease?.imageUrls}
+                    diseaseName={diagnosis.disease?.nameVi}
+                  />
+
                   {!diagnosis.needsClarification &&
                   diagnosis.status !== "UNRECOGNIZED" &&
                   diagnosis.stageSelection?.options?.length ? (
@@ -1030,6 +1104,20 @@ export default function AiDoctorChatPage() {
                                 unoptimized
                               />
                             </div>
+                          </div>
+                        )}
+
+                        {getVisibleDiseaseImageUrls(
+                          diagnosis.disease?.imageUrls,
+                        ).length > 0 && (
+                          <div>
+                            <div className="mb-2 text-[11px] font-bold uppercase text-slate-500">
+                              Ảnh minh họa bệnh trong phác đồ
+                            </div>
+                            <DiseaseReferenceImageGrid
+                              imageUrls={diagnosis.disease?.imageUrls}
+                              diseaseName={diagnosis.disease?.nameVi}
+                            />
                           </div>
                         )}
 

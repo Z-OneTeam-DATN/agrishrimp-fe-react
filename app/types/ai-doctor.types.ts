@@ -41,6 +41,7 @@ export interface AiDoctorDiseaseInfo {
   nameVi: string;
   nameEn: string;
   confidencePercent: number;
+  imageUrls?: string[];
 }
 
 export interface AiDoctorTopPrediction {
@@ -66,8 +67,7 @@ export interface AiDoctorDiagnosisResponse {
   createdAt?: string;
   /** true khi độ tin cậy quá thấp — FE cần gọi clarify() để bác sĩ AI hỏi thêm thay vì kết luận ngay. */
   needsClarification?: boolean;
-  /** Narrative HTML: mô tả ảnh của Gemini + trích dẫn độ tin cậy/tên bệnh YOLO, ghép sẵn ở BE.
-   *  Chỉ có ở response của POST /diagnosis — luôn absent khi đọc lại qua GET /diagnosis/{id} hoặc /history. */
+  /** Narrative HTML: mô tả ảnh của Gemini + tên bệnh nghi ngờ, ghép sẵn ở BE và lưu để replay. */
   aiDescription?: string;
 }
 
@@ -113,6 +113,6 @@ export interface AiDoctorConversationTurn {
   needsClarification?: boolean;
   /** DISEASE | HEALTHY | UNRECOGNIZED — chỉ có ở turn type DIAGNOSIS. */
   status?: "DISEASE" | "HEALTHY" | "UNRECOGNIZED";
-  /** Narrative HTML — chỉ có giá trị khi status HEALTHY/UNRECOGNIZED. */
+  /** Narrative HTML đã lưu để replay đúng bubble tư vấn/chẩn đoán. */
   aiDescription?: string;
 }
