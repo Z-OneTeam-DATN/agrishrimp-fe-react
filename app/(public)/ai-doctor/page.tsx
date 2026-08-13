@@ -802,7 +802,7 @@ export default function AiDoctorChatPage() {
                           alt="Ảnh tôm bà con gửi"
                           width={260}
                           height={220}
-                          className="h-auto w-full object-cover"
+                          className="h-auto w-full object-contain"
                           unoptimized
                         />
                       </div>
@@ -942,14 +942,15 @@ export default function AiDoctorChatPage() {
                       </span>
                     </div>
                     {(diagnosis.imageUrl || diagnosis.clientImageUrl) && (
-                      <div className="relative h-[220px] w-full bg-[#eaf2fc]">
+                      <div className="relative flex min-h-[220px] w-full items-center justify-center bg-[#eaf2fc]">
                         <Image
                           src={
                             diagnosis.imageUrl || diagnosis.clientImageUrl || ""
                           }
                           alt="Ảnh tôm đã được AI phân tích"
-                          fill
-                          className="object-cover"
+                          width={640}
+                          height={420}
+                          className="h-auto max-h-[360px] w-full object-contain"
                           unoptimized
                         />
                       </div>
@@ -967,18 +968,12 @@ export default function AiDoctorChatPage() {
                           <ShieldAlert size={14} />
                           KẾT QUẢ KHÁM BỆNH
                         </span>
-                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-red-500">
-                          {Number(
-                            diagnosis.disease?.confidencePercent || 0,
-                          ).toFixed(0)}
-                          % tin cậy
-                        </span>
                       </div>
 
                       <div className="space-y-3 p-4">
                         {(diagnosis.imageUrl || diagnosis.clientImageUrl) && (
                           <div className="overflow-hidden rounded-xl border border-red-100 bg-slate-50">
-                            <div className="relative h-[220px] w-full">
+                            <div className="relative flex min-h-[220px] w-full items-center justify-center">
                               <Image
                                 src={
                                   diagnosis.imageUrl ||
@@ -989,8 +984,9 @@ export default function AiDoctorChatPage() {
                                   diagnosis.disease?.nameVi ??
                                   "Ảnh tôm đã được AI phân tích"
                                 }
-                                fill
-                                className="object-cover"
+                                width={640}
+                                height={420}
+                                className="h-auto max-h-[360px] w-full object-contain"
                                 unoptimized
                               />
                             </div>

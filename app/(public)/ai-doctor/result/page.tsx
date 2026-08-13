@@ -661,22 +661,16 @@ export default function TreatmentResultPage() {
                       <ShieldAlert size={16} />
                       Kết luận của bác sĩ
                     </span>
-                    <span className="rounded-sm bg-red-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
-                      Độ tin cậy{" "}
-                      {Number(
-                        diagnosis.disease?.confidencePercent || 0,
-                      ).toFixed(0)}
-                      %
-                    </span>
                   </div>
 
-                  <div className="relative h-[220px] w-full bg-gray-100">
+                  <div className="relative flex min-h-[220px] w-full items-center justify-center bg-gray-100">
                     {diagnosisImageUrl ? (
                       <Image
                         src={diagnosisImageUrl}
                         alt={diagnosis.disease?.nameVi ?? "Ảnh khám bệnh"}
-                        fill
-                        className="object-cover"
+                        width={640}
+                        height={420}
+                        className="h-auto max-h-[360px] w-full object-contain"
                         unoptimized
                       />
                     ) : (
@@ -743,12 +737,6 @@ export default function TreatmentResultPage() {
                         >
                           <span className="text-sm font-medium text-slate-700">
                             {prediction.nameVi}
-                          </span>
-                          <span className="text-xs font-bold text-slate-400">
-                            {Number(prediction.confidencePercent || 0).toFixed(
-                              0,
-                            )}
-                            %
                           </span>
                         </div>
                       ))}
