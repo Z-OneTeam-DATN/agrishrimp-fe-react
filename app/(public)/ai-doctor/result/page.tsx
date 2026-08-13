@@ -56,6 +56,20 @@ const getStageTotal = (products: AiDoctorSuggestedProduct[] = []) =>
     0,
   );
 
+const STAGE_NUMBER_PREFIX_PATTERN = /^(\d+(?:\.\d+)?)\s*[-–—]\s*/;
+
+const getStageDisplayNumber = (
+  stage: AiDoctorTreatmentStage,
+  index: number,
+) => {
+  const match = stage.stageTitle?.trim().match(STAGE_NUMBER_PREFIX_PATTERN);
+  return match?.[1] ?? String(index + 1);
+};
+
+const getStageDisplayTitle = (stage: AiDoctorTreatmentStage, index: number) =>
+  stage.stageTitle?.trim().replace(STAGE_NUMBER_PREFIX_PATTERN, "") ||
+  `Bước ${index + 1}`;
+
 const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
 
 function TreatmentInstructionList({
@@ -153,22 +167,17 @@ function ProductCard({ product }: { product: AiDoctorSuggestedProduct }) {
 function StageSelectionCard({
   message,
   options,
-  selectionType,
   selectingOptionKey,
   onSelect,
 }: {
   message?: string;
   options: AiDoctorTreatmentStageOption[];
-  selectionType?: "STAGE" | "SUB_STAGE";
   selectingOptionKey: string | null;
   onSelect: (option: AiDoctorTreatmentStageOption) => void;
 }) {
-  const title =
-    selectionType === "SUB_STAGE" ? "Chọn giai đoạn con" : "Chọn giai đoạn";
+  const title = "Chọn giai đoạn";
   const getOptionKey = (option: AiDoctorTreatmentStageOption) =>
-    selectionType === "SUB_STAGE"
-      ? `${option.stageIndex}-${option.subStageIndex ?? ""}`
-      : String(option.stageIndex);
+    String(option.stageIndex);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm">
@@ -184,14 +193,8 @@ function StageSelectionCard({
         {options.map((option) => {
           const optionKey = getOptionKey(option);
           const isSelecting = selectingOptionKey === optionKey;
-          const optionNumber =
-            selectionType === "SUB_STAGE"
-              ? option.subStageNumber
-              : option.stageNumber;
-          const optionTitle =
-            selectionType === "SUB_STAGE"
-              ? option.subStageTitle || option.stageTitle
-              : option.stageTitle;
+          const optionNumber = option.stageNumber;
+          const optionTitle = option.stageTitle;
           return (
             <button
               key={optionKey}
@@ -238,15 +241,18 @@ function StageCard({
   isAdding: boolean;
   onAddStage: () => void;
 }) {
+  const stageNumber = getStageDisplayNumber(stage, index);
+  const stageTitle = getStageDisplayTitle(stage, index);
+
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="rounded bg-slate-900 px-2 py-1 text-xs font-extrabold text-white">
-            BƯỚC {index + 1}
+            BƯỚC {stageNumber}
           </span>
           <span className="text-sm font-bold uppercase text-slate-800">
-            {stage.stageTitle || `Bước ${index + 1}`}
+            {stageTitle}
           </span>
         </div>
         <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#376E60] shadow-sm">
@@ -411,23 +417,13 @@ export default function TreatmentResultPage() {
     option: AiDoctorTreatmentStageOption,
   ) => {
     if (!diagnosisId || selectingOptionKey !== null) return;
-    const isSubStage = stageSelection?.selectionType === "SUB_STAGE";
-    const optionKey = isSubStage
-      ? `${option.stageIndex}-${option.subStageIndex ?? ""}`
-      : String(option.stageIndex);
+    const optionKey = String(option.stageIndex);
     setSelectingOptionKey(optionKey);
     try {
-      const data =
-        isSubStage && typeof option.subStageIndex === "number"
-          ? await aiDoctorService.generatePrescriptionForSubStage(
-              diagnosisId,
-              option.stageIndex,
-              option.subStageIndex,
-            )
-          : await aiDoctorService.generatePrescriptionForStage(
-              diagnosisId,
-              option.stageIndex,
-            );
+      const data = await aiDoctorService.generatePrescriptionForStage(
+        diagnosisId,
+        option.stageIndex,
+      );
       setPrescriptionData(data);
       setPrescriptionState("loaded");
       if (!data.stageSelection?.options?.length) {
@@ -772,7 +768,11 @@ export default function TreatmentResultPage() {
                           className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
                         >
                           <span className="font-medium text-slate-600">
-                            Bước {index + 1}
+                            Bước{" "}
+                            {getStageDisplayNumber(
+                              treatmentStages[index],
+                              index,
+                            )}
                           </span>
                           <span className="font-bold text-slate-800">
                             {formatPrice(total)}
@@ -829,7 +829,7 @@ export default function TreatmentResultPage() {
                       addProductsToCart(
                         stage.products ?? [],
                         `stage-${index}`,
-                        `giai đoạn ${index + 1}`,
+                        `giai đoạn ${getStageDisplayNumber(stage, index)}`,
                       )
                     }
                   />
@@ -838,7 +838,6 @@ export default function TreatmentResultPage() {
                 <StageSelectionCard
                   message={stageSelection.message}
                   options={stageSelection.options}
-                  selectionType={stageSelection.selectionType}
                   selectingOptionKey={selectingOptionKey}
                   onSelect={handleSelectStageOption}
                 />

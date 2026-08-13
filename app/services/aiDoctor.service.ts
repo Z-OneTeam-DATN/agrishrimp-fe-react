@@ -43,10 +43,6 @@ const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
     mergedDiagnosis.treatmentStages = [];
   }
 
-  if (diagnosis.treatmentStages?.length) {
-    delete mergedDiagnosis.stageSelection;
-  }
-
   window.sessionStorage.setItem(
     getDiagnosisStorageKey(diagnosis.diagnosisId),
     JSON.stringify(mergedDiagnosis),

@@ -111,6 +111,7 @@ export interface AiDoctorConversationTurn {
   disease?: AiDoctorDiseaseInfo;
   signsSummary?: string;
   needsClarification?: boolean;
+  stageSelection?: AiDoctorTreatmentStageSelection;
   /** DISEASE | HEALTHY | UNRECOGNIZED — chỉ có ở turn type DIAGNOSIS. */
   status?: "DISEASE" | "HEALTHY" | "UNRECOGNIZED";
   /** Narrative HTML đã lưu để replay đúng bubble tư vấn/chẩn đoán. */

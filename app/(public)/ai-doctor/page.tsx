@@ -78,24 +78,19 @@ type PendingImageObservation = {
 function StageSelectionBubble({
   message,
   options,
-  selectionType,
   pendingOptionKey,
   disabled,
   onSelect,
 }: {
   message?: string;
   options: AiDoctorTreatmentStageOption[];
-  selectionType?: "STAGE" | "SUB_STAGE";
   pendingOptionKey: string | null;
   disabled: boolean;
   onSelect: (option: AiDoctorTreatmentStageOption) => void;
 }) {
-  const title =
-    selectionType === "SUB_STAGE" ? "Chọn giai đoạn con" : "Chọn giai đoạn";
+  const title = "Chọn giai đoạn";
   const getOptionKey = (option: AiDoctorTreatmentStageOption) =>
-    selectionType === "SUB_STAGE"
-      ? `${option.stageIndex}-${option.subStageIndex ?? ""}`
-      : String(option.stageIndex);
+    String(option.stageIndex);
 
   return (
     <div className="ml-[42px] w-full max-w-[78%] overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm">
@@ -113,14 +108,8 @@ function StageSelectionBubble({
         {options.map((option) => {
           const optionKey = getOptionKey(option);
           const isPending = pendingOptionKey === optionKey;
-          const optionNumber =
-            selectionType === "SUB_STAGE"
-              ? option.subStageNumber
-              : option.stageNumber;
-          const optionTitle =
-            selectionType === "SUB_STAGE"
-              ? option.subStageTitle || option.stageTitle
-              : option.stageTitle;
+          const optionNumber = option.stageNumber;
+          const optionTitle = option.stageTitle;
           return (
             <button
               key={optionKey}
@@ -200,6 +189,7 @@ const mapTurnsToEntries = (
         disease: turn.disease,
         signsSummary: turn.signsSummary,
         needsClarification: turn.needsClarification,
+        stageSelection: turn.stageSelection,
         aiDescription: turn.aiDescription,
       },
     });
@@ -537,50 +527,17 @@ export default function AiDoctorChatPage() {
     mutationFn: ({
       diagnosisId,
       stageIndex,
-      subStageIndex,
     }: {
       diagnosisId: string;
       stageIndex: number;
-      subStageIndex?: number;
-    }) =>
-      typeof subStageIndex === "number"
-        ? aiDoctorService.generatePrescriptionForSubStage(
-            diagnosisId,
-            stageIndex,
-            subStageIndex,
-          )
-        : aiDoctorService.generatePrescriptionForStage(diagnosisId, stageIndex),
+    }) => aiDoctorService.generatePrescriptionForStage(diagnosisId, stageIndex),
     onMutate: (variables) => {
       setPendingStageChoice({
         diagnosisId: variables.diagnosisId,
-        optionKey:
-          typeof variables.subStageIndex === "number"
-            ? `${variables.stageIndex}-${variables.subStageIndex}`
-            : String(variables.stageIndex),
+        optionKey: String(variables.stageIndex),
       });
     },
     onSuccess: (data, variables) => {
-      setEntries((prev) =>
-        prev.map((entry) => {
-          if (
-            entry.kind !== "bot-diagnosis" ||
-            entry.diagnosis.diagnosisId !== variables.diagnosisId
-          ) {
-            return entry;
-          }
-          return {
-            ...entry,
-            diagnosis: {
-              ...entry.diagnosis,
-              ...data,
-              stageSelection: data.stageSelection,
-            },
-          };
-        }),
-      );
-      if (data.stageSelection?.options?.length) {
-        return;
-      }
       toast.success("Đã chọn giai đoạn và lập phác đồ phù hợp.");
       router.push(
         `/ai-doctor/result?id=${data.diagnosisId || variables.diagnosisId}`,
@@ -710,22 +667,14 @@ export default function AiDoctorChatPage() {
     setSelectedImage(null);
   };
 
-  const openReport = (diagnosisId?: string) => {
-    if (!diagnosisId) return;
-    router.push(`/ai-doctor/result?id=${diagnosisId}`);
-  };
-
   const selectStageOption = (
     diagnosisId: string,
     option: AiDoctorTreatmentStageOption,
-    selectionType?: "STAGE" | "SUB_STAGE",
   ) => {
     if (!diagnosisId || stagePrescriptionMutation.isPending) return;
     stagePrescriptionMutation.mutate({
       diagnosisId,
       stageIndex: option.stageIndex,
-      subStageIndex:
-        selectionType === "SUB_STAGE" ? option.subStageIndex : undefined,
     });
   };
 
@@ -952,7 +901,6 @@ export default function AiDoctorChatPage() {
                     <StageSelectionBubble
                       message={diagnosis.stageSelection.message}
                       options={diagnosis.stageSelection.options}
-                      selectionType={diagnosis.stageSelection.selectionType}
                       pendingOptionKey={
                         pendingStageChoice?.diagnosisId ===
                         diagnosis.diagnosisId
@@ -961,24 +909,9 @@ export default function AiDoctorChatPage() {
                       }
                       disabled={stagePrescriptionMutation.isPending}
                       onSelect={(option) =>
-                        selectStageOption(
-                          diagnosis.diagnosisId,
-                          option,
-                          diagnosis.stageSelection?.selectionType,
-                        )
+                        selectStageOption(diagnosis.diagnosisId, option)
                       }
                     />
-                  ) : !diagnosis.needsClarification &&
-                    diagnosis.status === "DISEASE" ? (
-                    <button
-                      onClick={() => openReport(diagnosis.diagnosisId)}
-                      className="ml-[42px] flex h-11 items-center justify-center gap-1 rounded-xl bg-[#1965A2] px-4 text-[13px] font-bold uppercase text-white shadow-sm transition-colors hover:bg-[#15588D]"
-                    >
-                      {isAuthenticated
-                        ? "Xem cách chữa trị ngay"
-                        : "Mở hồ sơ điều trị"}
-                      <ArrowRight size={16} />
-                    </button>
                   ) : null}
                 </div>
               );
@@ -1072,7 +1005,7 @@ export default function AiDoctorChatPage() {
 
                         <p className="text-[13px] leading-relaxed text-gray-600">
                           {diagnosis.signsSummary ||
-                            "Bác sĩ đã xem xong, bà con nhấn vào nút bên dưới để xem cách chữa trị chi tiết nhé."}
+                            "Bác sĩ đã xem xong, bà con chọn giai đoạn phù hợp để xem cách xử lý chi tiết nhé."}
                         </p>
 
                         {diagnosis.causes && diagnosis.causes.length > 0 && (
@@ -1086,18 +1019,6 @@ export default function AiDoctorChatPage() {
                             </p>
                           </div>
                         )}
-                      </div>
-
-                      <div className="border-t border-gray-100 p-3">
-                        <button
-                          onClick={() => openReport(diagnosis.diagnosisId)}
-                          className="flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#1965A2] text-[13px] font-bold uppercase text-white transition-colors hover:bg-[#15588D]"
-                        >
-                          {isAuthenticated
-                            ? "Xem cách chữa trị ngay"
-                            : "Mở hồ sơ điều trị"}
-                          <ArrowRight size={16} />
-                        </button>
                       </div>
                     </div>
                   </div>
