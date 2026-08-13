@@ -8,7 +8,7 @@ import { ImagePlus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 import { FileService } from "@/app/services/file.service";
-import { PublicProductService } from "@/app/services/publicProduct.service";
+import { ProductService } from "@/app/services/product.service";
 import ProductMultiSelect from "@/components/agronomist/ProductMultiSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ import type {
   AiDiseaseKnowledge,
   AiKnowledgeCategory,
 } from "@/app/types/ai-knowledge.types";
-import type { PublicProductListItem } from "@/app/types/product.schema";
+import type { ProductListItem } from "@/app/types/product.schema";
 
 import "react-quill-new/dist/quill.snow.css";
 
@@ -217,7 +217,7 @@ const optionalText = (value: string) => {
 const numberOrFallback = (value: number, fallback: number) =>
   Number.isFinite(Number(value)) ? Number(value) : fallback;
 
-const resolveProductOptionImage = (product: PublicProductListItem) => {
+const resolveProductOptionImage = (product: ProductListItem) => {
   const imageCandidates = [
     ...(product.variants ?? []).flatMap((variant) =>
       (variant.imageUrl || "").split(","),
@@ -564,19 +564,14 @@ export default function DiseaseForm({
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   const productsQuery = useQuery({
-    queryKey: ["agronomist-products"],
+    queryKey: ["agronomist-products", "ACTIVE"],
     queryFn: async () => {
-      const page = await PublicProductService.getList({
-        page: 0,
-        size: 200,
-        sort: "name-asc",
-      });
-      return page.content;
+      return ProductService.getAll({ status: "ACTIVE" });
     },
   });
   const productOptions = useMemo(
     () =>
-      (productsQuery.data ?? []).map((product: PublicProductListItem) => ({
+      (productsQuery.data ?? []).map((product: ProductListItem) => ({
         id: product.id,
         label: `${product.name} #${product.id}`,
         imageUrl: resolveProductOptionImage(product),
@@ -1230,7 +1225,11 @@ export default function DiseaseForm({
                                   })
                                 }
                                 loading={productsQuery.isLoading}
-                                emptyMessage="Chưa có sản phẩm đang hoạt động trong catalog."
+                                emptyMessage={
+                                  productsQuery.isError
+                                    ? "Không tải được danh sách sản phẩm. Vui lòng kiểm tra quyền hoặc thử lại."
+                                    : "Chưa có sản phẩm đang hoạt động trong catalog."
+                                }
                               />
                             </div>
                           </div>
