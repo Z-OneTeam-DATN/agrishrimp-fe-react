@@ -1,4 +1,5 @@
 import { BranchOrder, MyOrder, OrderStatus } from "@/app/types/order.types";
+import { parseLocalDateTime } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 
 type BadgeTone = {
@@ -375,7 +376,7 @@ export const isOrderProcessingOverdue = (
     return false;
   }
 
-  const createdAt = new Date(order.createdAt).getTime();
+  const createdAt = parseLocalDateTime(order.createdAt).getTime();
   if (Number.isNaN(createdAt)) {
     return false;
   }
@@ -384,7 +385,7 @@ export const isOrderProcessingOverdue = (
 };
 
 export const isOrderCreatedToday = (order: Pick<MyOrder, "createdAt">) => {
-  const createdAt = new Date(order.createdAt);
+  const createdAt = parseLocalDateTime(order.createdAt);
   if (Number.isNaN(createdAt.getTime())) {
     return false;
   }

@@ -23,6 +23,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { orderService } from "@/app/services/order.service";
+import { formatDate } from "@/lib/dateUtils";
 import { toast } from "sonner";
 
 const formatCurrency = (amount: number) =>
@@ -109,7 +110,7 @@ export default function HandoverDetailPage() {
                             <h1 className="text-[24px] font-black text-slate-800 uppercase">BIÊN BẢN BÀN GIAO</h1>
                             <p className="text-[14px] text-blue-700 font-black mt-1">MÃ: {data.code}</p>
                             <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded text-[12px] font-bold text-slate-700 border border-slate-200">
-                                <Calendar size={12} /> Ngày tạo: {new Date(data.createdAt).toLocaleString("vi-VN")}
+                                <Calendar size={12} /> Ngày tạo: {formatDate(data.createdAt, "dd/MM/yyyy HH:mm")}
                             </div>
                         </div>
                     </div>

@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDate, parseLocalDateTime, toDateTimeLocalValue } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 
 type TabId =
@@ -270,7 +271,7 @@ function createEmptyOrderForm(): OrderFormState {
     customerName: "",
     customerPhone: "",
     discount: 0,
-    expectedDeliveryDate: now.toISOString().slice(0, 10),
+    expectedDeliveryDate: formatDate(now, "yyyy-MM-dd"),
     internalNote: "",
     items: [],
     note: "",
@@ -299,16 +300,16 @@ function formatCurrency(value: number) {
 }
 
 function formatCompactDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  return formatDate(value, "dd/MM/yyyy HH:mm");
+}
 
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+function getOrderTimestampValue(value: string) {
+  const parsed = parseLocalDateTime(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function getCurrentLocalTimestamp() {
+  return toDateTimeLocalValue(new Date());
 }
 
 function normalizeStatus(status: string) {
@@ -404,7 +405,7 @@ function transformMyOrderToManagedOrder(order: MyOrder): ManagedOrder {
     branchName,
     carrier,
     code: order.orderCode || order.code || `#${order.id}`,
-    createdAt: order.createdAt || new Date().toISOString(),
+    createdAt: order.createdAt || getCurrentLocalTimestamp(),
     createdBy: "Hệ thống",
     customerName: order.customerName || order.receiverName || "Khách lẻ",
     customerPhone: order.customerPhone || order.receiverPhone || "",
@@ -436,7 +437,7 @@ function transformMyOrderToManagedOrder(order: MyOrder): ManagedOrder {
     status: order.status || "PENDING",
     subtotal,
     total,
-    updatedAt: order.createdAt || new Date().toISOString(),
+    updatedAt: order.createdAt || getCurrentLocalTimestamp(),
     updatedBy: "Hệ thống",
   };
 }
@@ -453,7 +454,8 @@ function mergeManagedOrders(
 
   return [...localOnly, ...merged].sort(
     (left, right) =>
-      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      getOrderTimestampValue(right.createdAt) -
+      getOrderTimestampValue(left.createdAt),
   );
 }
 
@@ -492,7 +494,7 @@ function buildManagedOrderFromForm(
     0,
   );
   const total = Math.max(0, subtotal + form.shippingFee - form.discount);
-  const timestamp = new Date().toISOString();
+  const timestamp = getCurrentLocalTimestamp();
   const baseId = previous?.id || form.id || `local-${Date.now()}`;
 
   return {
@@ -554,7 +556,7 @@ async function persistStatusUpdate(order: ManagedOrder, nextStatus: string) {
     ...order,
     source: order.source === "local" ? "local" : "override",
     status: nextStatus,
-    updatedAt: new Date().toISOString(),
+    updatedAt: getCurrentLocalTimestamp(),
     updatedBy: "Admin Z-OneTeam",
   });
 }
@@ -631,7 +633,7 @@ export function AdminOrdersListModule() {
         paymentFilter === "all" || order.paymentMethod === paymentFilter;
       const matchesStatus = matchesTab(order.status, activeTab);
 
-      const createdAt = new Date(order.createdAt);
+      const createdAt = parseLocalDateTime(order.createdAt);
       const matchesDate =
         dateFilter === "all" ||
         (dateFilter === "today" &&
@@ -710,7 +712,7 @@ export function AdminOrdersListModule() {
         ...order,
         source: order.source === "local" ? "local" : "override",
         status: action.nextStatus,
-        updatedAt: new Date().toISOString(),
+        updatedAt: getCurrentLocalTimestamp(),
         updatedBy: "Admin Z-OneTeam",
       });
       toast.success(`Đã cập nhật đơn ${order.code}`);
@@ -733,7 +735,7 @@ export function AdminOrdersListModule() {
                 ...order,
                 source: order.source === "local" ? "local" : "override",
                 status: nextStatus,
-                updatedAt: new Date().toISOString(),
+                updatedAt: getCurrentLocalTimestamp(),
                 updatedBy: "Admin Z-OneTeam",
               }
             : order,
