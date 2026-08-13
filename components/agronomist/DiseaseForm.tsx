@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ImagePlus, Plus, X } from "lucide-react";
@@ -35,6 +36,21 @@ import type {
   AiKnowledgeCategory,
 } from "@/app/types/ai-knowledge.types";
 import type { PublicProductListItem } from "@/app/types/product.schema";
+
+import "react-quill-new/dist/quill.snow.css";
+
+const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
+
+const TREATMENT_STAGE_QUILL_MODULES = {
+  toolbar: [
+    [{ header: [3, 4, false] }],
+    ["bold", "italic", "underline", "strike"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    [{ indent: "-1" }, { indent: "+1" }],
+    ["blockquote", "link"],
+    ["clean"],
+  ],
+};
 
 type KnowledgeStageForm = {
   stageTitle: string;
@@ -126,6 +142,48 @@ const splitLines = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
+
+const escapeStageHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+const isHtmlEmpty = (value: string) => {
+  const normalized = value
+    .replace(/<p><br><\/p>/gi, "")
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+
+  return normalized.length === 0;
+};
+
+const stageInstructionsToEditorHtml = (instructions: string[] = []) => {
+  const visibleInstructions = instructions
+    .map((instruction) => instruction.trim())
+    .filter(Boolean);
+
+  if (visibleInstructions.length === 0) return "";
+  if (
+    visibleInstructions.length === 1 &&
+    HTML_TAG_PATTERN.test(visibleInstructions[0])
+  ) {
+    return visibleInstructions[0];
+  }
+
+  return `<ul>${visibleInstructions
+    .map((instruction) => `<li>${escapeStageHtml(instruction)}</li>`)
+    .join("")}</ul>`;
+};
+
+const stageInstructionsToPayload = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed && !isHtmlEmpty(trimmed) ? [trimmed] : [];
+};
+
 const optionalText = (value: string) => {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
@@ -170,12 +228,17 @@ function buildDiseasePayload(form: DiseaseFormState): DiseasePayload {
     canonical: form.canonical,
     status: form.status,
     treatmentStages: form.treatmentStages
-      .map((stage) => ({
-        stageTitle: stage.stageTitle.trim(),
-        instructions: splitLines(stage.instructionsText),
-        productIds: stage.productIds,
-        extraProductNames: splitLines(stage.extraProductNamesText),
-      }))
+      .map((stage) => {
+        const instructions = stageInstructionsToPayload(
+          stage.instructionsText,
+        );
+        return {
+          stageTitle: stage.stageTitle.trim(),
+          instructions,
+          productIds: stage.productIds,
+          extraProductNames: splitLines(stage.extraProductNamesText),
+        };
+      })
       .filter(
         (stage) =>
           stage.stageTitle ||
@@ -209,7 +272,7 @@ function validateDiseasePayload(
 
   let hasStage = false;
   form.treatmentStages.forEach((stage, index) => {
-    const instructions = splitLines(stage.instructionsText);
+    const instructions = stageInstructionsToPayload(stage.instructionsText);
     const extraProductNames = splitLines(stage.extraProductNamesText);
     const hasStageContent =
       Boolean(stage.stageTitle.trim()) ||
@@ -355,7 +418,9 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
       item.treatmentStages.length > 0
         ? item.treatmentStages.map((stage) => ({
             stageTitle: stage.stageTitle,
-            instructionsText: stage.instructions.join("\n"),
+            instructionsText: stageInstructionsToEditorHtml(
+              stage.instructions,
+            ),
             productIds: stage.productIds ?? [],
             extraProductNamesText: (stage.extraProductNames ?? []).join("\n"),
           }))
@@ -851,28 +916,35 @@ export default function DiseaseForm({
                     />
                   </div>
                 </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-[12px] font-semibold text-[#232323]">
-                      Hướng dẫn điều trị
-                    </Label>
-                    <Textarea
+                <div className="mt-4 space-y-2">
+                  <Label className="text-[12px] font-semibold text-[#232323]">
+                    Hướng dẫn điều trị
+                  </Label>
+                  <div
+                    aria-invalid={Boolean(stageErrors?.instructionsText)}
+                    className={cn(
+                      "overflow-hidden rounded-[4px] border border-[#d0d7e6] bg-white [&_.ql-container]:min-h-[180px] [&_.ql-container]:border-0 [&_.ql-container]:text-[13px] [&_.ql-editor]:min-h-[180px] [&_.ql-editor]:leading-6 [&_.ql-toolbar]:border-0 [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-[#e1e4ec]",
+                      stageErrors?.instructionsText &&
+                        "border-rose-500 ring-2 ring-rose-100",
+                    )}
+                  >
+                    <ReactQuill
+                      theme="snow"
                       value={stage.instructionsText}
-                      onChange={(event) =>
+                      onChange={(value) =>
                         updateStage(index, {
-                          instructionsText: event.target.value,
+                          instructionsText: value,
                         })
                       }
-                      rows={4}
-                      aria-invalid={Boolean(stageErrors?.instructionsText)}
-                      className={cn(
-                        textareaClassName,
-                        stageErrors?.instructionsText && invalidFieldClassName,
-                      )}
+                      modules={TREATMENT_STAGE_QUILL_MODULES}
+                      placeholder="Nhập hướng dẫn điều trị..."
                     />
-                    <FieldError message={stageErrors?.instructionsText} />
                   </div>
-                  <div className="space-y-2">
+                  <FieldError message={stageErrors?.instructionsText} />
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label className="text-[12px] font-semibold text-[#232323]">
                       Tên thuốc/sản phẩm khác
                     </Label>

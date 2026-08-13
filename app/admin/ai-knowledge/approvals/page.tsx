@@ -935,6 +935,8 @@ function DetailField({
   );
 }
 
+const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
+
 function TextList({
   items,
   emptyText = "Chưa có dữ liệu",
@@ -953,7 +955,14 @@ function TextList({
       {visibleItems.map((item, index) => (
         <li key={`${item}-${index}`} className="flex gap-2">
           <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
-          <span>{item}</span>
+          {HTML_TAG_PATTERN.test(item) ? (
+            <span
+              className="prose prose-sm max-w-none text-slate-600 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
+              dangerouslySetInnerHTML={{ __html: item }}
+            />
+          ) : (
+            <span>{item}</span>
+          )}
         </li>
       ))}
     </ul>

@@ -35,6 +35,52 @@ function isDiagnosisResult(
   return "diagnosisId" in data;
 }
 
+const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
+
+function TreatmentInstructionPreview({
+  instructions,
+}: {
+  instructions?: string[];
+}) {
+  const visibleInstructions = (instructions ?? []).filter((instruction) =>
+    instruction.trim(),
+  );
+
+  if (visibleInstructions.length === 0) return null;
+
+  if (
+    visibleInstructions.some((instruction) =>
+      HTML_TAG_PATTERN.test(instruction),
+    )
+  ) {
+    return (
+      <div className="mt-1 space-y-2">
+        {visibleInstructions.map((instruction, index) =>
+          HTML_TAG_PATTERN.test(instruction) ? (
+            <div
+              key={index}
+              className="prose prose-sm max-w-none text-slate-600 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5"
+              dangerouslySetInnerHTML={{ __html: instruction }}
+            />
+          ) : (
+            <p key={index} className="text-slate-600">
+              {instruction}
+            </p>
+          ),
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-600">
+      {visibleInstructions.map((instruction, index) => (
+        <li key={index}>{instruction}</li>
+      ))}
+    </ul>
+  );
+}
+
 export default function AgronomistTesterPage() {
   return (
     <PermissionGuard permission={P.AI_KNOWLEDGE_APPROVE}>
@@ -342,11 +388,7 @@ function DiagnosisResultCard({ result }: { result: AiDoctorDiagnosisResponse }) 
           {result.treatmentStages.map((stage, index) => (
             <div key={index} className="rounded-[4px] border border-[#e1e4ec] p-2.5">
               <p className="font-medium text-slate-800">{stage.stageTitle}</p>
-              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-600">
-                {stage.instructions.map((instruction, i) => (
-                  <li key={i}>{instruction}</li>
-                ))}
-              </ul>
+              <TreatmentInstructionPreview instructions={stage.instructions} />
             </div>
           ))}
         </div>

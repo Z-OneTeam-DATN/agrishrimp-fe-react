@@ -51,6 +51,61 @@ const formatDateTime = (value?: string) => {
 const getStageTotal = (products: AiDoctorSuggestedProduct[] = []) =>
   products.reduce((sum, product) => sum + (product.price && product.price > 0 ? product.price : 0), 0);
 
+const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
+
+function TreatmentInstructionList({
+  instructions,
+}: {
+  instructions?: string[];
+}) {
+  const visibleInstructions = (instructions ?? []).filter((instruction) =>
+    instruction.trim(),
+  );
+
+  if (visibleInstructions.length === 0) return null;
+
+  const hasHtml = visibleInstructions.some((instruction) =>
+    HTML_TAG_PATTERN.test(instruction),
+  );
+
+  if (hasHtml) {
+    return (
+      <div className="space-y-3">
+        {visibleInstructions.map((instruction, instructionIndex) =>
+          HTML_TAG_PATTERN.test(instruction) ? (
+            <div
+              key={instructionIndex}
+              className="prose prose-sm max-w-none text-slate-700 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:text-slate-900"
+              dangerouslySetInnerHTML={{ __html: instruction }}
+            />
+          ) : (
+            <p
+              key={instructionIndex}
+              className="text-sm leading-relaxed text-slate-700"
+            >
+              {instruction}
+            </p>
+          ),
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {visibleInstructions.map((instruction, instructionIndex) => (
+        <li
+          key={instructionIndex}
+          className="flex items-start gap-2 text-sm leading-relaxed text-slate-700"
+        >
+          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#376E60]" />
+          <span>{instruction}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ProductCard({ product }: { product: AiDoctorSuggestedProduct }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#376E60]/40 hover:shadow-md">
@@ -123,17 +178,7 @@ function StageCard({
             <div className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
               Hướng dẫn thực hiện
             </div>
-            <ul className="space-y-2">
-              {stage.instructions.map((instruction, instructionIndex) => (
-                <li
-                  key={`${index}-${instructionIndex}`}
-                  className="flex items-start gap-2 text-sm leading-relaxed text-slate-700"
-                >
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#376E60]" />
-                  <span>{instruction}</span>
-                </li>
-              ))}
-            </ul>
+            <TreatmentInstructionList instructions={stage.instructions} />
           </div>
         ) : null}
 
