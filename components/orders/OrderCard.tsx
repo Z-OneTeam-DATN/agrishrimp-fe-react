@@ -137,6 +137,17 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       currency: "VND",
     }).format(amount);
 
+  const resolveItemDisplayPrice = (item: MyOrder["items"][number]) => {
+    const unitPrice = Number(item.price ?? 0);
+    if (unitPrice > 0) {
+      return unitPrice;
+    }
+
+    const totalPrice = Number(item.totalPrice ?? 0);
+    const quantity = Number(item.quantity ?? 0);
+    return totalPrice > 0 && quantity > 0 ? totalPrice / quantity : 0;
+  };
+
   const statusConfig = getStatusConfig(order.status);
 
   const btnMainClass =
@@ -187,14 +198,14 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <span>SKU: {item.sku}</span>
                 </div>
                 <div className={`mt-1.5 text-sm font-bold sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}>
-                  {formatCurrency(item.price)}
+                  {formatCurrency(resolveItemDisplayPrice(item))}
                 </div>
               </div>
             </Link>
 
             <div className="flex flex-col items-end gap-2">
               <div className={`hidden text-right text-sm font-bold sm:block ${order.status === "CANCELLED" ? "text-gray-400" : "text-gray-900"}`}>
-                {formatCurrency(item.price)}
+                {formatCurrency(resolveItemDisplayPrice(item))}
               </div>
 
               {order.status === "COMPLETED" && item.productId && (
@@ -277,9 +288,22 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
           </Link>
 
           {order.status === "COMPLETED" && (
-            <Button variant="outline" className={btnOutlineClass}>
-              Mua lại
-            </Button>
+            <>
+              <Link href={`/orders/return/request/${order.id}`}>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    btnOutlineClass,
+                    "border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
+                  )}
+                >
+                  Trả hàng
+                </Button>
+              </Link>
+              <Button variant="outline" className={btnOutlineClass}>
+                Mua lại
+              </Button>
+            </>
           )}
         </div>
       </div>

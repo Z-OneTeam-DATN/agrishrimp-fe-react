@@ -143,11 +143,16 @@ const buildDeliveryInfoFromAddress = (addr: SavedAddress): DeliveryInfo => ({
 
 const getSavedAddressLocationError = (addr: SavedAddress) => {
     if (!addr.districtId || !addr.wardCode) {
-        return "Địa chỉ này đang thiếu dữ liệu vị trí, hệ thống sẽ dùng phí vận chuyển ước tính nếu cần."
+        return "Địa chỉ này đang thiếu Quận/Huyện hoặc Phường/Xã. Vui lòng cập nhật địa chỉ trước khi tính phí giao hàng."
     }
 
     return null
 }
+
+const canPrepareWithDeliveryInfo = (
+    info?: DeliveryInfo | null,
+): info is DeliveryInfo & { userAddressId: number; districtId: number; wardCode: string } =>
+    Boolean(info?.userAddressId && info.districtId && info.wardCode)
 
 const buildCartItemsFromPreparedQuote = (
     preparedQuote: PrepareOrderResponse,
@@ -427,7 +432,7 @@ export default function CheckoutPage() {
         setVoucherInput(nextVoucherCode || "")
         syncVoucherInUrl(nextVoucherCode)
 
-        if (deliveryInfo?.userAddressId) {
+        if (canPrepareWithDeliveryInfo(deliveryInfo)) {
             prepareMutation.reset()
             triggerPrepare(deliveryInfo.userAddressId, cartItems, nextVoucherCode)
         }
@@ -532,6 +537,7 @@ export default function CheckoutPage() {
         if (locationError) {
             clearPrepareResponse()
             setAddressLocationWarning(locationError)
+            return
         }
 
         if (addr.id) {
@@ -926,6 +932,7 @@ export default function CheckoutPage() {
         return {
             carrier: firstSubOrder?.carrier?.trim() || "Đối tác vận chuyển",
             estimatedDays: firstSubOrder?.estimatedDays?.trim() || "2-3 ngày",
+            label: "Phí vận chuyển",
         }
     }, [prepareOrderDisplayResponse])
 
@@ -1014,6 +1021,11 @@ export default function CheckoutPage() {
         confirmAttemptKeyRef.current = null
         setShowTokenExpiredModal(false)
         if (!deliveryInfo?.userAddressId) return
+        if (!canPrepareWithDeliveryInfo(deliveryInfo)) {
+            clearPrepareResponse()
+            setAddressLocationWarning("Địa chỉ này đang thiếu Quận/Huyện hoặc Phường/Xã. Vui lòng cập nhật địa chỉ trước khi tính phí giao hàng.")
+            return
+        }
         prepareMutation.mutate({
             userAddressId: deliveryInfo.userAddressId,
             // 🐛 FIX LỖI 400: Bổ sung mảng cart vào payload gửi lên backend
@@ -1201,10 +1213,10 @@ export default function CheckoutPage() {
             </div>
 
             <div className="container mx-auto px-4 max-w-6xl py-5">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
                     {/* ════ LEFT COLUMN ════ */}
-                    <div className="lg:col-span-2 space-y-3">
+                    <div className="lg:col-span-2 space-y-5">
 
                         {/* ── SECTION 1: ĐỊA CHỈ NHẬN HÀNG ── */}
                         <div className="bg-white border border-gray-200 overflow-hidden">
@@ -1251,7 +1263,7 @@ export default function CheckoutPage() {
                                                     <div
                                                         key={addr.id}
                                                         onClick={() => handleAddressSelect(addr)}
-                                                        className="flex items-start justify-between p-3.5 border border-gray-200 rounded cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition-colors"
+                                                        className="flex items-start justify-between p-3.5 border border-gray-200 cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition-colors"
                                                     >
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-1">
@@ -1301,7 +1313,7 @@ export default function CheckoutPage() {
                                             </div>
                                             <p className="text-sm text-gray-500 leading-relaxed">{deliveryInfo?.address}</p>
                                             {addressLocationWarning && (
-                                                <p className="mt-2 text-xs font-medium text-amber-600">{addressLocationWarning}</p>
+                                                <p className="mt-2 text-xs font-medium text-rose-600">{addressLocationWarning}</p>
                                             )}
                                         </div>
                                     </div>
@@ -1332,7 +1344,7 @@ export default function CheckoutPage() {
                                             Đang tính phí vận chuyển...
                                         </div>
                                         {/* Skeleton */}
-                                        <div className="border border-gray-100 rounded animate-pulse space-y-3 p-4">
+                                        <div className="border border-gray-100 animate-pulse space-y-3 p-4">
                                             <div className="h-3 bg-gray-100 rounded w-1/4" />
                                             <div className="flex gap-3">
                                                 <div className="w-16 h-16 bg-gray-100 rounded shrink-0" />
@@ -1346,28 +1358,28 @@ export default function CheckoutPage() {
                                 )}
 
                                 {addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
-                                    <div className="border border-red-100 bg-red-50 rounded-lg p-5 text-center">
+                                    <div className="border border-red-100 bg-red-50 p-5 text-center">
                                         <p className="text-sm font-semibold text-red-700 mb-1">{getFriendlyError(prepareMutation.error)}</p>
                                         <p className="text-xs text-red-400">Vui lòng kiểm tra lại thông tin giao hàng hoặc thử lại sau.</p>
                                     </div>
                                 )}
 
                                 {false && addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
-                                    <div className="border border-red-100 bg-red-50 rounded-lg p-5 text-center">
+                                    <div className="border border-red-100 bg-red-50 p-5 text-center">
                                         <p className="text-sm font-semibold text-red-700 mb-1">Khu vực hiện chưa có cửa hàng phục vụ</p>
                                         <p className="text-xs text-red-400">Vui lòng chọn địa chỉ khác.</p>
                                     </div>
                                 )}
 
                                 {addressConfirmed && addressLocationWarning && (
-                                    <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 text-sm text-amber-700">
+                                    <div className="border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                                         {addressLocationWarning}
                                     </div>
                                 )}
 
                                 {addressConfirmed && !prepareMutation.isPending && prepareOrderDisplayResponse && (
                                     <div className="space-y-3">
-                                        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                                        <div className="overflow-hidden border border-gray-200 bg-white">
                                             <div className="divide-y divide-gray-100">
                                                 {checkoutDisplayItems.map((item) => (
                                                     <div key={item.productVariantId} className="flex gap-3 px-4 py-4">
@@ -1408,7 +1420,7 @@ export default function CheckoutPage() {
                                             {shippingPreview && (
                                                 <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
                                                     <div className="text-gray-500">
-                                                        Đơn vị vận chuyển:{" "}
+                                                        {shippingPreview.label}:{" "}
                                                         <span className="font-semibold text-blue-600">
                                                             {shippingPreview.carrier}
                                                         </span>
@@ -1424,7 +1436,10 @@ export default function CheckoutPage() {
                                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 bg-gray-50/70 px-4 py-3 text-sm text-gray-600">
                                                 <span>{totalDisplayQuantity} sản phẩm</span>
                                                 <span>Tổng tiền hàng: {formatMoney(prepareOrderDisplayResponse.totalSubtotal)}</span>
-                                                <span>Phí vận chuyển: {formatMoney(prepareOrderDisplayResponse.totalShippingFee)}</span>
+                                                <span>
+                                                    {shippingPreview?.label ?? "Phí vận chuyển"}:{" "}
+                                                    {formatMoney(prepareOrderDisplayResponse.totalShippingFee)}
+                                                </span>
                                                 <span className="font-bold text-gray-900">
                                                     Tổng: {formatMoney(prepareOrderDisplayResponse.totalAmount)}
                                                 </span>
@@ -1462,7 +1477,7 @@ export default function CheckoutPage() {
                                     <label
                                         key={pm.val}
                                         onClick={() => setPaymentMethod(pm.val)}
-                                        className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all ${
+                                        className={`flex items-center gap-4 p-4 border cursor-pointer transition-all ${
                                             paymentMethod === pm.val
                                                 ? "border-blue-500 bg-blue-50/40 ring-1 ring-blue-400"
                                                 : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
@@ -1509,7 +1524,7 @@ export default function CheckoutPage() {
                     </div>
 
                     {/* ════ RIGHT COLUMN ════ */}
-                    <div className="lg:col-span-1 space-y-3 lg:sticky lg:top-4">
+                    <div className="lg:col-span-1 space-y-5 lg:sticky lg:top-4">
                         <div className="bg-white border border-gray-200 overflow-hidden">
                             <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/70">
                                 <h3 className="text-xs font-bold text-gray-600 uppercase tracking-widest">
@@ -1546,8 +1561,12 @@ export default function CheckoutPage() {
                                                 <span className="font-medium text-blue-600">-{formatMoney(prepareOrderDisplayResponse.discountAmount)}</span>
                                             </div>
                                         )}
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-500">Phí vận chuyển</span>
+                                        <div className="flex justify-between items-start gap-3">
+                                            <div>
+                                                <p className="text-gray-500">
+                                                    {shippingPreview?.label ?? "Phí vận chuyển"}
+                                                </p>
+                                            </div>
                                             <span className="text-gray-800 font-medium">{formatMoney(prepareOrderDisplayResponse.totalShippingFee)}</span>
                                         </div>
                                         <div className="border-t border-dashed border-gray-200 pt-3">
@@ -1637,7 +1656,7 @@ export default function CheckoutPage() {
                 <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
                     <div className="absolute inset-0 bg-black/50" onClick={() => setIsAddressModalOpen(false)} />
                     <div className={`relative bg-white w-full shadow-2xl rounded-t-2xl sm:rounded-xl flex flex-col ${
-                        isAddingNewAddress ? "max-w-2xl h-[90vh]" : "max-w-lg max-h-[80vh]"
+                        isAddingNewAddress ? "max-w-3xl max-h-[88vh]" : "max-w-lg max-h-[80vh]"
                     }`}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
                             <div className="flex items-center gap-2">
@@ -1655,7 +1674,7 @@ export default function CheckoutPage() {
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto">
+                        <div className={isAddingNewAddress ? "overflow-y-auto" : "flex-1 overflow-y-auto"}>
                             {!isAddingNewAddress ? (
                                 <div className="p-4 space-y-2">
                                     {isLoadingAddresses ? (
@@ -1670,7 +1689,7 @@ export default function CheckoutPage() {
                                         <div
                                             key={addr.id}
                                             onClick={() => handleAddressSelect(addr)}
-                                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                                            className={`p-4 border cursor-pointer transition-all ${
                                                 deliveryInfo?.address === addr.addressDetail
                                                     ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-400"
                                                     : "border-gray-200 hover:bg-gray-50"
@@ -1709,7 +1728,7 @@ export default function CheckoutPage() {
                                     </button>
                                 </div>
                             ) : (
-                                <div className="p-4">
+                                <div>
                                     <AddressForm
                                         title=""
                                         onSubmit={handleAddNewAddress}

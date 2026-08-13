@@ -243,11 +243,11 @@ export default function AddressForm({
 
   const inputClass = (hasError: boolean) => `
     w-full px-3 border rounded-lg text-sm outline-none transition-all bg-white text-gray-900 placeholder:text-gray-400
-    ${compact ? "h-9" : "h-10"}
+    ${compact ? "h-11" : "h-10"}
     ${hasError ? "border-red-500 focus:ring-2 focus:ring-red-200" : "border-gray-300 focus:border-[#1965a2] focus:ring-2 focus:ring-[#1965a2]/20"}
   `;
 
-  const labelClass = `block text-xs font-bold text-gray-700 ${compact ? "mb-1" : "mb-2"}`;
+  const labelClass = `block text-xs font-bold text-gray-700 ${compact ? "mb-1.5" : "mb-2"}`;
 
   return (
     <div className={`bg-white ${compact ? "" : "rounded-lg shadow-sm border border-gray-100 overflow-hidden"}`}>
@@ -267,9 +267,9 @@ export default function AddressForm({
         </div>
       )}
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} className={compact ? "p-4 space-y-3" : "p-6 space-y-6 pb-20"}>
+      <form onSubmit={handleSubmit(handleFormSubmit)} className={compact ? "p-5 sm:p-6 space-y-4" : "p-6 space-y-6 pb-20"}>
         {/* Họ tên & SĐT */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass}>Họ và tên <span className="text-red-500">*</span></label>
             <input {...register("fullName")} className={inputClass(!!errors.fullName)} placeholder="Nguyễn Văn A" />
@@ -283,7 +283,7 @@ export default function AddressForm({
         </div>
 
         {/* Tỉnh / Quận / Phường */}
-        <div className="grid grid-cols-3 gap-2 relative">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 relative">
           {loadingLoc && (
             <div className="absolute -top-5 right-0 flex items-center text-xs text-[#1965a2]">
               <Loader2 size={12} className="animate-spin mr-1" /> Đang tải...
@@ -372,8 +372,8 @@ export default function AddressForm({
         </div>
 
         {/* Loại địa chỉ & Mặc định */}
-        <div className={`flex flex-wrap gap-2 ${compact ? "" : "flex-col"}`}>
-          <div className="flex gap-2 flex-1">
+        <div className={`flex flex-col gap-3 sm:flex-row sm:items-center ${compact ? "" : "flex-col"}`}>
+          <div className="grid flex-1 grid-cols-2 gap-3">
             {["Home", "Office"].map((type) => (
               <label
                 key={type}
@@ -392,19 +392,19 @@ export default function AddressForm({
         </div>
 
         {/* Footer Actions */}
-        <div className={compact ? "flex gap-2 pt-1" : "fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg lg:relative lg:p-0 lg:bg-transparent lg:shadow-none z-10"}>
-          <div className={`flex gap-3 ${compact ? "w-full" : ""}`}>
+        <div className={compact ? "flex gap-3 pt-2" : "fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg lg:relative lg:p-0 lg:bg-transparent lg:shadow-none z-10"}>
+          <div className={compact ? "grid w-full grid-cols-1 gap-3 sm:grid-cols-2" : "flex gap-3"}>
             {onCancel ? (
               <button
                 type="button"
                 onClick={onCancel}
-                className={`flex-1 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors ${compact ? "py-2" : "h-12"}`}
+                className={`flex-1 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors ${compact ? "py-3" : "h-12"}`}
               >
                 Hủy bỏ
               </button>
             ) : (
               <Link href="/address" className="flex-1">
-                <button type="button" className={`w-full text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors ${compact ? "py-2" : "h-12"}`}>
+                <button type="button" className={`w-full text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors ${compact ? "py-3" : "h-12"}`}>
                   Hủy bỏ
                 </button>
               </Link>
@@ -412,7 +412,7 @@ export default function AddressForm({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex-1 text-sm font-bold text-white bg-[#1965a2] hover:bg-[#268050] rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${compact ? "py-2" : "h-12"}`}
+              className={`flex-1 text-sm font-bold text-white bg-[#1965a2] hover:bg-[#268050] rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${compact ? "py-3" : "h-12"}`}
             >
               {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
               {isSubmitting ? "Đang lưu..." : "Lưu địa chỉ"}

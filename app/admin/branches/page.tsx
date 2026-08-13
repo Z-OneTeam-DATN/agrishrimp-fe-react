@@ -74,6 +74,9 @@ export default function BranchManagementPage() {
       .replace(/[\u0300-\u036f]/g, "")
       .trim();
 
+  const getBranchLocationName = (branch: any, key: "province" | "district" | "ward") =>
+    branch?.[`${key}Name`] ?? branch?.[key] ?? "";
+
   const filteredBranches = useMemo(() => {
     const keyword = normalizeSearchText(searchTerm);
 
@@ -90,9 +93,9 @@ export default function BranchManagementPage() {
         branch.phone,
         branch.email,
         branch.addressDetail,
-        branch.province,
-        branch.district,
-        branch.ward,
+        getBranchLocationName(branch, "province"),
+        getBranchLocationName(branch, "district"),
+        getBranchLocationName(branch, "ward"),
         ...(Array.isArray(branch.managerNames) ? branch.managerNames : []),
       ]
         .map(normalizeSearchText)

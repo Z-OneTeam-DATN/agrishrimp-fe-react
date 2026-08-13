@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  getReplenishmentDocumentLinks,
   getReplenishmentResultMessage,
   orderService,
 } from "@/app/services/order.service";
@@ -25,9 +26,10 @@ import { getFriendlyError } from "@/app/utils/apiError";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/dateUtils";
+import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
+import { readAdminOrdersRefreshSignal } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
-import { isAdminRole } from "@/lib/roles";
-import { getOrderListPath } from "@/lib/order-routing";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
   DeliveryStatusBadge,
@@ -42,6 +44,7 @@ import {
   OrderWorkflowBadge,
   PaymentStatusBadge,
 } from "./OrderStateBadges";
+import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -56,32 +59,48 @@ export default function AdminOrderDetailView({
 }) {
   const router = useRouter();
   const { hasPermission, isLoadingAuth } = usePermissions();
-  const { user } = useAuthStore();
+  const { user, warehouseId } = useAuthStore();
   const [order, setOrder] = useState<MyOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState<"replenishment" | "advance" | null>(
     null,
   );
+  const lastRefreshSignalRef = useRef(0);
 
-  const isAdmin = isAdminRole(user?.role);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const orderRouteAccess = useMemo(
+    () =>
+      resolveOrderRouteAccess({
+        canViewSystemOrders,
+        canUseBranchOrders,
+      }),
+    [canUseBranchOrders, canViewSystemOrders],
+  );
 
   useEffect(() => {
     if (isLoadingAuth) {
       return;
     }
 
-    if (!isAdmin) {
-      router.replace(getOrderListPath(user));
+    if (!canViewSystemOrders) {
+      router.replace(orderRouteAccess.orderListPath);
       return;
     }
 
-    if (!hasPermission(P.ORDER_VIEW)) {
+    if (!orderRouteAccess.canAccessOrderModule) {
       router.push("/admin/forbidden");
     }
-  }, [hasPermission, isAdmin, isLoadingAuth, router, user]);
+  }, [
+    canViewSystemOrders,
+    isLoadingAuth,
+    orderRouteAccess.canAccessOrderModule,
+    orderRouteAccess.orderListPath,
+    router,
+  ]);
 
   const fetchOrder = useCallback(async () => {
-    if (!isAdmin) {
+    if (!canViewSystemOrders) {
       return;
     }
 
@@ -89,21 +108,57 @@ export default function AdminOrderDetailView({
     try {
       const data = await orderService.getAdminOrderById(orderId);
       setOrder(data);
+      lastRefreshSignalRef.current = Math.max(
+        lastRefreshSignalRef.current,
+        readAdminOrdersRefreshSignal(),
+      );
     } catch {
-      toast.error("Không thể tải chi tiết đơn hàng.");
-      router.push("/admin/orders-all");
+      toast.error("KhĂ´ng thá»ƒ táº£i chi tiáº¿t Ä‘Æ¡n hĂ ng.");
+      router.push(orderRouteAccess.defaultOrderListPath);
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, orderId, router]);
+  }, [canViewSystemOrders, orderId, orderRouteAccess.defaultOrderListPath, router]);
 
   useEffect(() => {
-    if (isLoadingAuth || !isAdmin) {
+    if (isLoadingAuth || !canViewSystemOrders) {
       return;
     }
 
     void fetchOrder();
-  }, [fetchOrder, isAdmin, isLoadingAuth]);
+  }, [canViewSystemOrders, fetchOrder, isLoadingAuth]);
+
+  const refreshOrderIfNeeded = useCallback(() => {
+    const nextSignal = readAdminOrdersRefreshSignal();
+    if (nextSignal <= lastRefreshSignalRef.current) {
+      return;
+    }
+
+    lastRefreshSignalRef.current = nextSignal;
+    void fetchOrder();
+  }, [fetchOrder]);
+
+  useEffect(() => {
+    if (isLoadingAuth || !canViewSystemOrders) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshOrderIfNeeded();
+      }
+    };
+
+    window.addEventListener("focus", refreshOrderIfNeeded);
+    window.addEventListener("pageshow", refreshOrderIfNeeded);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refreshOrderIfNeeded);
+      window.removeEventListener("pageshow", refreshOrderIfNeeded);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [canViewSystemOrders, isLoadingAuth, refreshOrderIfNeeded]);
 
   const shortageItems = useMemo(
     () =>
@@ -113,17 +168,17 @@ export default function AdminOrderDetailView({
 
   const shortageSummary = useMemo(() => {
     if (!order) {
-      return "Đang tải...";
+      return "Äang táº£i...";
     }
 
     const missingSkuCount = getOrderMissingSkuCount(order);
     const missingUnitCount = getOrderMissingUnitCount(order);
 
     if (!missingSkuCount) {
-      return "Đủ hàng";
+      return "Äá»§ hĂ ng";
     }
 
-    return `${missingSkuCount} SKU thiếu / ${missingUnitCount} đơn vị`;
+    return `${missingSkuCount} SKU thiáº¿u / ${missingUnitCount} Ä‘Æ¡n vá»‹`;
   }, [order]);
 
   const handleRequestReplenishment = async () => {
@@ -134,6 +189,18 @@ export default function AdminOrderDetailView({
     try {
       setIsSubmitting("replenishment");
       const response = await orderService.requestAdminOrderReplenishment(order.id);
+      const responseDocuments = response.planItems ?? [];
+      if (getReplenishmentDocumentLinks(responseDocuments).length > 0) {
+        setOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                replenishmentRequested: true,
+                replenishmentDocuments: responseDocuments,
+              }
+            : prev,
+        );
+      }
       toast.success(getReplenishmentResultMessage(getOrderCode(order), response));
       await fetchOrder();
     } catch (error) {
@@ -141,6 +208,12 @@ export default function AdminOrderDetailView({
     } finally {
       setIsSubmitting(null);
     }
+  };
+
+  const handleShowReplenishmentDocuments = () => {
+    document
+      .getElementById("order-replenishment-documents")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const handleAdvanceStatus = async () => {
@@ -156,10 +229,10 @@ export default function AdminOrderDetailView({
     try {
       setIsSubmitting("advance");
       await orderService.updateOrderStatus(order.id, nextAction.nextStatus);
-      toast.success(`Đơn hàng ${getOrderCode(order)} đã được cập nhật trạng thái.`);
+      toast.success(`ÄÆ¡n hĂ ng ${getOrderCode(order)} Ä‘Ă£ Ä‘Æ°á»£c cáº­p nháº­t tráº¡ng thĂ¡i.`);
       await fetchOrder();
     } catch {
-      toast.error("Không thể cập nhật trạng thái đơn hàng.");
+      toast.error("KhĂ´ng thá»ƒ cáº­p nháº­t tráº¡ng thĂ¡i Ä‘Æ¡n hĂ ng.");
     } finally {
       setIsSubmitting(null);
     }
@@ -170,7 +243,7 @@ export default function AdminOrderDetailView({
       <div className="rounded-[4px] border border-slate-200 bg-white p-10 text-center shadow-sm">
         <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
         <p className="mt-4 text-[13px] text-slate-500">
-          Đang tải chi tiết đơn hàng...
+          Äang táº£i chi tiáº¿t Ä‘Æ¡n hĂ ng...
         </p>
       </div>
     );
@@ -181,6 +254,12 @@ export default function AdminOrderDetailView({
   const nextAction = hasPermission(P.ORDER_UPDATE)
     ? getNextOrderWorkflowAction(order)
     : null;
+  const replenishmentDocuments = order.replenishmentDocuments ?? [];
+  const replenishmentDocumentLinks =
+    getReplenishmentDocumentLinks(replenishmentDocuments);
+  const hasReplenishmentDocuments = replenishmentDocumentLinks.length > 0;
+  const isReplenishmentRequested =
+    hasReplenishmentDocuments || Boolean(order.replenishmentRequested);
 
   return (
     <div className="space-y-5">
@@ -191,18 +270,18 @@ export default function AdminOrderDetailView({
               type="button"
               variant="ghost"
               className="h-auto px-0 text-blue-600 hover:bg-transparent hover:text-blue-700"
-              onClick={() => router.push("/admin/orders-all")}
+              onClick={() => router.push(orderRouteAccess.defaultOrderListPath)}
             >
               <ArrowLeft className="mr-1" />
-              Quay lại danh sách
+              Quay láº¡i danh sĂ¡ch
             </Button>
 
             <div>
               <h1 className="text-[22px] font-bold text-slate-900">
-                Chi tiết đơn hàng
+                Chi tiáº¿t Ä‘Æ¡n hĂ ng
               </h1>
               <p className="mt-1 text-[13px] text-slate-500">
-                Mã đơn:{" "}
+                MĂ£ Ä‘Æ¡n:{" "}
                 <span className="font-semibold text-blue-700">
                   {getOrderCode(order)}
                 </span>
@@ -219,20 +298,30 @@ export default function AdminOrderDetailView({
               disabled={isLoading}
             >
               <RefreshCw className={isLoading ? "animate-spin" : ""} />
-              Làm mới
+              LĂ m má»›i
             </Button>
 
             {canCreateReplenishment ? (
               <Button
                 type="button"
-                className="bg-rose-600 hover:bg-rose-700"
-                onClick={() => void handleRequestReplenishment()}
+                className={
+                  isReplenishmentRequested
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-rose-600 hover:bg-rose-700"
+                }
+                onClick={() =>
+                  isReplenishmentRequested && hasReplenishmentDocuments
+                    ? handleShowReplenishmentDocuments()
+                    : void handleRequestReplenishment()
+                }
                 disabled={isSubmitting !== null}
               >
                 <Package className="mr-1" />
                 {isSubmitting === "replenishment"
-                  ? "Đang xin lệnh điều chuyển..."
-                  : "Xin lệnh điều chuyển"}
+                  ? "Äang xá»­ lĂ½ thiáº¿u hĂ ng..."
+                  : isReplenishmentRequested
+                    ? "ÄĂ£ xá»­ lĂ½ thiáº¿u hĂ ng"
+                    : "Xá»­ lĂ½ thiáº¿u hĂ ng"}
               </Button>
             ) : null}
 
@@ -244,7 +333,7 @@ export default function AdminOrderDetailView({
                 disabled={isSubmitting !== null}
               >
                 {isSubmitting === "advance"
-                  ? "Đang chuyển trạng thái..."
+                  ? "Äang chuyá»ƒn tráº¡ng thĂ¡i..."
                   : nextAction.label}
               </Button>
             ) : null}
@@ -254,57 +343,57 @@ export default function AdminOrderDetailView({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DetailMetricCard
-          label="Giá trị đơn"
+          label="GiĂ¡ trá»‹ Ä‘Æ¡n"
           value={formatCurrency(order.finalAmount ?? order.totalAmount)}
-          hint={`Tiền hàng: ${formatCurrency(order.totalAmount)}`}
+          hint={`Tiá»n hĂ ng: ${formatCurrency(order.totalAmount)}`}
           icon={<Wallet size={18} className="text-emerald-700" />}
           accent="bg-emerald-50"
         />
         <DetailMetricCard
-          label="Thời gian đặt"
+          label="Thá»i gian Ä‘áº·t"
           value={formatDate(order.createdAt, "dd/MM/yyyy HH:mm")}
-          hint="Theo thời điểm khách xác nhận đặt đơn."
+          hint="Theo thá»i Ä‘iá»ƒm khĂ¡ch xĂ¡c nháº­n Ä‘áº·t Ä‘Æ¡n."
           icon={<Box size={18} className="text-blue-700" />}
           accent="bg-blue-50"
         />
         <DetailMetricCard
-          label="Chi nhánh phụ trách"
+          label="Chi nhĂ¡nh phá»¥ trĂ¡ch"
           value={getOrderBranchNames(order)[0] ?? getOrderBranchSummary(order)}
-          hint={order.branchAddress || "Chưa có địa chỉ chi nhánh chính."}
+          hint={order.branchAddress || "ChÆ°a cĂ³ Ä‘á»‹a chá»‰ chi nhĂ¡nh chĂ­nh."}
           icon={<MapPin size={18} className="text-violet-700" />}
           accent="bg-violet-50"
         />
         <DetailMetricCard
-          label="Tình trạng hàng"
+          label="TĂ¬nh tráº¡ng hĂ ng"
           value={shortageSummary}
-          hint="Dùng để xác định đơn có cần điều chuyển hay không."
+          hint="DĂ¹ng Ä‘á»ƒ xĂ¡c Ä‘á»‹nh Ä‘Æ¡n cĂ³ cáº§n Ä‘iá»u chuyá»ƒn hay khĂ´ng."
           icon={<AlertTriangle size={18} className="text-rose-700" />}
           accent="bg-rose-50"
         />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <DetailPanel title="Khách hàng và giao hàng">
+        <DetailPanel title="KhĂ¡ch hĂ ng vĂ  giao hĂ ng">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
               <InfoLine
                 icon={<UserRound size={15} className="text-slate-400" />}
-                label="Khách hàng"
+                label="KhĂ¡ch hĂ ng"
                 value={order.customerName}
               />
               <InfoLine
                 icon={<Phone size={15} className="text-slate-400" />}
-                label="Số điện thoại"
+                label="Sá»‘ Ä‘iá»‡n thoáº¡i"
                 value={order.customerPhone}
               />
               <InfoLine
                 icon={<UserRound size={15} className="text-slate-400" />}
-                label="Người nhận"
+                label="NgÆ°á»i nháº­n"
                 value={order.receiverName || order.customerName}
               />
               <InfoLine
                 icon={<Phone size={15} className="text-slate-400" />}
-                label="Điện thoại nhận"
+                label="Äiá»‡n thoáº¡i nháº­n"
                 value={order.receiverPhone || order.customerPhone}
               />
             </div>
@@ -312,47 +401,47 @@ export default function AdminOrderDetailView({
             <div className="space-y-3">
               <InfoLine
                 icon={<MapPin size={15} className="text-slate-400" />}
-                label="Địa chỉ giao hàng"
+                label="Äá»‹a chá»‰ giao hĂ ng"
                 value={order.shippingAddress}
                 multiline
               />
               <InfoLine
                 icon={<Wallet size={15} className="text-slate-400" />}
-                label="Phương thức thanh toán"
+                label="PhÆ°Æ¡ng thá»©c thanh toĂ¡n"
                 value={order.paymentMethod}
               />
               <InfoLine
                 icon={<Truck size={15} className="text-slate-400" />}
-                label="Phí giao hàng"
+                label="PhĂ­ giao hĂ ng"
                 value={formatCurrency(order.totalShippingFee ?? order.shippingFee ?? 0)}
               />
             </div>
           </div>
         </DetailPanel>
 
-        <DetailPanel title="Trạng thái xử lý">
+        <DetailPanel title="Tráº¡ng thĂ¡i xá»­ lĂ½">
           <div className="grid gap-4 md:grid-cols-2">
             <StatusItem
-              label="Tình trạng hàng"
+              label="TĂ¬nh tráº¡ng hĂ ng"
               value={<InventoryStatusBadge order={order} />}
             />
             <StatusItem
-              label="Thanh toán"
+              label="Thanh toĂ¡n"
               value={<PaymentStatusBadge status={order.paymentStatus} />}
             />
             <StatusItem
-              label="Trạng thái đơn"
+              label="Tráº¡ng thĂ¡i Ä‘Æ¡n"
               value={<OrderWorkflowBadge status={order.status} />}
             />
             <StatusItem
-              label="Giao hàng"
+              label="Giao hĂ ng"
               value={<DeliveryStatusBadge status={order.status} />}
             />
           </div>
 
           {order.note ? (
             <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[12px] font-semibold text-slate-700">Ghi chú</p>
+              <p className="text-[12px] font-semibold text-slate-700">Ghi chĂº</p>
               <p className="mt-1 text-[13px] leading-6 text-slate-600">
                 {order.note}
               </p>
@@ -361,7 +450,7 @@ export default function AdminOrderDetailView({
 
           {order.cancelReasonDisplay ? (
             <div className="mt-4 rounded-[4px] border border-rose-200 bg-rose-50 p-3">
-              <p className="text-[12px] font-semibold text-rose-700">LĂ½ do há»§y</p>
+              <p className="text-[12px] font-semibold text-rose-700">LÄ‚Â½ do hĂ¡Â»Â§y</p>
               <p className="mt-1 text-[13px] leading-6 text-rose-700">
                 {order.cancelReasonDisplay}
               </p>
@@ -370,17 +459,17 @@ export default function AdminOrderDetailView({
         </DetailPanel>
       </div>
 
-      <DetailPanel title="Danh sách sản phẩm">
+      <DetailPanel title="Danh sĂ¡ch sáº£n pháº©m">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-3 py-2 font-semibold">Sản phẩm</th>
+                <th className="px-3 py-2 font-semibold">Sáº£n pháº©m</th>
                 <th className="px-3 py-2 font-semibold">SKU</th>
-                <th className="px-3 py-2 font-semibold text-center">Số lượng</th>
-                <th className="px-3 py-2 font-semibold text-center">Thiếu</th>
-                <th className="px-3 py-2 font-semibold text-right">Đơn giá</th>
-                <th className="px-3 py-2 font-semibold text-right">Thành tiền</th>
+                <th className="px-3 py-2 font-semibold text-center">Sá»‘ lÆ°á»£ng</th>
+                <th className="px-3 py-2 font-semibold text-center">Thiáº¿u</th>
+                <th className="px-3 py-2 font-semibold text-right">ÄÆ¡n giĂ¡</th>
+                <th className="px-3 py-2 font-semibold text-right">ThĂ nh tiá»n</th>
               </tr>
             </thead>
             <tbody>
@@ -391,9 +480,13 @@ export default function AdminOrderDetailView({
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-slate-50">
                         {item.image ? (
                           <img
-                            src={item.image}
+                            src={resolveImageUrl(item.image)}
                             alt={item.productName}
                             className="h-full w-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.onerror = null;
+                              event.currentTarget.src = "/placeholder.png";
+                            }}
                           />
                         ) : (
                           <Package size={16} className="text-slate-300" />
@@ -433,24 +526,24 @@ export default function AdminOrderDetailView({
       </DetailPanel>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-        <DetailPanel title="Chi nhánh xử lý và bàn giao">
+        <DetailPanel title="Chi nhĂ¡nh xá»­ lĂ½ vĂ  bĂ n giao">
           {(order.subOrders ?? []).length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left">
                 <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 font-semibold">Chi nhánh</th>
+                    <th className="px-3 py-2 font-semibold">Chi nhĂ¡nh</th>
                     <th className="px-3 py-2 font-semibold text-center">
-                      Trạng thái đơn
+                      Tráº¡ng thĂ¡i Ä‘Æ¡n
                     </th>
                     <th className="px-3 py-2 font-semibold text-center">
-                      Giao hàng
+                      Giao hĂ ng
                     </th>
                     <th className="px-3 py-2 font-semibold text-right">
-                      Phí ship
+                      PhĂ­ ship
                     </th>
-                    <th className="px-3 py-2 font-semibold">Đơn vị VC</th>
-                    <th className="px-3 py-2 font-semibold">Dự kiến</th>
+                    <th className="px-3 py-2 font-semibold">ÄÆ¡n vá»‹ VC</th>
+                    <th className="px-3 py-2 font-semibold">Dá»± kiáº¿n</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -460,7 +553,7 @@ export default function AdminOrderDetailView({
                       className="border-t border-slate-100 text-[13px]"
                     >
                       <td className="px-3 py-3 font-medium text-slate-800">
-                        {subOrder.branchName || "Chưa gán chi nhánh"}
+                        {subOrder.branchName || "ChÆ°a gĂ¡n chi nhĂ¡nh"}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <OrderWorkflowBadge status={subOrder.status} />
@@ -472,10 +565,10 @@ export default function AdminOrderDetailView({
                         {formatCurrency(subOrder.shippingFee ?? 0)}
                       </td>
                       <td className="px-3 py-3 text-slate-600">
-                        {subOrder.carrier || "Chưa cập nhật"}
+                        {subOrder.carrier || "ChÆ°a cáº­p nháº­t"}
                       </td>
                       <td className="px-3 py-3 text-slate-600">
-                        {subOrder.estimatedDays || "Chưa có dữ liệu"}
+                        {subOrder.estimatedDays || "ChÆ°a cĂ³ dá»¯ liá»‡u"}
                       </td>
                     </tr>
                   ))}
@@ -484,13 +577,13 @@ export default function AdminOrderDetailView({
             </div>
           ) : (
             <div className="rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4 text-[13px] text-slate-500">
-              Đơn này hiện chưa có sub-order theo chi nhánh. Hệ thống đang xử lý
-              theo đơn tổng.
+              ÄÆ¡n nĂ y hiá»‡n chÆ°a cĂ³ sub-order theo chi nhĂ¡nh. Há»‡ thá»‘ng Ä‘ang xá»­ lĂ½
+              theo Ä‘Æ¡n tá»•ng.
             </div>
           )}
         </DetailPanel>
 
-        <DetailPanel title="Thiếu hàng và ghi chú điều phối">
+        <DetailPanel title="Thiáº¿u hĂ ng vĂ  ghi chĂº Ä‘iá»u phá»‘i">
           {shortageItems.length > 0 ? (
             <div className="space-y-3">
               {shortageItems.map((item) => (
@@ -502,7 +595,7 @@ export default function AdminOrderDetailView({
                     {item.productName}
                   </p>
                   <p className="mt-1 text-[12px] text-rose-700">
-                    SKU: {item.sku} • Thiếu {item.missingQuantity} / cần{" "}
+                    SKU: {item.sku} â€¢ Thiáº¿u {item.missingQuantity} / cáº§n{" "}
                     {item.quantity}
                   </p>
                 </div>
@@ -510,22 +603,33 @@ export default function AdminOrderDetailView({
             </div>
           ) : (
             <div className="rounded-[4px] border border-emerald-100 bg-emerald-50 p-4 text-[13px] text-emerald-800">
-              Đơn này hiện không có sản phẩm thiếu.
+              ÄÆ¡n nĂ y hiá»‡n khĂ´ng cĂ³ sáº£n pháº©m thiáº¿u.
             </div>
           )}
 
-          <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-4">
+          <div id="order-replenishment-documents" className="mt-4">
+            {hasReplenishmentDocuments ? (
+              <ReplenishmentDocumentLinks documents={replenishmentDocuments} />
+            ) : (
+              <div className="rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4 text-[13px] leading-6 text-slate-500">
+                Sau khi báº¥m Xá»­ lĂ½ thiáº¿u hĂ ng, cĂ¡c phiáº¿u Ä‘iá»u chuyá»ƒn hoáº·c yĂªu
+                cáº§u NCC Ä‘Æ°á»£c táº¡o cho Ä‘Æ¡n nĂ y sáº½ hiá»ƒn thá»‹ táº¡i Ä‘Ă¢y.
+              </div>
+            )}
+          </div>
+
+          <div className="hidden">
             <p className="text-[12px] font-semibold text-slate-700">
-              Dữ liệu nâng cao sẽ bổ sung khi backend sẵn sàng
+              Dá»¯ liá»‡u nĂ¢ng cao sáº½ bá»• sung khi backend sáºµn sĂ ng
             </p>
             <p className="mt-2 text-[13px] leading-6 text-slate-500">
-              Tồn kho từng chi nhánh, gợi ý chi nhánh tối ưu, khoảng cách giao
-              hàng, lịch sử xử lý và nhân viên phụ trách vẫn chưa được API hiện
-              tại trả về đầy đủ.
+              Tá»“n kho tá»«ng chi nhĂ¡nh, gá»£i Ă½ chi nhĂ¡nh tá»‘i Æ°u, khoáº£ng cĂ¡ch giao
+              hĂ ng, lá»‹ch sá»­ xá»­ lĂ½ vĂ  nhĂ¢n viĂªn phá»¥ trĂ¡ch váº«n chÆ°a Ä‘Æ°á»£c API hiá»‡n
+              táº¡i tráº£ vá» Ä‘áº§y Ä‘á»§.
             </p>
             <div className="mt-3">
               <Button asChild variant="outline" size="sm" className="border-slate-200">
-                <Link href="/admin/transfers">Mở trang điều chuyển kho</Link>
+                <Link href="/admin/transfers">Má»Ÿ trang Ä‘iá»u chuyá»ƒn kho</Link>
               </Button>
             </div>
           </div>

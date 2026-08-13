@@ -49,7 +49,9 @@ export interface SubOrderDraft {
   items: OrderItemDetail[]
   subtotal: number
   shippingFee: number
+  shippingWeightGram?: number
   shippingEstimate: boolean
+  shippingEstimateReason?: string | null
   estimatedDays: string
   carrier: string
 }
@@ -213,6 +215,25 @@ export interface SubOrderSummary {
   carrierOrderId?: string | null
 }
 
+export interface OrderReplenishmentDocument {
+  sku?: string
+  missingQuantity?: number
+  sourceType?:
+    | "BRANCH_TRANSFER"
+    | "WAREHOUSE_TRANSFER"
+    | "PURCHASE_REQUEST"
+    | "BLOCKED"
+    | string
+  sourceBranchName?: string | null
+  destinationBranchName?: string | null
+  documentId?: number | string | null
+  documentType?: "TRANSFER" | "PURCHASE_REQUEST" | "BLOCKED" | string | null
+  documentCode?: string | null
+  documentPath?: string | null
+  documentLabel?: string | null
+  message?: string | null
+}
+
 export interface MyOrder {
   id: number
   code: string
@@ -248,6 +269,8 @@ export interface MyOrder {
   checkoutUrl: string | null
   items: MyOrderItem[]
   subOrders?: SubOrderSummary[]
+  replenishmentRequested?: boolean | null
+  replenishmentDocuments?: OrderReplenishmentDocument[] | null
   canReview?: boolean
 }
 

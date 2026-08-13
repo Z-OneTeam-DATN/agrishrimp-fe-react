@@ -241,9 +241,9 @@ export const AdminBranchSchema = z.object({
     // Địa chỉ hành chính
     province: z.string().min(1, "Vui lòng chọn Tỉnh/Thành phố"),
 
-    district: z.string().optional().or(z.literal("")),
+    district: z.string().optional(),
 
-    ward: z.string().min(1, "Vui lòng chọn Phường/Xã"),
+    ward: z.string().optional(),
 
     addressDetail: z
         .string()

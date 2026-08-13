@@ -24,10 +24,11 @@ export default function ProfileLayout({
     if (path.includes("/address/create")) return "Thêm địa chỉ mới";
     if (path.includes("/address")) return "Sổ địa chỉ";
     if (path.includes("/orders/list")) return "Đơn hàng của tôi";
+    if (path.includes("/orders/return/list")) return "Yêu cầu trả hàng";
+    if (path.includes("/orders/return/request/")) return "Tạo yêu cầu trả hàng";
     if (path.includes("/voucher/create")) return "Nhập mã Voucher";
     if (path.includes("/voucher")) return "Ví Voucher và Ưu đãi";
     if (path.includes("/orders/")) return "Chi tiết đơn hàng";
-    if (path.includes("/orders/return/request/")) return "Yêu cầu hoàn tiền";
     if (path.includes("/address/")) return "Cập nhật địa chỉ";
     if (path.includes("/ponds/")) return "Cập nhật ao nuôi";
     return "Tài khoản của tôi";

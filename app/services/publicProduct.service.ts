@@ -17,12 +17,14 @@ const withPublicRequest = <T extends Record<string, unknown>>(config?: T) => ({
 const createEmptyPage = (
   page = 0,
   size = 18,
+  failed = false,
 ): PageResponse<PublicProductListItem> => ({
   content: [],
   totalPages: 0,
   totalElements: 0,
   number: page,
   size,
+  failed,
 });
 
 const isTimeoutError = (error: unknown) => {
@@ -72,7 +74,7 @@ export const PublicProductService = {
       if (!isTimeoutError(error)) {
         console.error("Failed to load public products:", error);
       }
-      return createEmptyPage(params?.page ?? 0, params?.size ?? 18);
+      return createEmptyPage(params?.page ?? 0, params?.size ?? 18, true);
     }
   },
 

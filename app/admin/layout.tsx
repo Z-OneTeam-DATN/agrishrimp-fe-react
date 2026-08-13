@@ -94,12 +94,20 @@ export default function AdminLayout({
   const { isLoadingAuth, isLoadingPermissions, user, warehouseId } = useAuthStore();
   const isCheckingAccess = isLoadingAuth || isLoadingPermissions;
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
-  const hasAdminWorkspaceAccess = hasAnyPermission(
-    ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
-  );
+  const hasAdminWorkspaceAccess =
+    isBranchScopedOrderUser ||
+    hasAnyPermission(ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]);
   const defaultAdminRoute = useMemo(
-    () => getDefaultAdminRouteByPermissionChecker(hasPermission),
-    [hasPermission],
+    () => {
+      const resolvedRoute = getDefaultAdminRouteByPermissionChecker(hasPermission);
+
+      if (resolvedRoute !== "/admin/forbidden") {
+        return resolvedRoute;
+      }
+
+      return isBranchScopedOrderUser ? "/admin/orders-processing" : resolvedRoute;
+    },
+    [hasPermission, isBranchScopedOrderUser],
   );
   const shouldRedirectFromAdminRoot =
     pathname === "/admin" &&
@@ -114,8 +122,11 @@ export default function AdminLayout({
 
   const isAllowed = useMemo(() => {
     const isBranchOrderRoute =
+      pathname === "/admin/orders" ||
+      pathname.startsWith("/admin/orders/add") ||
       pathname.startsWith("/admin/orders-processing") ||
-      pathname.startsWith("/admin/orders-handover");
+      pathname.startsWith("/admin/orders-handover") ||
+      pathname.startsWith("/admin/orders/return");
 
     if (isBranchScopedOrderUser && isBranchOrderRoute) {
       return true;
