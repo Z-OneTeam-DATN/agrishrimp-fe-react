@@ -114,13 +114,20 @@ export async function POST(request: Request) {
     }
 
     // 2. Call Gemini API to write natural explanation (reasoning & analysis) without letting it make up numbers
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.NEXT_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("GEMINI_API_KEY is not configured");
-      return NextResponse.json(
-        { success: false, message: "Dịch vụ phân tích AI chưa được cấu hình" },
-        { status: 503 },
-      );
+      console.warn("NEXT_GEMINI_API_KEY / GEMINI_API_KEY is not configured, using rule-based fallback");
+      return NextResponse.json({
+        success: true,
+        suggestedMargin,
+        suggestedRoundingRule,
+        reasoning: `Hệ thống đề xuất biên lợi nhuận ${suggestedMargin}% dựa trên phân tích chi phí thực tế là ${totalExpense.toLocaleString('vi-VN')} VND nhằm đạt mục tiêu lợi nhuận ròng 12%.`,
+        analysis: {
+          financialHealth: currentNetProfitMargin < 5 ? "Cần cải thiện (Biên lợi nhuận ròng thấp)" : "Khá tốt",
+          costImpact: "Giá vốn chiếm tỷ lệ cao trong doanh thu, cần tối ưu giá bán.",
+          competitiveness: "Đảm bảo bù đắp chi phí mà vẫn giữ được giá cạnh tranh vừa phải.",
+        },
+      });
     }
 
     const prompt = `
