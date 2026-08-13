@@ -1,6 +1,13 @@
 "use client";
 
-import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,7 +28,11 @@ import { AxiosError } from "axios";
 import { toast } from "sonner";
 
 import { aiDoctorService } from "@/app/services/aiDoctor.service";
-import type { AiDoctorConversationTurn, AiDoctorDiagnosisResponse } from "@/app/types/ai-doctor.types";
+import type {
+  AiDoctorConversationTurn,
+  AiDoctorDiagnosisResponse,
+  AiDoctorTreatmentStageOption,
+} from "@/app/types/ai-doctor.types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getErrorMessage } from "@/lib/axios";
@@ -45,7 +56,9 @@ type ChatEntry =
 // Omit<Union, K> collapses to the merged member keys instead of distributing per-variant, which
 // breaks the discriminated-union excess-property check on the object literals passed to
 // pushEntry() below. This variant distributes over each member of the union first.
-type DistributiveOmit<T, K extends keyof any> = T extends unknown ? Omit<T, K> : never;
+type DistributiveOmit<T, K extends keyof any> = T extends unknown
+  ? Omit<T, K>
+  : never;
 
 type ClarifySession = {
   diagnosisId: string;
@@ -57,9 +70,70 @@ type DiagnosePayload = {
   clientPreviewUrl?: string;
 };
 
+function StageSelectionBubble({
+  message,
+  options,
+  pendingStageIndex,
+  disabled,
+  onSelect,
+}: {
+  message?: string;
+  options: AiDoctorTreatmentStageOption[];
+  pendingStageIndex: number | null;
+  disabled: boolean;
+  onSelect: (stageIndex: number) => void;
+}) {
+  return (
+    <div className="ml-[42px] w-full max-w-[78%] overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm">
+      <div className="border-b border-[#c8d7f1] bg-[#eaf2fc] px-4 py-3">
+        <div className="text-[13px] font-extrabold uppercase text-[#1965A2]">
+          Chọn giai đoạn bệnh
+        </div>
+        <p className="mt-1 text-[12px] leading-relaxed text-slate-600">
+          {message ||
+            "Bà con chọn đúng giai đoạn hiện tại để bác sĩ đưa phác đồ phù hợp."}
+        </p>
+      </div>
+
+      <div className="divide-y divide-slate-100 p-2">
+        {options.map((option) => {
+          const isPending = pendingStageIndex === option.stageIndex;
+          return (
+            <button
+              key={option.stageIndex}
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelect(option.stageIndex)}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f2f7fb] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-extrabold text-[#1965A2]">
+                {option.stageNumber}
+              </span>
+              <span className="min-w-0 flex-1 text-[13px] font-semibold leading-relaxed text-slate-800">
+                {option.stageTitle || `Giai đoạn ${option.stageNumber}`}
+              </span>
+              {isPending ? (
+                <Loader2
+                  size={17}
+                  className="shrink-0 animate-spin text-[#1965A2]"
+                />
+              ) : (
+                <ArrowRight size={17} className="shrink-0 text-slate-400" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Dung chung de phat lai (replay) 1 ngay bat ky — vua cho "khoi phuc hom nay" luc mount, vua cho
 // "xem lai 1 ngay cu" khi bam sidebar. idPrefix de tranh dung id voi cac entry dang go song.
-const mapTurnsToEntries = (turns: AiDoctorConversationTurn[], idPrefix: string): ChatEntry[] => {
+const mapTurnsToEntries = (
+  turns: AiDoctorConversationTurn[],
+  idPrefix: string,
+): ChatEntry[] => {
   const result: ChatEntry[] = [];
   turns.forEach((turn, index) => {
     const uId = `${idPrefix}-${index}-u`;
@@ -71,7 +145,12 @@ const mapTurnsToEntries = (turns: AiDoctorConversationTurn[], idPrefix: string):
       return;
     }
 
-    result.push({ id: uId, kind: "user", text: turn.userSymptoms, previewUrl: turn.imageUrl });
+    result.push({
+      id: uId,
+      kind: "user",
+      text: turn.userSymptoms,
+      previewUrl: turn.imageUrl,
+    });
 
     // HEALTHY dung the ket qua tinh "TOM KHOE MANH" (bot-result), khong phai bong bong tuong thuat
     // — khop dung UI cua luong song (xem nhanh "bot-result" trong JSX render).
@@ -79,7 +158,11 @@ const mapTurnsToEntries = (turns: AiDoctorConversationTurn[], idPrefix: string):
       result.push({
         id: bId,
         kind: "bot-result",
-        diagnosis: { diagnosisId: turn.diagnosisId || "", status: "HEALTHY", imageUrl: turn.imageUrl },
+        diagnosis: {
+          diagnosisId: turn.diagnosisId || "",
+          status: "HEALTHY",
+          imageUrl: turn.imageUrl,
+        },
       });
       return;
     }
@@ -121,9 +204,11 @@ const createPersistentPreview = async (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onerror = () => reject(new Error("Không thể đọc ảnh để lưu preview."));
+    reader.onerror = () =>
+      reject(new Error("Không thể đọc ảnh để lưu preview."));
     reader.onload = () => {
-      const fileDataUrl = typeof reader.result === "string" ? reader.result : "";
+      const fileDataUrl =
+        typeof reader.result === "string" ? reader.result : "";
       if (!fileDataUrl) {
         reject(new Error("Không thể đọc dữ liệu ảnh preview."));
         return;
@@ -131,13 +216,23 @@ const createPersistentPreview = async (file: File) =>
 
       const previewImage = new window.Image();
       previewImage.onload = () => {
-        const longestEdge = Math.max(previewImage.naturalWidth, previewImage.naturalHeight);
-        const scale = longestEdge > MAX_STORED_PREVIEW_EDGE
-          ? MAX_STORED_PREVIEW_EDGE / longestEdge
-          : 1;
+        const longestEdge = Math.max(
+          previewImage.naturalWidth,
+          previewImage.naturalHeight,
+        );
+        const scale =
+          longestEdge > MAX_STORED_PREVIEW_EDGE
+            ? MAX_STORED_PREVIEW_EDGE / longestEdge
+            : 1;
         const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(previewImage.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(previewImage.naturalHeight * scale));
+        canvas.width = Math.max(
+          1,
+          Math.round(previewImage.naturalWidth * scale),
+        );
+        canvas.height = Math.max(
+          1,
+          Math.round(previewImage.naturalHeight * scale),
+        );
 
         const context = canvas.getContext("2d");
         if (!context) {
@@ -165,7 +260,10 @@ const MAX_SYMPTOMS_CHARS = 480;
 // thuoc thu tu cau, nen cat bot tu dau khong lam hong co che khop).
 const buildCumulativeSymptoms = (entries: ChatEntry[], currentText: string) => {
   const priorTexts = entries
-    .filter((entry): entry is Extract<ChatEntry, { kind: "user" }> => entry.kind === "user")
+    .filter(
+      (entry): entry is Extract<ChatEntry, { kind: "user" }> =>
+        entry.kind === "user",
+    )
     .map((entry) => entry.text?.trim())
     .filter((text): text is string => Boolean(text));
   const allTexts = currentText ? [...priorTexts, currentText] : priorTexts;
@@ -204,11 +302,20 @@ export default function AiDoctorChatPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [symptoms, setSymptoms] = useState("");
   const [entries, setEntries] = useState<ChatEntry[]>([]);
-  const [clarifySession, setClarifySession] = useState<ClarifySession | null>(null);
+  const [clarifySession, setClarifySession] = useState<ClarifySession | null>(
+    null,
+  );
+  const [pendingStageChoice, setPendingStageChoice] = useState<{
+    diagnosisId: string;
+    stageIndex: number;
+  } | null>(null);
 
   const nextEntryId = () => `e${entryIdRef.current++}`;
   const pushEntry = (entry: DistributiveOmit<ChatEntry, "id">) =>
-    setEntries((prev) => [...prev, { ...entry, id: nextEntryId() } as ChatEntry]);
+    setEntries((prev) => [
+      ...prev,
+      { ...entry, id: nextEntryId() } as ChatEntry,
+    ]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -246,8 +353,13 @@ export default function AiDoctorChatPage() {
 
     setEntries(mapTurnsToEntries(todayConversationQuery.data, "restored"));
 
-    const lastDiagnosisTurn = [...todayConversationQuery.data].reverse().find((turn) => turn.type === "DIAGNOSIS");
-    if (lastDiagnosisTurn?.needsClarification && lastDiagnosisTurn.diagnosisId) {
+    const lastDiagnosisTurn = [...todayConversationQuery.data]
+      .reverse()
+      .find((turn) => turn.type === "DIAGNOSIS");
+    if (
+      lastDiagnosisTurn?.needsClarification &&
+      lastDiagnosisTurn.diagnosisId
+    ) {
       setClarifySession({ diagnosisId: lastDiagnosisTurn.diagnosisId });
     }
   }, [todayConversationQuery.data]);
@@ -266,8 +378,13 @@ export default function AiDoctorChatPage() {
   const displayEntries = isViewingHistory ? historyEntries : entries;
 
   const chatMutation = useMutation({
-    mutationFn: ({ message, image }: { message: string; image?: { base64: string; mimeType: string } }) =>
-      aiDoctorService.chat(message, undefined, image),
+    mutationFn: ({
+      message,
+      image,
+    }: {
+      message: string;
+      image?: { base64: string; mimeType: string };
+    }) => aiDoctorService.chat(message, undefined, image),
     onSuccess: (data) => {
       pushEntry({ kind: "bot-html", html: data.reply });
     },
@@ -296,7 +413,11 @@ export default function AiDoctorChatPage() {
     onSuccess: (data) => {
       if (data.type === "DECISION" && data.diagnosis) {
         setClarifySession(null);
-        pushEntry({ kind: "bot-result", diagnosis: data.diagnosis });
+        if (data.diagnosis.stageSelection?.options?.length) {
+          pushEntry({ kind: "bot-diagnosis", diagnosis: data.diagnosis });
+        } else {
+          pushEntry({ kind: "bot-result", diagnosis: data.diagnosis });
+        }
         toast.success("Bác sĩ đã có kết quả rồi đây!");
         return;
       }
@@ -322,7 +443,10 @@ export default function AiDoctorChatPage() {
       aiDoctorService.diagnose(image, userSymptoms),
     onSuccess: (data, variables) => {
       const hydratedDiagnosis = variables.clientPreviewUrl
-        ? (aiDoctorService.saveClientImage(data.diagnosisId, variables.clientPreviewUrl) ?? {
+        ? (aiDoctorService.saveClientImage(
+            data.diagnosisId,
+            variables.clientPreviewUrl,
+          ) ?? {
             ...data,
             clientImageUrl: variables.clientPreviewUrl,
           })
@@ -333,7 +457,9 @@ export default function AiDoctorChatPage() {
         setClarifySession({ diagnosisId: data.diagnosisId });
         clarifyMutation.mutate({
           diagnosisId: data.diagnosisId,
-          candidateDiseaseCodes: (data.topPredictions ?? []).map((prediction) => prediction.diseaseCode),
+          candidateDiseaseCodes: (data.topPredictions ?? []).map(
+            (prediction) => prediction.diseaseCode,
+          ),
           // Chỉ có tác dụng với khách vãng lai (BE ưu tiên history nếu có) — để không mất ảnh/triệu
           // chứng đã gửi trong suốt cuộc hỏi-đáp.
           imageUrl: data.imageUrl || variables.clientPreviewUrl,
@@ -372,6 +498,51 @@ export default function AiDoctorChatPage() {
     },
   });
 
+  const stagePrescriptionMutation = useMutation({
+    mutationFn: ({
+      diagnosisId,
+      stageIndex,
+    }: {
+      diagnosisId: string;
+      stageIndex: number;
+    }) => aiDoctorService.generatePrescriptionForStage(diagnosisId, stageIndex),
+    onMutate: (variables) => {
+      setPendingStageChoice(variables);
+    },
+    onSuccess: (data, variables) => {
+      setEntries((prev) =>
+        prev.map((entry) => {
+          if (
+            entry.kind !== "bot-diagnosis" ||
+            entry.diagnosis.diagnosisId !== variables.diagnosisId
+          ) {
+            return entry;
+          }
+          return {
+            ...entry,
+            diagnosis: {
+              ...entry.diagnosis,
+              ...data,
+              stageSelection: undefined,
+            },
+          };
+        }),
+      );
+      toast.success("Đã chọn giai đoạn và lập phác đồ phù hợp.");
+      router.push(
+        `/ai-doctor/result?id=${data.diagnosisId || variables.diagnosisId}`,
+      );
+    },
+    onError: () => {
+      toast.error(
+        "Không thể lấy phác đồ cho giai đoạn này. Bà con thử lại nhé.",
+      );
+    },
+    onSettled: () => {
+      setPendingStageChoice(null);
+    },
+  });
+
   const handleSelectImage = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -399,7 +570,9 @@ export default function AiDoctorChatPage() {
     const currentSymptoms = symptoms.trim();
 
     if (!selectedImage && !currentSymptoms) {
-      toast.error("Bà con hãy nhập dấu hiệu hoặc gửi ảnh tôm để bác sĩ hỗ trợ nhé.");
+      toast.error(
+        "Bà con hãy nhập dấu hiệu hoặc gửi ảnh tôm để bác sĩ hỗ trợ nhé.",
+      );
       return;
     }
 
@@ -407,7 +580,10 @@ export default function AiDoctorChatPage() {
     if (clarifySession && !selectedImage) {
       pushEntry({ kind: "user", text: currentSymptoms });
       setSymptoms("");
-      clarifyMutation.mutate({ diagnosisId: clarifySession.diagnosisId, answer: currentSymptoms });
+      clarifyMutation.mutate({
+        diagnosisId: clarifySession.diagnosisId,
+        answer: currentSymptoms,
+      });
       return;
     }
 
@@ -472,6 +648,11 @@ export default function AiDoctorChatPage() {
     router.push(`/ai-doctor/result?id=${diagnosisId}`);
   };
 
+  const selectStage = (diagnosisId: string, stageIndex: number) => {
+    if (!diagnosisId || stagePrescriptionMutation.isPending) return;
+    stagePrescriptionMutation.mutate({ diagnosisId, stageIndex });
+  };
+
   const goToToday = () => {
     setViewingDate(null);
     setIsMobileSidebarOpen(false);
@@ -492,7 +673,12 @@ export default function AiDoctorChatPage() {
     <div className="flex min-h-screen w-full bg-[#eef3f9]">
       <aside className="hidden w-[280px] shrink-0 bg-[#1965A2] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         {isAuthenticated ? (
-          <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
+          <AiDoctorHistorySidebar
+            activeDate={viewingDate}
+            todayDate={todayIso}
+            onSelectToday={goToToday}
+            onSelectDate={selectHistoryDate}
+          />
         ) : (
           <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-white/70">
             Đăng nhập để dùng Bác sĩ Tôm AI và xem lại Sổ khám các ngày trước.
@@ -502,7 +688,10 @@ export default function AiDoctorChatPage() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1965A2] px-4 py-3 shadow-sm lg:hidden">
-          <Link href="/" className="text-white transition-opacity hover:opacity-80">
+          <Link
+            href="/"
+            className="text-white transition-opacity hover:opacity-80"
+          >
             <ChevronLeft size={28} />
           </Link>
 
@@ -540,7 +729,9 @@ export default function AiDoctorChatPage() {
         <div className="flex-1 space-y-5 overflow-y-auto p-4 pb-32">
           <div className="text-center">
             <span className="rounded-full bg-black/5 px-3 py-1 text-[11px] text-gray-500">
-              {isViewingHistory ? formatDateLabel(viewingDate as string) : "Hôm nay"}
+              {isViewingHistory
+                ? formatDateLabel(viewingDate as string)
+                : "Hôm nay"}
             </span>
           </div>
 
@@ -557,8 +748,10 @@ export default function AiDoctorChatPage() {
 
               <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
                 Xin chào bà con! Tôi là Bác sĩ Tôm 🦐
-                <br /><br />
-                Bà con gửi cho tôi 1 tấm ảnh tôm kèm mô tả dấu hiệu, tôi sẽ giúp chẩn đoán bệnh và đưa ra cách chữa trị hiệu quả nhé!
+                <br />
+                <br />
+                Bà con gửi cho tôi 1 tấm ảnh tôm kèm mô tả dấu hiệu, tôi sẽ giúp
+                chẩn đoán bệnh và đưa ra cách chữa trị hiệu quả nhé!
               </div>
             </div>
           )}
@@ -572,7 +765,10 @@ export default function AiDoctorChatPage() {
           {displayEntries.map((entry) => {
             if (entry.kind === "user") {
               return (
-                <div key={entry.id} className="ml-auto flex max-w-[88%] flex-col items-end gap-2">
+                <div
+                  key={entry.id}
+                  className="ml-auto flex max-w-[88%] flex-col items-end gap-2"
+                >
                   {entry.previewUrl && (
                     <div className="overflow-hidden rounded-2xl border border-white bg-white shadow-sm">
                       <div className="relative w-[260px] max-w-full">
@@ -599,9 +795,17 @@ export default function AiDoctorChatPage() {
 
             if (entry.kind === "bot-html") {
               return (
-                <div key={entry.id} className="flex max-w-full justify-start gap-2.5 pr-12">
+                <div
+                  key={entry.id}
+                  className="flex max-w-full justify-start gap-2.5 pr-12"
+                >
                   <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                    <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                    <Image
+                      src="/images/logo_arishrimp.jpg"
+                      alt="AI"
+                      fill
+                      className="object-cover"
+                    />
                   </div>
                   <div
                     className="prose prose-sm max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-gray-700 shadow-sm prose-p:my-2 prose-strong:text-[#12385a] prose-li:my-1"
@@ -613,9 +817,17 @@ export default function AiDoctorChatPage() {
 
             if (entry.kind === "bot-plain") {
               return (
-                <div key={entry.id} className="flex max-w-full justify-start gap-2.5 pr-12">
+                <div
+                  key={entry.id}
+                  className="flex max-w-full justify-start gap-2.5 pr-12"
+                >
                   <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                    <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                    <Image
+                      src="/images/logo_arishrimp.jpg"
+                      alt="AI"
+                      fill
+                      className="object-cover"
+                    />
                   </div>
                   <div className="max-w-[78%] whitespace-pre-line rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
                     {entry.text}
@@ -626,34 +838,67 @@ export default function AiDoctorChatPage() {
 
             if (entry.kind === "bot-diagnosis") {
               const diagnosis = entry.diagnosis;
-              const hasNarrative = Boolean(diagnosis.aiDescription && diagnosis.aiDescription.trim());
+              const hasNarrative = Boolean(
+                diagnosis.aiDescription && diagnosis.aiDescription.trim(),
+              );
               return (
-                <div key={entry.id} className="flex max-w-full flex-col items-start gap-2 pr-12">
+                <div
+                  key={entry.id}
+                  className="flex max-w-full flex-col items-start gap-2 pr-12"
+                >
                   <div className="flex max-w-full justify-start gap-2.5">
                     <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                      <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                      <Image
+                        src="/images/logo_arishrimp.jpg"
+                        alt="AI"
+                        fill
+                        className="object-cover"
+                      />
                     </div>
                     {hasNarrative ? (
                       <div
                         className="prose prose-sm max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-gray-700 shadow-sm prose-p:my-2 prose-strong:text-[#12385a] prose-li:my-1"
-                        dangerouslySetInnerHTML={{ __html: diagnosis.aiDescription as string }}
+                        dangerouslySetInnerHTML={{
+                          __html: diagnosis.aiDescription as string,
+                        }}
                       />
                     ) : (
                       <div className="max-w-[78%] whitespace-pre-line rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
-                        {diagnosis.signsSummary || "Bác sĩ đã xem xong ảnh của bà con."}
+                        {diagnosis.signsSummary ||
+                          "Bác sĩ đã xem xong ảnh của bà con."}
                       </div>
                     )}
                   </div>
 
-                  {!diagnosis.needsClarification && diagnosis.status !== "UNRECOGNIZED" && (
+                  {!diagnosis.needsClarification &&
+                  diagnosis.status !== "UNRECOGNIZED" &&
+                  diagnosis.stageSelection?.options?.length ? (
+                    <StageSelectionBubble
+                      message={diagnosis.stageSelection.message}
+                      options={diagnosis.stageSelection.options}
+                      pendingStageIndex={
+                        pendingStageChoice?.diagnosisId ===
+                        diagnosis.diagnosisId
+                          ? pendingStageChoice.stageIndex
+                          : null
+                      }
+                      disabled={stagePrescriptionMutation.isPending}
+                      onSelect={(stageIndex) =>
+                        selectStage(diagnosis.diagnosisId, stageIndex)
+                      }
+                    />
+                  ) : !diagnosis.needsClarification &&
+                    diagnosis.status !== "UNRECOGNIZED" ? (
                     <button
                       onClick={() => openReport(diagnosis.diagnosisId)}
                       className="ml-[42px] flex h-11 items-center justify-center gap-1 rounded-xl bg-[#1965A2] px-4 text-[13px] font-bold uppercase text-white shadow-sm transition-colors hover:bg-[#15588D]"
                     >
-                      {isAuthenticated ? "Xem cách chữa trị ngay" : "Mở hồ sơ điều trị"}
+                      {isAuthenticated
+                        ? "Xem cách chữa trị ngay"
+                        : "Mở hồ sơ điều trị"}
                       <ArrowRight size={16} />
                     </button>
-                  )}
+                  ) : null}
                 </div>
               );
             }
@@ -661,7 +906,10 @@ export default function AiDoctorChatPage() {
             // entry.kind === "bot-result"
             const diagnosis = entry.diagnosis;
             return (
-              <div key={entry.id} className="flex max-w-full justify-start gap-2.5 pr-12">
+              <div
+                key={entry.id}
+                className="flex max-w-full justify-start gap-2.5 pr-12"
+              >
                 <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
                   <Image
                     src="/images/logo_arishrimp.jpg"
@@ -682,7 +930,9 @@ export default function AiDoctorChatPage() {
                     {(diagnosis.imageUrl || diagnosis.clientImageUrl) && (
                       <div className="relative h-[220px] w-full bg-[#eaf2fc]">
                         <Image
-                          src={diagnosis.imageUrl || diagnosis.clientImageUrl || ""}
+                          src={
+                            diagnosis.imageUrl || diagnosis.clientImageUrl || ""
+                          }
                           alt="Ảnh tôm đã được AI phân tích"
                           fill
                           className="object-cover"
@@ -691,7 +941,8 @@ export default function AiDoctorChatPage() {
                       </div>
                     )}
                     <div className="p-4 text-[13px] leading-relaxed text-gray-600">
-                      Bác sĩ không thấy dấu hiệu bệnh gì lạ trên ảnh này. Bà con cứ yên tâm tiếp tục chăm sóc ao thật tốt nhé!
+                      Bác sĩ không thấy dấu hiệu bệnh gì lạ trên ảnh này. Bà con
+                      cứ yên tâm tiếp tục chăm sóc ao thật tốt nhé!
                     </div>
                   </div>
                 ) : (
@@ -703,7 +954,10 @@ export default function AiDoctorChatPage() {
                           KẾT QUẢ KHÁM BỆNH
                         </span>
                         <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-red-500">
-                          {Number(diagnosis.disease?.confidencePercent || 0).toFixed(0)}% tin cậy
+                          {Number(
+                            diagnosis.disease?.confidencePercent || 0,
+                          ).toFixed(0)}
+                          % tin cậy
                         </span>
                       </div>
 
@@ -712,8 +966,15 @@ export default function AiDoctorChatPage() {
                           <div className="overflow-hidden rounded-xl border border-red-100 bg-slate-50">
                             <div className="relative h-[220px] w-full">
                               <Image
-                                src={diagnosis.imageUrl || diagnosis.clientImageUrl || ""}
-                                alt={diagnosis.disease?.nameVi ?? "Ảnh tôm đã được AI phân tích"}
+                                src={
+                                  diagnosis.imageUrl ||
+                                  diagnosis.clientImageUrl ||
+                                  ""
+                                }
+                                alt={
+                                  diagnosis.disease?.nameVi ??
+                                  "Ảnh tôm đã được AI phân tích"
+                                }
                                 fill
                                 className="object-cover"
                                 unoptimized
@@ -739,7 +1000,9 @@ export default function AiDoctorChatPage() {
                               <AlertTriangle size={13} />
                               Nguyên nhân chính
                             </div>
-                            <p className="line-clamp-2">{diagnosis.causes[0]}</p>
+                            <p className="line-clamp-2">
+                              {diagnosis.causes[0]}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -749,7 +1012,9 @@ export default function AiDoctorChatPage() {
                           onClick={() => openReport(diagnosis.diagnosisId)}
                           className="flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#1965A2] text-[13px] font-bold uppercase text-white transition-colors hover:bg-[#15588D]"
                         >
-                          {isAuthenticated ? "Xem cách chữa trị ngay" : "Mở hồ sơ điều trị"}
+                          {isAuthenticated
+                            ? "Xem cách chữa trị ngay"
+                            : "Mở hồ sơ điều trị"}
                           <ArrowRight size={16} />
                         </button>
                       </div>
@@ -763,7 +1028,12 @@ export default function AiDoctorChatPage() {
           {!isViewingHistory && chatMutation.isPending && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
               <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                <Image
+                  src="/images/logo_arishrimp.jpg"
+                  alt="AI"
+                  fill
+                  className="object-cover"
+                />
               </div>
               <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm text-gray-700 shadow-sm">
                 <div className="flex items-center gap-2 font-semibold text-[#1965A2]">
@@ -791,7 +1061,8 @@ export default function AiDoctorChatPage() {
                   Bác sĩ đang xem ảnh, bà con đợi xíu nhé...
                 </div>
                 <p className="text-xs text-gray-500">
-                  Hệ thống đang phân tích các dấu hiệu bệnh và tìm cách chữa trị tốt nhất cho ao nhà mình.
+                  Hệ thống đang phân tích các dấu hiệu bệnh và tìm cách chữa trị
+                  tốt nhất cho ao nhà mình.
                 </p>
               </div>
             </div>
@@ -800,7 +1071,12 @@ export default function AiDoctorChatPage() {
           {!isViewingHistory && clarifyMutation.isPending && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
               <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                <Image
+                  src="/images/logo_arishrimp.jpg"
+                  alt="AI"
+                  fill
+                  className="object-cover"
+                />
               </div>
               <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm text-gray-700 shadow-sm">
                 <div className="flex items-center gap-2 font-semibold text-[#1965A2]">
@@ -817,7 +1093,8 @@ export default function AiDoctorChatPage() {
         {!isAuthenticated ? (
           <div className="sticky bottom-0 border-t border-gray-200 bg-white p-4 text-center shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
             <p className="mb-2 text-sm text-gray-600">
-              Đăng nhập để trò chuyện và gửi ảnh cho Bác sĩ Tôm AI chẩn đoán bệnh.
+              Đăng nhập để trò chuyện và gửi ảnh cho Bác sĩ Tôm AI chẩn đoán
+              bệnh.
             </p>
             <button
               type="button"
@@ -886,7 +1163,9 @@ export default function AiDoctorChatPage() {
               <div className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 px-4 py-2">
                 <textarea
                   value={symptoms}
-                  onChange={(event) => setSymptoms(event.target.value.slice(0, 300))}
+                  onChange={(event) =>
+                    setSymptoms(event.target.value.slice(0, 300))
+                  }
                   onKeyDown={handleComposerKeyDown}
                   placeholder={
                     clarifySession
@@ -898,7 +1177,8 @@ export default function AiDoctorChatPage() {
                 <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-400">
                   <span className="inline-flex items-center gap-1">
                     <Sparkles size={12} />
-                    Gửi ảnh để bác sĩ AI xem bệnh kỹ hơn — kết quả chỉ mang tính tham khảo
+                    Gửi ảnh để bác sĩ AI xem bệnh kỹ hơn — kết quả chỉ mang tính
+                    tham khảo
                   </span>
                   <span>{symptoms.length}/300</span>
                 </div>
@@ -906,7 +1186,9 @@ export default function AiDoctorChatPage() {
 
               <button
                 onClick={handleDiagnose}
-                disabled={diagnoseMutation.isPending || clarifyMutation.isPending}
+                disabled={
+                  diagnoseMutation.isPending || clarifyMutation.isPending
+                }
                 className="mb-1 rounded-full bg-[#1965A2] p-3 text-white transition-colors hover:bg-[#15588D] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {diagnoseMutation.isPending || clarifyMutation.isPending ? (
@@ -935,7 +1217,12 @@ export default function AiDoctorChatPage() {
             className="flex h-full w-full max-w-[320px] flex-col border-r-0 bg-[#1965A2] p-0 [&>button]:hidden"
           >
             <SheetTitle className="sr-only">Sổ khám</SheetTitle>
-            <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
+            <AiDoctorHistorySidebar
+              activeDate={viewingDate}
+              todayDate={todayIso}
+              onSelectToday={goToToday}
+              onSelectDate={selectHistoryDate}
+            />
           </SheetContent>
         </Sheet>
       )}

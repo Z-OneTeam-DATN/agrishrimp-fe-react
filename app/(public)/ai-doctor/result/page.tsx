@@ -26,6 +26,7 @@ import { PublicProductService } from "@/app/services/publicProduct.service";
 import type {
   AiDoctorDiagnosisResponse,
   AiDoctorSuggestedProduct,
+  AiDoctorTreatmentStageOption,
   AiDoctorTreatmentStage,
 } from "@/app/types/ai-doctor.types";
 import { useCartStore } from "@/stores/useCartStore";
@@ -49,7 +50,11 @@ const formatDateTime = (value?: string) => {
 };
 
 const getStageTotal = (products: AiDoctorSuggestedProduct[] = []) =>
-  products.reduce((sum, product) => sum + (product.price && product.price > 0 ? product.price : 0), 0);
+  products.reduce(
+    (sum, product) =>
+      sum + (product.price && product.price > 0 ? product.price : 0),
+    0,
+  );
 
 const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
 
@@ -126,7 +131,9 @@ function ProductCard({ product }: { product: AiDoctorSuggestedProduct }) {
       <div className="mb-1 min-h-[2.4rem] line-clamp-2 text-[12px] font-semibold leading-5 text-slate-800">
         {product.name}
       </div>
-      <div className="mb-2 text-[12px] font-bold text-red-600">{formatPrice(product.price)}</div>
+      <div className="mb-2 text-[12px] font-bold text-red-600">
+        {formatPrice(product.price)}
+      </div>
 
       {product.webUrl && (
         <a
@@ -139,6 +146,65 @@ function ProductCard({ product }: { product: AiDoctorSuggestedProduct }) {
           Xem hàng
         </a>
       )}
+    </div>
+  );
+}
+
+function StageSelectionCard({
+  message,
+  options,
+  selectingStageIndex,
+  onSelect,
+}: {
+  message?: string;
+  options: AiDoctorTreatmentStageOption[];
+  selectingStageIndex: number | null;
+  onSelect: (stageIndex: number) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm">
+      <div className="border-b border-[#c8d7f1] bg-[#eaf2fc] px-5 py-4">
+        <h3 className="text-base font-extrabold text-[#12385a]">
+          Chọn giai đoạn bệnh
+        </h3>
+        <p className="mt-1 text-sm leading-relaxed text-slate-600">
+          {message ||
+            "Bà con chọn đúng giai đoạn hiện tại để bác sĩ đưa phác đồ phù hợp."}
+        </p>
+      </div>
+
+      <div className="divide-y divide-slate-100 p-3">
+        {options.map((option) => {
+          const isSelecting = selectingStageIndex === option.stageIndex;
+          return (
+            <button
+              key={option.stageIndex}
+              type="button"
+              onClick={() => onSelect(option.stageIndex)}
+              disabled={selectingStageIndex !== null}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f2f7fb] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-extrabold text-[#1965A2]">
+                {option.stageNumber}
+              </span>
+              <span className="min-w-0 flex-1 text-sm font-semibold leading-relaxed text-slate-800">
+                {option.stageTitle || `Giai đoạn ${option.stageNumber}`}
+              </span>
+              {isSelecting ? (
+                <Loader2
+                  size={18}
+                  className="shrink-0 animate-spin text-[#1965A2]"
+                />
+              ) : (
+                <ChevronLeft
+                  size={18}
+                  className="shrink-0 rotate-180 text-slate-400"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -193,17 +259,25 @@ function StageCard({
                 disabled={isAdding}
                 className="inline-flex h-9 items-center justify-center gap-1 rounded-md bg-[#376E60] px-3 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-[#2f5c50] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isAdding ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                {isAdding ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Check size={14} />
+                )}
                 Thêm thuốc bước này vào giỏ
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {stage.products.map((product) => (
-                <ProductCard key={`${index}-${product.id}-${product.name}`} product={product} />
+                <ProductCard
+                  key={`${index}-${product.id}-${product.name}`}
+                  product={product}
+                />
               ))}
             </div>
             <div className="mt-4 rounded-lg border border-dashed border-[#376E60]/25 bg-[#f4faf7] px-3 py-2 text-right text-sm font-semibold text-slate-700">
-              Tiền thuốc bước này: <span className="text-[#376E60]">{formatPrice(subtotal)}</span>
+              Tiền thuốc bước này:{" "}
+              <span className="text-[#376E60]">{formatPrice(subtotal)}</span>
             </div>
           </div>
         ) : !stage.extraProductNames?.length ? (
@@ -218,7 +292,8 @@ function StageCard({
               Sản phẩm khác được đề xuất
             </div>
             <p className="text-sm leading-relaxed text-slate-600">
-              {stage.extraProductNames.join(", ")} — chưa có trên cửa hàng, vui lòng liên hệ để được tư vấn thêm.
+              {stage.extraProductNames.join(", ")} — chưa có trên cửa hàng, vui
+              lòng liên hệ để được tư vấn thêm.
             </p>
           </div>
         ) : null}
@@ -235,8 +310,13 @@ export default function TreatmentResultPage() {
   const rawDiagnosisId = searchParams.get("id");
   const [diagnosisId, setDiagnosisId] = useState<string | null>(rawDiagnosisId);
   const [addingKey, setAddingKey] = useState<string | null>(null);
-  const [prescriptionState, setPrescriptionState] = useState<PrescriptionState>("idle");
-  const [prescriptionData, setPrescriptionData] = useState<Partial<AiDoctorDiagnosisResponse> | null>(null);
+  const [selectingStageIndex, setSelectingStageIndex] = useState<number | null>(
+    null,
+  );
+  const [prescriptionState, setPrescriptionState] =
+    useState<PrescriptionState>("idle");
+  const [prescriptionData, setPrescriptionData] =
+    useState<Partial<AiDoctorDiagnosisResponse> | null>(null);
   const variantIdCache = useRef<Map<number, number>>(new Map());
   const { fetchCartCount } = useCartStore();
   const { isAuthenticated } = useCurrentUser();
@@ -260,23 +340,43 @@ export default function TreatmentResultPage() {
   const diagnosis = diagnosisQuery.data;
   const diagnosisImageUrl = diagnosis?.imageUrl ?? diagnosis?.clientImageUrl;
   const causes = prescriptionData?.causes ?? diagnosis?.causes ?? [];
-  const signsSummary = prescriptionData?.signsSummary ?? diagnosis?.signsSummary ?? null;
-  const treatmentStages = prescriptionData?.treatmentStages ?? diagnosis?.treatmentStages ?? [];
+  const signsSummary =
+    prescriptionData?.signsSummary ?? diagnosis?.signsSummary ?? null;
+  const treatmentStages =
+    prescriptionData?.treatmentStages ?? diagnosis?.treatmentStages ?? [];
+  const stageSelection =
+    prescriptionData?.stageSelection ?? diagnosis?.stageSelection ?? null;
   const hasPrescription = treatmentStages.length > 0;
   const secondaryPredictions = diagnosis?.topPredictions?.slice(1, 4) ?? [];
-  const stageTotals = treatmentStages.map((stage) => getStageTotal(stage.products));
+  const stageTotals = treatmentStages.map((stage) =>
+    getStageTotal(stage.products),
+  );
   const overallTotal = stageTotals.reduce((sum, total) => sum + total, 0);
-  const overallProducts = treatmentStages.flatMap((stage) => stage.products ?? []);
+  const overallProducts = treatmentStages.flatMap(
+    (stage) => stage.products ?? [],
+  );
 
   useEffect(() => {
     // Ca đang chờ AI hỏi làm rõ bệnh (chưa xác nhận) — không được tự tạo phác đồ cho bệnh
     // mới chỉ là dự đoán YOLO độ tin cậy thấp. BE cũng chặn ở generatePrescription(), đây
     // là chặn sớm ở FE để không tốn 1 request chắc chắn bị từ chối.
-    if (diagnosis && !diagnosis.needsClarification && !hasPrescription && prescriptionState === "idle" && diagnosisId) {
+    if (
+      diagnosis &&
+      !diagnosis.needsClarification &&
+      !hasPrescription &&
+      !stageSelection &&
+      prescriptionState === "idle" &&
+      diagnosisId
+    ) {
       handleGetPrescription();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diagnosis?.diagnosisId, diagnosis?.needsClarification, hasPrescription]);
+  }, [
+    diagnosis?.diagnosisId,
+    diagnosis?.needsClarification,
+    hasPrescription,
+    stageSelection,
+  ]);
 
   const handleGetPrescription = async () => {
     if (!diagnosisId || prescriptionState === "loading") return;
@@ -291,6 +391,26 @@ export default function TreatmentResultPage() {
     }
   };
 
+  const handleSelectStage = async (stageIndex: number) => {
+    if (!diagnosisId || selectingStageIndex !== null) return;
+    setSelectingStageIndex(stageIndex);
+    try {
+      const data = await aiDoctorService.generatePrescriptionForStage(
+        diagnosisId,
+        stageIndex,
+      );
+      setPrescriptionData(data);
+      setPrescriptionState("loaded");
+      toast.success("Đã chọn giai đoạn và lập phác đồ phù hợp.");
+    } catch {
+      toast.error(
+        "Không thể lấy phác đồ cho giai đoạn này. Bà con thử lại nhé.",
+      );
+    } finally {
+      setSelectingStageIndex(null);
+    }
+  };
+
   const resolveVariantId = async (product: AiDoctorSuggestedProduct) => {
     // 1. Ưu tiên variantId từ backend trả về trong phác đồ (nếu có)
     if (product.variantId) return product.variantId;
@@ -302,27 +422,39 @@ export default function TreatmentResultPage() {
     // 3. Gọi API lấy chi tiết sản phẩm để tìm biến thể phù hợp
     console.log(`[AiDoctor] Resolving variant for product ID: ${product.id}`);
     const productDetail = await PublicProductService.getById(product.id);
-    
+
     if (!productDetail?.variants || productDetail.variants.length === 0) {
-      throw new Error(`Sản phẩm ${product.name} (ID: ${product.id}) không có biến thể nào.`);
+      throw new Error(
+        `Sản phẩm ${product.name} (ID: ${product.id}) không có biến thể nào.`,
+      );
     }
 
     // Ưu tiên biến thể đang ACTIVE và có hàng, sau đó là ACTIVE, cuối cùng là cái đầu tiên
     const preferredVariant =
-      productDetail.variants.find((v) => v.status === "ACTIVE" && v.quantity > 0) ||
+      productDetail.variants.find(
+        (v) => v.status === "ACTIVE" && v.quantity > 0,
+      ) ||
       productDetail.variants.find((v) => v.status === "ACTIVE") ||
       productDetail.variants[0];
 
     if (!preferredVariant?.id) {
-      throw new Error(`Không tìm thấy biến thể hợp lệ cho sản phẩm ${product.name}.`);
+      throw new Error(
+        `Không tìm thấy biến thể hợp lệ cho sản phẩm ${product.name}.`,
+      );
     }
 
-    console.log(`[AiDoctor] Resolved variant ID: ${preferredVariant.id} for product: ${product.name}`);
+    console.log(
+      `[AiDoctor] Resolved variant ID: ${preferredVariant.id} for product: ${product.name}`,
+    );
     variantIdCache.current.set(product.id, preferredVariant.id);
     return preferredVariant.id;
   };
 
-  const addProductsToCart = async (products: AiDoctorSuggestedProduct[], key: string, label: string) => {
+  const addProductsToCart = async (
+    products: AiDoctorSuggestedProduct[],
+    key: string,
+    label: string,
+  ) => {
     if (!products.length) {
       toast.error("Giai đoạn này chưa có sản phẩm để thêm.");
       return;
@@ -331,15 +463,22 @@ export default function TreatmentResultPage() {
     setAddingKey(key);
 
     try {
-      console.log(`[AiDoctor] Starting to add ${products.length} products to cart for ${label}`);
-      
+      console.log(
+        `[AiDoctor] Starting to add ${products.length} products to cart for ${label}`,
+      );
+
       for (const product of products) {
         try {
           const variantId = await resolveVariantId(product);
           await cartService.updateQuantity(variantId, 1);
-          console.log(`[AiDoctor] Added product: ${product.name} (Variant: ${variantId})`);
+          console.log(
+            `[AiDoctor] Added product: ${product.name} (Variant: ${variantId})`,
+          );
         } catch (itemError) {
-          console.error(`[AiDoctor] Error adding product ${product.name}:`, itemError);
+          console.error(
+            `[AiDoctor] Error adding product ${product.name}:`,
+            itemError,
+          );
           // Tiếp tục thêm các sản phẩm khác nếu 1 cái bị lỗi
         }
       }
@@ -354,7 +493,9 @@ export default function TreatmentResultPage() {
         toast.error("Bà con hãy đăng nhập để mua thuốc nhé.");
         router.push("/login");
       } else {
-        toast.error("Không thể thêm thuốc vào giỏ. Bà con hãy thử lại sau nhé.");
+        toast.error(
+          "Không thể thêm thuốc vào giỏ. Bà con hãy thử lại sau nhé.",
+        );
       }
     } finally {
       setAddingKey(null);
@@ -365,7 +506,9 @@ export default function TreatmentResultPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#f5f7f9] px-4 text-center">
         <FileText size={40} className="mb-4 text-slate-300" />
-        <h1 className="mb-2 text-xl font-bold text-slate-900">Chưa có dữ liệu khám bệnh</h1>
+        <h1 className="mb-2 text-xl font-bold text-slate-900">
+          Chưa có dữ liệu khám bệnh
+        </h1>
         <p className="mb-6 text-sm text-slate-500">
           Bà con hãy gửi ảnh cho bác sĩ để có kết quả khám nhé.
         </p>
@@ -395,7 +538,9 @@ export default function TreatmentResultPage() {
               Kết quả khám bệnh tôm
             </h1>
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500">
-              <span className="rounded bg-slate-200 px-2 py-0.5">Mã số: #{diagnosisId}</span>
+              <span className="rounded bg-slate-200 px-2 py-0.5">
+                Mã số: #{diagnosisId}
+              </span>
               <span>•</span>
               <span>Ngày khám: {formatDateTime(diagnosis?.createdAt)}</span>
             </div>
@@ -430,7 +575,9 @@ export default function TreatmentResultPage() {
           </div>
         ) : diagnosisQuery.isError && !diagnosis ? (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-10 text-center">
-            <p className="text-lg font-bold text-red-600">Không tìm thấy kết quả khám này.</p>
+            <p className="text-lg font-bold text-red-600">
+              Không tìm thấy kết quả khám này.
+            </p>
             <p className="mt-2 text-sm text-red-500">
               Bà con hãy thử lại hoặc hỏi bác sĩ ca mới nhé.
             </p>
@@ -440,9 +587,12 @@ export default function TreatmentResultPage() {
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-5xl shadow-inner">
               🦐
             </div>
-            <h2 className="mb-2 text-2xl font-extrabold text-blue-700">Tôm khỏe mạnh!</h2>
+            <h2 className="mb-2 text-2xl font-extrabold text-blue-700">
+              Tôm khỏe mạnh!
+            </h2>
             <p className="mb-6 text-sm text-slate-500">
-              Bác sĩ không thấy dấu hiệu bệnh gì lạ. Bà con cứ yên tâm chăm sóc ao nhé.
+              Bác sĩ không thấy dấu hiệu bệnh gì lạ. Bà con cứ yên tâm chăm sóc
+              ao nhé.
             </p>
             <Link
               href="/ai-doctor"
@@ -456,12 +606,16 @@ export default function TreatmentResultPage() {
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-amber-50 text-5xl shadow-inner">
               🩺
             </div>
-            <h2 className="mb-2 text-2xl font-extrabold text-amber-700">Chưa có kết luận cuối cùng</h2>
+            <h2 className="mb-2 text-2xl font-extrabold text-amber-700">
+              Chưa có kết luận cuối cùng
+            </h2>
             <p className="mb-1 max-w-md text-sm text-slate-500">
-              Bác sĩ AI vẫn đang hỏi thêm để xác nhận bệnh, chưa thể kết luận chỉ từ tấm ảnh này.
+              Bác sĩ AI vẫn đang hỏi thêm để xác nhận bệnh, chưa thể kết luận
+              chỉ từ tấm ảnh này.
             </p>
             <p className="mb-6 max-w-md text-sm text-slate-500">
-              Bà con hãy quay lại trò chuyện để trả lời nốt các câu hỏi nhé — kết quả sẽ chính xác hơn nhiều.
+              Bà con hãy quay lại trò chuyện để trả lời nốt các câu hỏi nhé —
+              kết quả sẽ chính xác hơn nhiều.
             </p>
             <Link
               href="/ai-doctor"
@@ -481,7 +635,11 @@ export default function TreatmentResultPage() {
                       Kết luận của bác sĩ
                     </span>
                     <span className="rounded-sm bg-red-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
-                      Độ tin cậy {Number(diagnosis.disease?.confidencePercent || 0).toFixed(0)}%
+                      Độ tin cậy{" "}
+                      {Number(
+                        diagnosis.disease?.confidencePercent || 0,
+                      ).toFixed(0)}
+                      %
                     </span>
                   </div>
 
@@ -560,7 +718,10 @@ export default function TreatmentResultPage() {
                             {prediction.nameVi}
                           </span>
                           <span className="text-xs font-bold text-slate-400">
-                            {Number(prediction.confidencePercent || 0).toFixed(0)}%
+                            {Number(prediction.confidencePercent || 0).toFixed(
+                              0,
+                            )}
+                            %
                           </span>
                         </div>
                       ))}
@@ -579,8 +740,12 @@ export default function TreatmentResultPage() {
                           key={`stage-total-${index}`}
                           className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
                         >
-                          <span className="font-medium text-slate-600">Bước {index + 1}</span>
-                          <span className="font-bold text-slate-800">{formatPrice(total)}</span>
+                          <span className="font-medium text-slate-600">
+                            Bước {index + 1}
+                          </span>
+                          <span className="font-bold text-slate-800">
+                            {formatPrice(total)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -589,12 +754,18 @@ export default function TreatmentResultPage() {
                       <div className="mb-1 text-xs uppercase tracking-wide text-white/80">
                         Tổng tiền thuốc (các bước)
                       </div>
-                      <div className="text-2xl font-extrabold">{formatPrice(overallTotal)}</div>
+                      <div className="text-2xl font-extrabold">
+                        {formatPrice(overallTotal)}
+                      </div>
                     </div>
 
                     <button
                       onClick={() =>
-                        addProductsToCart(overallProducts, "all-stages", "toàn bộ phác đồ")
+                        addProductsToCart(
+                          overallProducts,
+                          "all-stages",
+                          "toàn bộ phác đồ",
+                        )
                       }
                       disabled={addingKey === "all-stages"}
                       className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
@@ -612,7 +783,9 @@ export default function TreatmentResultPage() {
             </div>
 
             <div className="space-y-6 lg:col-span-8">
-              <h2 className="mb-4 text-xl font-bold text-slate-800">CÁCH ĐIỀU TRỊ CHI TIẾT</h2>
+              <h2 className="mb-4 text-xl font-bold text-slate-800">
+                CÁCH ĐIỀU TRỊ CHI TIẾT
+              </h2>
               {hasPrescription ? (
                 treatmentStages.map((stage, index) => (
                   <StageCard
@@ -630,6 +803,13 @@ export default function TreatmentResultPage() {
                     }
                   />
                 ))
+              ) : stageSelection?.options?.length ? (
+                <StageSelectionCard
+                  message={stageSelection.message}
+                  options={stageSelection.options}
+                  selectingStageIndex={selectingStageIndex}
+                  onSelect={handleSelectStage}
+                />
               ) : (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-center text-gray-400">
                   {prescriptionState === "error" ? (
@@ -638,7 +818,9 @@ export default function TreatmentResultPage() {
                       <p className="mb-2 text-sm font-medium text-slate-600">
                         Không thể lập phác đồ lúc này.
                       </p>
-                      <p className="mb-6 text-xs text-red-400">Có lỗi xảy ra. Bà con thử lại nhé.</p>
+                      <p className="mb-6 text-xs text-red-400">
+                        Có lỗi xảy ra. Bà con thử lại nhé.
+                      </p>
                       <button
                         onClick={handleGetPrescription}
                         className="inline-flex h-11 items-center gap-2 rounded-full bg-[#376E60] px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#2f5c50]"
@@ -647,9 +829,22 @@ export default function TreatmentResultPage() {
                         Thử lại
                       </button>
                     </>
+                  ) : prescriptionState === "loaded" ? (
+                    <>
+                      <FlaskConical size={40} className="mb-3 text-slate-300" />
+                      <p className="mb-2 text-sm font-medium text-slate-600">
+                        Bệnh này chưa có phác đồ điều trị được duyệt.
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Bà con vui lòng liên hệ kỹ sư để được tư vấn thêm.
+                      </p>
+                    </>
                   ) : (
                     <>
-                      <Loader2 size={36} className="mb-3 animate-spin text-[#376E60]" />
+                      <Loader2
+                        size={36}
+                        className="mb-3 animate-spin text-[#376E60]"
+                      />
                       <p className="text-sm font-medium text-slate-600">
                         Bác sĩ đang lập phác đồ điều trị...
                       </p>
@@ -667,4 +862,3 @@ export default function TreatmentResultPage() {
     </div>
   );
 }
-

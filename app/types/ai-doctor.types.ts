@@ -14,6 +14,18 @@ export interface AiDoctorTreatmentStage {
   extraProductNames?: string[];
 }
 
+export interface AiDoctorTreatmentStageOption {
+  stageIndex: number;
+  stageNumber: number;
+  stageTitle: string;
+}
+
+export interface AiDoctorTreatmentStageSelection {
+  required: boolean;
+  message: string;
+  options: AiDoctorTreatmentStageOption[];
+}
+
 export interface AiDoctorDiseaseInfo {
   code: string;
   nameVi: string;
@@ -39,6 +51,7 @@ export interface AiDoctorDiagnosisResponse {
   causes?: string[];
   signsSummary?: string;
   treatmentStages?: AiDoctorTreatmentStage[];
+  stageSelection?: AiDoctorTreatmentStageSelection;
   purchaseUrl?: string;
   createdAt?: string;
   /** true khi độ tin cậy quá thấp — FE cần gọi clarify() để bác sĩ AI hỏi thêm thay vì kết luận ngay. */

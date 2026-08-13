@@ -13,9 +13,11 @@ const LAST_DIAGNOSIS_ID_KEY = "ai-doctor:last-id";
 // sessionId ổn định xuyên suốt cuộc hội thoại.
 const CHAT_SESSION_ID_KEY = "ai-doctor:public-session-id";
 
-const canUseStorage = () => typeof window !== "undefined" && !!window.sessionStorage;
+const canUseStorage = () =>
+  typeof window !== "undefined" && !!window.sessionStorage;
 
-const getDiagnosisStorageKey = (diagnosisId: string) => `${DIAGNOSIS_STORAGE_PREFIX}${diagnosisId}`;
+const getDiagnosisStorageKey = (diagnosisId: string) =>
+  `${DIAGNOSIS_STORAGE_PREFIX}${diagnosisId}`;
 
 const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
   if (!canUseStorage()) return;
@@ -29,6 +31,17 @@ const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
     clientImageUrl: diagnosis.clientImageUrl ?? cachedDiagnosis?.clientImageUrl,
   };
 
+  if (
+    diagnosis.stageSelection?.options?.length &&
+    !diagnosis.treatmentStages?.length
+  ) {
+    mergedDiagnosis.treatmentStages = [];
+  }
+
+  if (diagnosis.treatmentStages?.length) {
+    delete mergedDiagnosis.stageSelection;
+  }
+
   window.sessionStorage.setItem(
     getDiagnosisStorageKey(diagnosis.diagnosisId),
     JSON.stringify(mergedDiagnosis),
@@ -39,7 +52,9 @@ const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
 const getCachedDiagnosis = (diagnosisId: string) => {
   if (!canUseStorage()) return null;
 
-  const raw = window.sessionStorage.getItem(getDiagnosisStorageKey(diagnosisId));
+  const raw = window.sessionStorage.getItem(
+    getDiagnosisStorageKey(diagnosisId),
+  );
   if (!raw) return null;
 
   try {
@@ -87,12 +102,16 @@ export const aiDoctorService = {
   },
 
   async getDailyRecordDates() {
-    const response = await apiJava.get<AiDoctorDailyRecordListResponse>("/ai-doctor/daily-records");
+    const response = await apiJava.get<AiDoctorDailyRecordListResponse>(
+      "/ai-doctor/daily-records",
+    );
     return response.data;
   },
 
   async getConversation(date: string) {
-    const response = await apiJava.get<AiDoctorConversationTurn[]>(`/ai-doctor/conversation/${date}`);
+    const response = await apiJava.get<AiDoctorConversationTurn[]>(
+      `/ai-doctor/conversation/${date}`,
+    );
     return response.data;
   },
 
@@ -110,6 +129,20 @@ export const aiDoctorService = {
       {},
       { timeout: 120000 },
     );
+    persistDiagnosis(response.data);
+    return response.data;
+  },
+
+  async generatePrescriptionForStage(
+    diagnosisId: string | number,
+    stageIndex: number,
+  ) {
+    const response = await apiJava.post<AiDoctorDiagnosisResponse>(
+      `/ai-doctor/diagnosis/${diagnosisId}/prescription/stages/${stageIndex}`,
+      {},
+      { timeout: 120000 },
+    );
+    persistDiagnosis(response.data);
     return response.data;
   },
 
@@ -147,7 +180,10 @@ export const aiDoctorService = {
         // loi tiep theo.
         sessionId: getChatSessionId(),
         diagnosisContext: diagnosisContext
-          ? { diseaseCode: diagnosisContext.diseaseCode, diseaseName: diagnosisContext.diseaseName }
+          ? {
+              diseaseCode: diagnosisContext.diseaseCode,
+              diseaseName: diagnosisContext.diseaseName,
+            }
           : undefined,
         imageBase64: image?.base64,
         imageMimeType: image?.mimeType,
@@ -174,7 +210,10 @@ export const aiDoctorService = {
     // Khi đã chốt bệnh, cập nhật lại cache — nếu không, /ai-doctor/result?id=X sẽ vẫn hiển thị
     // kết quả cũ (needsClarification=true, bệnh đoán ban đầu) thay vì kết luận thật vừa chốt.
     if (response.data.type === "DECISION" && response.data.diagnosis) {
-      persistDiagnosis({ ...response.data.diagnosis, needsClarification: false });
+      persistDiagnosis({
+        ...response.data.diagnosis,
+        needsClarification: false,
+      });
     }
 
     return response.data;
