@@ -67,12 +67,24 @@ export const InventoryReportService = {
   },
 
   async getIOSummary(filters: {
-    branchId: string | number;
+    branchId: string | number | null;
     startDate: string;
     endDate: string;
   }): Promise<InventoryIOSummaryData[]> {
     const response = await apiJava.get("/inventory-reports/io-summary", {
-      params: filters,
+      params: {
+        ...filters,
+        branchId: !filters.branchId || filters.branchId === "all" ? null : filters.branchId,
+      },
+    });
+    return response.data;
+  },
+
+  // Dành riêng cho trang Báo cáo kiểm kê hàng hóa — KHÔNG dùng chung endpoint /inventory-checks
+  // (endpoint đó còn phục vụ màn hình thủ kho quản lý phiếu kiểm kê thật, phân quyền chi nhánh khác).
+  async getCheckNotes(branchId?: string | number | null): Promise<any[]> {
+    const response = await apiJava.get("/inventory-reports/check", {
+      params: { branchId: !branchId || branchId === "all" ? null : branchId },
     });
     return response.data;
   },

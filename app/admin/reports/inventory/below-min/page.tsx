@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
   Download,
@@ -48,6 +48,7 @@ const PAGE_SIZE = 20;
 
 function InventoryBelowMinReportContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
   // Trước đây dropdown chi nhánh không hề bị khoá — bất kỳ ai có quyền xem báo cáo này cũng chọn
@@ -57,11 +58,26 @@ function InventoryBelowMinReportContent() {
   const canSelectAllBranches = hasPermission(P.REPORT_INVENTORY_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
+  // "all" là lựa chọn hợp lệ và có chủ đích (không phải trạng thái "chưa chọn") — backend đã hỗ
+  // sẵn branchId=null để cộng dồn tồn kho toàn hệ thống (dùng chung logic với trang tổng quan),
+  // trước đây trang này chỉ chưa có UI để chọn nó nên luôn tự nhảy về chi nhánh đầu tiên.
+  const ALL_BRANCHES = "all";
+
+  // Cho phép trang tổng quan mở thẳng vào đúng chi nhánh đang xem qua ?branchId=X trên URL — nhưng
+  // KHÔNG tin URL một cách mù quáng (đây chính là lỗ hổng IDOR đã fix ở trên): chỉ chấp nhận giá
+  // trị từ URL khi tài khoản có quyền xem tất cả chi nhánh, hoặc khi giá trị đó trùng đúng chi
+  // nhánh của chính họ. Mọi trường hợp khác đều rơi về mặc định an toàn như cũ.
+  const branchIdFromUrl = searchParams.get("branchId");
+  const initialBranchId =
+    branchIdFromUrl && (canSelectAllBranches || branchIdFromUrl === ownBranchId)
+      ? branchIdFromUrl
+      : canSelectAllBranches
+        ? ALL_BRANCHES
+        : ownBranchId;
+
   // --- STATES ---
   const [branches, setBranches] = useState<any[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    canSelectAllBranches ? "" : ownBranchId,
-  );
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(initialBranchId);
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -69,6 +85,12 @@ function InventoryBelowMinReportContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [page, setPage] = useState(1);
+
+  const selectedBranchName =
+    selectedBranchId === ALL_BRANCHES
+      ? "Tất cả chi nhánh"
+      : branches.find((b) => b.id.toString() === selectedBranchId)?.name ||
+        "Chi nhánh";
 
   // --- FETCH DATA ---
   const fetchData = async () => {
@@ -87,25 +109,29 @@ function InventoryBelowMinReportContent() {
             : allBranches;
         setBranches(currentBranches);
 
-        // Nếu có danh sách chi nhánh và chưa chọn chi nhánh nào, chọn chi nhánh đầu tiên
-        if (currentBranches.length > 0 && !selectedBranchId) {
+        // Chỉ tự chọn chi nhánh đầu tiên khi tài khoản KHÔNG được xem "Tất cả chi nhánh" và chưa
+        // có lựa chọn nào — nếu được xem tất cả, "all" đã là giá trị mặc định hợp lệ, không cần ép.
+        if (!canSelectAllBranches && currentBranches.length > 0 && !selectedBranchId) {
           currentBranchId = currentBranches[0].id.toString();
           setSelectedBranchId(currentBranchId);
         }
       }
 
-      if (!currentBranchId && currentBranches.length > 0) {
+      if (!canSelectAllBranches && !currentBranchId && currentBranches.length > 0) {
         currentBranchId = currentBranches[0].id.toString();
         setSelectedBranchId(currentBranchId);
       }
 
       if (currentBranchId) {
-        // 2. Lấy danh sách sản phẩm theo chi nhánh cụ thể (API trả về mảng trực tiếp)
-        const response = await ProductService.getLowStockReport(currentBranchId);
-        
+        // 2. Lấy danh sách sản phẩm — "all" nghĩa là không lọc branchId, cộng dồn tồn kho toàn hệ
+        // thống (đúng khớp với cách trang tổng quan tính "Sắp hết hàng"/"Hết hàng").
+        const response = await ProductService.getLowStockReport(
+          currentBranchId === ALL_BRANCHES ? undefined : currentBranchId,
+        );
+
         // Backend trả về Array [LowStockReportResponse]
         const lowStockList = Array.isArray(response) ? response : [];
-        
+
         setProducts(lowStockList);
         setFilteredProducts(lowStockList);
         setPage(1);
@@ -145,7 +171,7 @@ function InventoryBelowMinReportContent() {
     try {
       const XLSX = await import("xlsx");
       
-      const branchName = branches.find(b => b.id.toString() === selectedBranchId)?.name || "Chi Nhánh";
+      const branchName = selectedBranchName;
       const exportDate = new Date().toLocaleString("vi-VN");
 
       // 1. Tạo Header cho file báo cáo
@@ -214,7 +240,7 @@ function InventoryBelowMinReportContent() {
       return;
     }
 
-    const branchName = branches.find((b) => b.id.toString() === selectedBranchId)?.name || "Chi nhánh";
+    const branchName = selectedBranchName;
     const exportDate = new Date().toLocaleString("vi-VN");
 
     const doc = new jsPDF({ orientation: "landscape" });
@@ -304,6 +330,9 @@ function InventoryBelowMinReportContent() {
             <SelectValue placeholder="Chọn chi nhánh" />
           </SelectTrigger>
           <SelectContent className="rounded-none">
+            {canSelectAllBranches && (
+              <SelectItem value={ALL_BRANCHES}>TẤT CẢ CHI NHÁNH</SelectItem>
+            )}
             {branches.map(b => (
               <SelectItem key={b.id} value={b.id.toString()}>{(b.name || b.branchName).toUpperCase()}</SelectItem>
             ))}
@@ -402,12 +431,13 @@ function InventoryBelowMinReportContent() {
                   <RefreshCw size={18} />
                   <span>Dữ liệu được cập nhật dựa trên tồn kho thực tế của chi nhánh đã chọn.</span>
                 </div>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => router.push("/admin/receipts/select-request")}
                   className="border-blue-600 text-blue-600 hover:bg-blue-50 font-bold uppercase text-[12px] h-10 rounded-none px-6"
+                  title="Phải có phiếu yêu cầu mua đã gửi nhà cung cấp thì mới tạo được phiếu nhập kho"
                 >
-                  Tạo phiếu nhập kho ngay
+                  Xử lý nhập hàng
                 </Button>
               </div>
             </>

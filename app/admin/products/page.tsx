@@ -723,8 +723,8 @@ export default function ProductsPage() {
                                 </Button>
 
                                 <Dialog open={isSettingOpen} onOpenChange={(open) => { setIsSettingOpen(open); if (!open) setAiSuggestion(null); }}>
-                                    <DialogContent className="sm:max-w-[560px] rounded-[4px]">
-                                        <DialogHeader>
+                                    <DialogContent className="sm:max-w-[560px] rounded-[4px] max-h-[90vh] flex flex-col">
+                                        <DialogHeader className="shrink-0">
                                             <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
                                                 <Percent size={18} className="text-emerald-600" /> Biên lợi nhuận (%)
                                             </DialogTitle>
@@ -732,7 +732,7 @@ export default function ProductsPage() {
                                                 Tỷ lệ cộng thêm vào giá vốn lô hàng để ra giá bán niêm yết.
                                             </DialogDescription>
                                         </DialogHeader>
-                                        <div className="py-4">
+                                        <div className="py-4 flex-1 min-h-0 overflow-y-auto pr-1">
                                             <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Phần trăm mong muốn</Label>
                                             <div className="relative">
                                                 <Input
@@ -989,7 +989,7 @@ export default function ProductsPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <DialogFooter>
+                                        <DialogFooter className="shrink-0 border-t border-slate-100 pt-3">
                                             <Button
                                                 variant="outline"
                                                 onClick={() => {

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Download, FileText, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Download, FileText, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -443,6 +444,13 @@ function ProfitLossReportContent() {
     <div className="space-y-3">
       <div className="mt-2 mb-8 px-1">
         <div className="mb-4">
+          <Link
+            href="/admin/financial"
+            className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-blue-600"
+          >
+            <ArrowLeft size={14} />
+            Quay lại Tổng quan tài chính
+          </Link>
           <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
             Lãi lỗ
           </h1>
@@ -652,13 +660,13 @@ function ProfitLossReportContent() {
                       <div className="flex items-center gap-6 whitespace-nowrap text-right text-xs">
                         <div>
                           <span className="text-slate-400 block text-[9px] font-medium uppercase">Kỳ này</span>
-                          <span className="font-bold text-slate-700">{formatNumber(item.currentValue)} ₫</span>
+                          <span className="font-bold text-slate-700">{formatNumber(item.currentValue)} VND</span>
                         </div>
                         {item.previousValue !== null && item.previousValue !== undefined && (
                           <>
                             <div>
                               <span className="text-slate-400 block text-[9px] font-medium uppercase">Kỳ trước</span>
-                              <span className="text-slate-500">{formatNumber(item.previousValue)} ₫</span>
+                              <span className="text-slate-500">{formatNumber(item.previousValue)} VND</span>
                             </div>
                             <div>
                               <span className="text-slate-400 block text-[9px] font-medium uppercase">Biến động</span>
@@ -670,7 +678,7 @@ function ProfitLossReportContent() {
                                   ? (item.factor === "COGS" || item.factor === "RETURNS" ? "text-blue-500" : "text-rose-500")
                                   : "text-slate-500"
                               )}>
-                                {item.changeAmount > 0 ? "+" : ""}{formatNumber(item.changeAmount)} ₫
+                                {item.changeAmount > 0 ? "+" : ""}{formatNumber(item.changeAmount)} VND
                               </span>
                             </div>
                           </>

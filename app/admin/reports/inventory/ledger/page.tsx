@@ -146,6 +146,7 @@ function InventoryLedgerContent() {
         "Tồn sau": e.balanceAfter,
         "Chi nhánh": e.branchName,
         "Người tạo": e.createdByName,
+        "Lý do": e.reason || "",
       }));
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
@@ -244,12 +245,13 @@ function InventoryLedgerContent() {
                   <TableHead className="text-white font-bold text-[11px] uppercase whitespace-nowrap border-r border-white/10 text-right w-[100px]">Số lượng</TableHead>
                   <TableHead className="text-white font-bold text-[11px] uppercase whitespace-nowrap border-r border-white/10 text-right w-[100px]">Tồn trước</TableHead>
                   <TableHead className="text-white font-bold text-[11px] uppercase whitespace-nowrap border-r border-white/10 text-right w-[100px]">Tồn sau</TableHead>
-                  <TableHead className="text-white font-bold text-[11px] uppercase whitespace-nowrap text-center w-[130px]">Người tạo</TableHead>
+                  <TableHead className="text-white font-bold text-[11px] uppercase whitespace-nowrap border-r border-white/10 text-center w-[130px]">Người tạo</TableHead>
+                  <TableHead className="text-white font-bold text-[11px] uppercase whitespace-nowrap min-w-[180px]">Lý do</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow className="bg-slate-50 border-b border-[#eee] font-black">
-                  <TableCell colSpan={9} className="p-3 pl-6 text-[13px] text-slate-800">
+                  <TableCell colSpan={10} className="p-3 pl-6 text-[13px] text-slate-800">
                     Tổng {entries.length} giao dịch
                   </TableCell>
                 </TableRow>
@@ -266,6 +268,7 @@ function InventoryLedgerContent() {
                     <TableCell className="text-right text-[13px] text-slate-500">{formatNumber(e.balanceBefore)}</TableCell>
                     <TableCell className="text-right text-[13px] text-slate-800 font-bold">{formatNumber(e.balanceAfter)}</TableCell>
                     <TableCell className="text-center text-[12px] text-slate-600">{e.createdByName}</TableCell>
+                    <TableCell className="p-3 text-[12px] text-slate-500">{e.reason || "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

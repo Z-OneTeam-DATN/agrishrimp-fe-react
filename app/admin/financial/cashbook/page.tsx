@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowDownRight,
+  ArrowLeft,
   ArrowUpRight,
   Download,
   FileText,
@@ -394,6 +396,13 @@ function CashbookPageContent() {
       <div className="mt-2 mb-8 space-y-4 px-1">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
+            <Link
+              href="/admin/financial"
+              className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-blue-600"
+            >
+              <ArrowLeft size={14} />
+              Quay lại Tổng quan tài chính
+            </Link>
             <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
               Sổ quỹ / Tiền chi
             </h1>
@@ -1070,10 +1079,10 @@ function CashbookPageContent() {
                 Hiển thị {ledgerRows.length} / {filteredEntries.length} giao dịch
               </span>
               <span className="text-blue-600">
-                Thu hiển thị: {formatNumber(filteredTotals.income)}
+                Tổng thu (khớp bộ lọc): {formatNumber(filteredTotals.income)}
               </span>
               <span className="text-rose-600">
-                Chi hiển thị: {formatNumber(filteredTotals.expense)}
+                Tổng chi (khớp bộ lọc): {formatNumber(filteredTotals.expense)}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -1107,16 +1116,27 @@ function CashbookPageContent() {
             <DialogTitle className="uppercase">Trợ giúp sổ quỹ</DialogTitle>
             <DialogDescription>
               Sổ quỹ này chỉ ghi nhận các giao dịch thực sự ảnh hưởng tiền đã được
-              ghi sổ, hiện tại là phiếu thanh toán nhà cung cấp.
+              ghi sổ: tiền thu từ khách hàng đã thanh toán và tiền chi thanh toán
+              nhà cung cấp.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-sm text-slate-600">
             <p>
+              <span className="font-bold text-slate-800">Phiếu thu (IN):</span>{" "}
+              là các đơn hàng khách đã thanh toán (paymentStatus = PAID) — đơn
+              chuyển khoản/PayOS tính từ lúc đặt hàng, đơn COD tính từ lúc giao
+              nhận thành công vì tiền chỉ thực về quỹ khi đó.
+            </p>
+            <p>
+              <span className="font-bold text-slate-800">Phiếu chi (OUT):</span>{" "}
+              là các khoản thanh toán cho nhà cung cấp đã ghi nhận trên phiếu
+              nhập hàng.
+            </p>
+            <p>
               <span className="font-bold text-slate-800">Số dư đầu kỳ:</span>{" "}
-              bằng tổng dòng tiền đã ghi nhận trước ngày bắt đầu. Hệ thống hiện
-              mới có dòng chi thanh toán NCC nên số dư đầu kỳ phản ánh số đã chi
-              lũy kế trước kỳ.
+              bằng tổng thu từ đơn hàng đã thanh toán trừ tổng chi thanh toán NCC,
+              tính lũy kế đến trước ngày bắt đầu.
             </p>
             <p>
               <span className="font-bold text-slate-800">Tổng thu / tổng chi:</span>{" "}
@@ -1131,9 +1151,9 @@ function CashbookPageContent() {
             </p>
             <p>
               <span className="font-bold text-slate-800">Phạm vi dữ liệu:</span>{" "}
-              hiện màn này chỉ phản ánh các phiếu thanh toán nhà cung cấp đã ghi
-              nhận. Phiếu nhập/xuất kho không có bút toán tiền riêng sẽ không xuất
-              hiện ở đây.
+              hiện màn này phản ánh tiền thu từ đơn hàng đã thanh toán và tiền chi
+              thanh toán nhà cung cấp đã ghi nhận. Phiếu nhập/xuất kho không có
+              bút toán tiền riêng (chưa thanh toán) sẽ không xuất hiện ở đây.
             </p>
           </div>
         </DialogContent>

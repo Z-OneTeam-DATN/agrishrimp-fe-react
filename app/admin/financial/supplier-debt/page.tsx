@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   ChevronDown,
   HelpCircle,
   Download,
@@ -311,6 +313,13 @@ function SupplierDebtReportContent() {
       <div className="mt-2 mb-8 space-y-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
+            <Link
+              href="/admin/financial"
+              className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-blue-600"
+            >
+              <ArrowLeft size={14} />
+              Quay lại Tổng quan tài chính
+            </Link>
             <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
               Công nợ NCC
             </h1>
@@ -479,7 +488,7 @@ function SupplierDebtReportContent() {
                   <div className="rounded-[6px] p-4 text-center border bg-slate-50 border-slate-200">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-455">Tổng công nợ</p>
                     <p className="text-2xl font-black text-slate-800 mt-1">
-                      {insightData.totalOutstandingDebt.toLocaleString("vi-VN")} ₫
+                      {insightData.totalOutstandingDebt.toLocaleString("vi-VN")} VND
                     </p>
                     {insightData.totalDebtChangeVsPreviousPeriod !== null && (
                       <div className="flex items-center justify-center gap-1 mt-2">
@@ -516,7 +525,7 @@ function SupplierDebtReportContent() {
                               "font-semibold",
                               item.factor === "AGE_DISTRIBUTION" && item.value > 0 ? "text-rose-600 font-bold" : "text-slate-800"
                             )}>
-                              {item.factor === "TOTAL_DEBT" && `${item.value.toLocaleString("vi-VN")} ₫`}
+                              {item.factor === "TOTAL_DEBT" && `${item.value.toLocaleString("vi-VN")} VND`}
                               {item.factor === "AGE_DISTRIBUTION" && `${item.value} đối tác`}
                               {item.factor === "TREND" && `${item.value > 0 ? "+" : ""}${item.value}%`}
                             </span>
@@ -587,7 +596,7 @@ function SupplierDebtReportContent() {
                               </div>
                             </TableCell>
                             <TableCell className="py-2 text-right font-bold text-slate-850">
-                              {sup.totalDebt.toLocaleString("vi-VN")} ₫
+                              {sup.totalDebt.toLocaleString("vi-VN")} VND
                             </TableCell>
                             <TableCell className="py-2 text-right font-medium text-slate-600">
                               {sup.weightedAvgDebtAge.toFixed(1)} ngày
@@ -634,7 +643,7 @@ function SupplierDebtReportContent() {
                               {staff.staffName}
                             </TableCell>
                             <TableCell className="py-2.5 pr-4 text-right font-bold text-rose-600">
-                              {staff.totalDebtFromOrders.toLocaleString("vi-VN")} ₫
+                              {staff.totalDebtFromOrders.toLocaleString("vi-VN")} VND
                             </TableCell>
                           </TableRow>
                         ))}
@@ -713,7 +722,7 @@ function SupplierDebtReportContent() {
                         {row.phone || "---"}
                       </TableCell>
                       <TableCell className="py-3 pr-6 text-right text-[14px] font-semibold text-rose-600">
-                        {row.totalDebt.toLocaleString("vi-VN")} ₫
+                        {row.totalDebt.toLocaleString("vi-VN")} VND
                       </TableCell>
                     </TableRow>
                   ))}
