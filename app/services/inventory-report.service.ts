@@ -80,8 +80,6 @@ export const InventoryReportService = {
     return response.data;
   },
 
-  // Dành riêng cho trang Báo cáo kiểm kê hàng hóa — KHÔNG dùng chung endpoint /inventory-checks
-  // (endpoint đó còn phục vụ màn hình thủ kho quản lý phiếu kiểm kê thật, phân quyền chi nhánh khác).
   async getCheckNotes(branchId?: string | number | null): Promise<any[]> {
     const response = await apiJava.get("/inventory-reports/check", {
       params: { branchId: !branchId || branchId === "all" ? null : branchId },
@@ -89,3 +87,4 @@ export const InventoryReportService = {
     return response.data;
   },
 };
+

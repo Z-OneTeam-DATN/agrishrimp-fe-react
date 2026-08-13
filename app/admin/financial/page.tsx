@@ -104,7 +104,6 @@ const reportCards = [
 const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 const formatMoney = (value?: number | null) => formatNumber(value ?? 0);
 
-// Custom Recharts tooltip
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -209,7 +208,6 @@ export default function FinancialReportListPage() {
     }
   }, [selectedBranchId, startDate, endDate]);
 
-  // Debounce filter changes → auto-fetch
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -220,7 +218,6 @@ export default function FinancialReportListPage() {
     };
   }, [loadFinancialData]);
 
-  // Auto-refresh every 60 seconds (realtime)
   useEffect(() => {
     autoRefreshRef.current = setInterval(() => {
       loadFinancialData();
@@ -303,7 +300,6 @@ export default function FinancialReportListPage() {
     },
   ];
 
-  // Chart data
   const chartData = [
     {
       name: "Doanh thu",
@@ -313,7 +309,6 @@ export default function FinancialReportListPage() {
     },
   ];
 
-  // Dynamic tick calculation for YAxis
   const maxChartVal = Math.max(
     metrics.netRevenue,
     metrics.totalExpense,
@@ -322,7 +317,6 @@ export default function FinancialReportListPage() {
   const roundedMax = Math.max(1000000, Math.ceil(maxChartVal / 1000000) * 1000000);
   const chartTicks = [0, roundedMax / 2, roundedMax];
 
-  // Chart expense breakdown
   const expenseBreakdown = [
     { name: "Giá vốn", value: metrics.cogs },
     { name: "Phí ship", value: metrics.shippingFeePaid },
@@ -336,7 +330,7 @@ export default function FinancialReportListPage() {
   return (
     <div className="space-y-3">
       <div className="mt-2 mb-8 space-y-4">
-        {/* Header */}
+
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
@@ -360,7 +354,6 @@ export default function FinancialReportListPage() {
           </Button>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-end">
             <div className="space-y-1.5">
@@ -401,14 +394,13 @@ export default function FinancialReportListPage() {
           </div>
         </div>
 
-        {/* Content */}
         {loading ? (
           <div className="rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
             <AdminDataSyncLoader />
           </div>
         ) : (
           <>
-            {/* Summary Cards */}
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               {summaryCards.map((card) => (
                 <div
@@ -441,9 +433,8 @@ export default function FinancialReportListPage() {
               ))}
             </div>
 
-            {/* Charts + Business cards */}
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
-              {/* Left: Chart */}
+
               <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -452,7 +443,7 @@ export default function FinancialReportListPage() {
                 </div>
 
                 <div className="px-4 pt-4 pb-2">
-                  {/* Main bar chart */}
+
                   <SafeChartViewport
                     className="h-[180px] w-full"
                     minHeight={100}
@@ -484,7 +475,6 @@ export default function FinancialReportListPage() {
                     )}
                   </SafeChartViewport>
 
-                  {/* Expense breakdown */}
                   {expenseBreakdown.length > 0 && (
                     <div className="mt-3 border-t border-slate-100 pt-3">
                       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
@@ -505,7 +495,6 @@ export default function FinancialReportListPage() {
                 </div>
               </div>
 
-              {/* Right: Report entry points */}
               <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -535,7 +524,7 @@ export default function FinancialReportListPage() {
                         </div>
                         <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-blue-500" />
                       </Link>
-                      {/* Info button */}
+
                       <button
                         onClick={() => { setSelectedReportHelp(report); setIsHelpOpen(true); }}
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[4px] border border-slate-200 bg-white text-slate-400 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
@@ -549,7 +538,6 @@ export default function FinancialReportListPage() {
               </div>
             </div>
 
-            {/* Top Supplier Debt */}
             <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
               <div className="border-b border-slate-100 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -602,7 +590,6 @@ export default function FinancialReportListPage() {
         )}
       </div>
 
-      {/* Help Dialog */}
       <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
         <DialogContent className="max-w-2xl border border-slate-200 bg-white shadow-xl">
           <DialogHeader>
@@ -620,7 +607,7 @@ export default function FinancialReportListPage() {
 
           <div className="space-y-4 text-[13px] text-slate-600 max-h-[70vh] overflow-y-auto pr-1">
             {selectedReportHelp ? (
-              /* Detail view for one report */
+
               <div className="space-y-4">
                 <div className="rounded-[4px] border border-blue-100 bg-blue-50/60 px-4 py-4">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600 mb-1">Workflow</p>
@@ -658,7 +645,7 @@ export default function FinancialReportListPage() {
                 </Button>
               </div>
             ) : (
-              /* Overview of all reports */
+
               <div className="space-y-3">
                 {reportCards.map((report) => (
                   <div
@@ -698,3 +685,4 @@ export default function FinancialReportListPage() {
     </div>
   );
 }
+

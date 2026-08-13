@@ -51,22 +51,12 @@ function InventoryBelowMinReportContent() {
   const searchParams = useSearchParams();
   const { user, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
-  // Trước đây dropdown chi nhánh không hề bị khoá — bất kỳ ai có quyền xem báo cáo này cũng chọn
-  // được chi nhánh bất kỳ trên URL/UI (lỗ hổng IDOR), giờ khoá theo đúng permission như các báo
-  // cáo tồn kho khác: chỉ super admin hoặc tài khoản được cấp REPORT_INVENTORY_VIEW_ALL_BRANCHES
-  // mới xem được chi nhánh khác.
+
   const canSelectAllBranches = hasPermission(P.REPORT_INVENTORY_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
-  // "all" là lựa chọn hợp lệ và có chủ đích (không phải trạng thái "chưa chọn") — backend đã hỗ
-  // sẵn branchId=null để cộng dồn tồn kho toàn hệ thống (dùng chung logic với trang tổng quan),
-  // trước đây trang này chỉ chưa có UI để chọn nó nên luôn tự nhảy về chi nhánh đầu tiên.
   const ALL_BRANCHES = "all";
 
-  // Cho phép trang tổng quan mở thẳng vào đúng chi nhánh đang xem qua ?branchId=X trên URL — nhưng
-  // KHÔNG tin URL một cách mù quáng (đây chính là lỗ hổng IDOR đã fix ở trên): chỉ chấp nhận giá
-  // trị từ URL khi tài khoản có quyền xem tất cả chi nhánh, hoặc khi giá trị đó trùng đúng chi
-  // nhánh của chính họ. Mọi trường hợp khác đều rơi về mặc định an toàn như cũ.
   const branchIdFromUrl = searchParams.get("branchId");
   const initialBranchId =
     branchIdFromUrl && (canSelectAllBranches || branchIdFromUrl === ownBranchId)
@@ -75,13 +65,12 @@ function InventoryBelowMinReportContent() {
         ? ALL_BRANCHES
         : ownBranchId;
 
-  // --- STATES ---
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(initialBranchId);
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [page, setPage] = useState(1);
@@ -92,14 +81,12 @@ function InventoryBelowMinReportContent() {
       : branches.find((b) => b.id.toString() === selectedBranchId)?.name ||
         "Chi nhánh";
 
-  // --- FETCH DATA ---
   const fetchData = async () => {
     setIsLoading(true);
     try {
       let currentBranchId = selectedBranchId;
       let currentBranches = branches;
 
-      // 1. Lấy danh sách chi nhánh (nếu chưa có)
       if (branches.length === 0) {
         const branchData = await branchService.getAll();
         const allBranches = Array.isArray(branchData) ? branchData : (branchData?.content || []);
@@ -109,8 +96,6 @@ function InventoryBelowMinReportContent() {
             : allBranches;
         setBranches(currentBranches);
 
-        // Chỉ tự chọn chi nhánh đầu tiên khi tài khoản KHÔNG được xem "Tất cả chi nhánh" và chưa
-        // có lựa chọn nào — nếu được xem tất cả, "all" đã là giá trị mặc định hợp lệ, không cần ép.
         if (!canSelectAllBranches && currentBranches.length > 0 && !selectedBranchId) {
           currentBranchId = currentBranches[0].id.toString();
           setSelectedBranchId(currentBranchId);
@@ -123,13 +108,11 @@ function InventoryBelowMinReportContent() {
       }
 
       if (currentBranchId) {
-        // 2. Lấy danh sách sản phẩm — "all" nghĩa là không lọc branchId, cộng dồn tồn kho toàn hệ
-        // thống (đúng khớp với cách trang tổng quan tính "Sắp hết hàng"/"Hết hàng").
+
         const response = await ProductService.getLowStockReport(
           currentBranchId === ALL_BRANCHES ? undefined : currentBranchId,
         );
 
-        // Backend trả về Array [LowStockReportResponse]
         const lowStockList = Array.isArray(response) ? response : [];
 
         setProducts(lowStockList);
@@ -148,7 +131,6 @@ function InventoryBelowMinReportContent() {
     fetchData();
   }, [selectedBranchId]);
 
-  // Handle Search locally or re-fetch
   const handleSearch = (val: string) => {
     setSearchTerm(val);
     const searchLower = val.toLowerCase();
@@ -170,19 +152,17 @@ function InventoryBelowMinReportContent() {
     setIsExporting(true);
     try {
       const XLSX = await import("xlsx");
-      
+
       const branchName = selectedBranchName;
       const exportDate = new Date().toLocaleString("vi-VN");
 
-      // 1. Tạo Header cho file báo cáo
       const headerInfo = [
         ["BÁO CÁO CHI TIẾT SẢN PHẨM DƯỚI ĐỊNH MỨC TỒN KHO"],
         [`Chi nhánh: ${branchName}`],
         [`Thời gian xuất: ${exportDate}`],
-        [], // Dòng trống
+        [],
       ];
 
-      // 2. Chuẩn bị dữ liệu bảng (Chỉ thông tin sản phẩm và tồn kho)
       const tableData = filteredProducts.map((p, index) => {
         const qty = p.quantity || 0;
 
@@ -195,36 +175,32 @@ function InventoryBelowMinReportContent() {
         };
       });
 
-      // 3. Tạo worksheet và thêm header
       const ws = XLSX.utils.aoa_to_sheet(headerInfo);
-      
-      // 4. Thêm dữ liệu bảng từ dòng thứ 5 (sau header)
+
       XLSX.utils.sheet_add_json(ws, tableData, { origin: "A5" });
 
-      // 5. Định dạng độ rộng cột cho bảng 5 cột
       const wscols = [
-        { wch: 8 },  // STT
-        { wch: 25 }, // SKU
-        { wch: 60 }, // Tên SP
-        { wch: 20 }, // Tồn hiện tại
-        { wch: 20 }, // Định mức
+        { wch: 8 },
+        { wch: 25 },
+        { wch: 60 },
+        { wch: 20 },
+        { wch: 20 },
       ];
       ws['!cols'] = wscols;
 
-      // 6. Merge ô cho tiêu đề chính (Căn chỉnh theo 5 cột A-E)
       ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } } 
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }
       ];
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Bao cao ton kho thap");
-      
+
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10);
       const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, "-");
       const fileName = `Bao_Cao_Ton_Kho_Thap_${branchName.replace(/\s/g, "_")}_${dateStr}_${timeStr}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      
+
       toast.success("Đã xuất báo cáo danh sách sản phẩm tồn thấp.");
     } catch (error) {
       console.error("Export error:", error);
@@ -280,7 +256,7 @@ function InventoryBelowMinReportContent() {
 
   return (
     <div className="space-y-4 pb-10 bg-[#f0f2f5] min-h-screen">
-      {/* Top Header */}
+
       <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <Button
@@ -293,14 +269,14 @@ function InventoryBelowMinReportContent() {
           </Button>
           <div>
             <h1 className="text-[20px] font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-              Báo cáo tồn kho dưới định mức 
+              Báo cáo tồn kho dưới định mức
               <Badge className="bg-rose-100 text-rose-600 border-rose-200 text-[11px] font-bold">CẢNH BÁO</Badge>
             </h1>
             <p className="text-[12px] text-slate-500 font-medium">Sản phẩm có tồn kho dưới 10 hoặc dưới định mức tối thiểu</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Button 
+          <Button
             onClick={handleExportExcel}
             disabled={isExporting || isLoading}
             className="bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-black uppercase h-9 rounded-none shadow-sm flex items-center gap-2"
@@ -323,7 +299,6 @@ function InventoryBelowMinReportContent() {
         </div>
       </div>
 
-      {/* Filter Bar */}
       <div className="px-6 py-2 flex items-center gap-4 bg-white/50">
         <Select value={selectedBranchId} onValueChange={setSelectedBranchId} disabled={!canSelectAllBranches}>
           <SelectTrigger className="h-8 w-[240px] text-[13px] border-slate-300 rounded-none shadow-none bg-white font-bold">
@@ -338,11 +313,11 @@ function InventoryBelowMinReportContent() {
             ))}
           </SelectContent>
         </Select>
-        
+
         <div className="relative flex-1 max-w-[400px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-          <input 
-            placeholder="Tìm theo tên hoặc mã SKU..." 
+          <input
+            placeholder="Tìm theo tên hoặc mã SKU..."
             className="w-full h-8 pl-9 text-[13px] border border-slate-300 focus:outline-none focus:border-blue-500 bg-white"
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
@@ -359,7 +334,6 @@ function InventoryBelowMinReportContent() {
         </div>
       </div>
 
-      {/* Report Table */}
       <div className="px-6">
         <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden min-h-[400px]">
           {isLoading ? (
@@ -414,7 +388,7 @@ function InventoryBelowMinReportContent() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  
+
                   <TableRow className="bg-slate-50 border-t-2 border-slate-200 font-black">
                     <TableCell colSpan={4} className="p-4 text-right text-[12px] uppercase text-slate-500">Tổng cộng sản phẩm sắp hết hàng:</TableCell>
                     <TableCell colSpan={2} className="p-4 text-right text-[16px] text-rose-600 pr-8">
@@ -425,7 +399,6 @@ function InventoryBelowMinReportContent() {
               </Table>
               <TablePagination page={page} totalItems={filteredProducts.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
-              {/* Action Footer */}
               <div className="p-6 bg-blue-50/50 border-t border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3 text-[13px] text-blue-700 font-medium">
                   <RefreshCw size={18} />

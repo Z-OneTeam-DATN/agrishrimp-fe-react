@@ -101,7 +101,6 @@ type BranchOption = {
   name: string;
 };
 
-// "2026-08" (giá trị của <input type="month">) -> "8/2026"
 const formatMonthLabel = (value: string) => {
   const [year, month] = value.split("-");
   if (!year || !month) return value;
@@ -137,7 +136,6 @@ const formatDateLabel = (value: string) => {
 
 type DashboardPeriodMode = "today" | "date" | "month";
 
-// Ngày cuối cùng của tháng dạng "2026-08" — dùng làm mốc kết thúc khi hỏi chuỗi số liệu theo tháng.
 const monthEndDate = (value: string) => {
   const [year, month] = value.split("-").map(Number);
   if (!year || !month) return value;
@@ -206,9 +204,7 @@ export default function AdminDashboard() {
 
   const scopedBranchId = (user?.branch?.id ?? warehouseId)?.toString();
   const roleSlug = normalizeRoleSlug(user?.role);
-  // Chỉ Super Admin mới được lọc/xem tất cả chi nhánh. Admin thường và tài khoản gắn
-  // với 1 chi nhánh (Manager/Staff/Employee...) luôn bị khoá vào đúng chi nhánh của họ,
-  // kể cả khi tài khoản đó vô tình không có branch_id trong DB.
+
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
   const canSelectAllBranches = isSuperAdmin;
   const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
@@ -222,8 +218,7 @@ export default function AdminDashboard() {
     !isLoadingAuth && !isLoadingPermissions && !!user && !!accessToken && canViewDashboard;
 
   useEffect(() => {
-    // Super Admin không bị khoá theo scopedBranchId dù tài khoản của họ có gắn branch_id
-    // hay không — mặc định xem "Tất cả chi nhánh" trừ khi họ tự chọn 1 chi nhánh cụ thể.
+
     if (!isSuperAdmin && scopedBranchId) {
       setSelectedBranchId(scopedBranchId);
     }
@@ -294,8 +289,6 @@ export default function AdminDashboard() {
         (periodMode === "month" && !!fromMonth && !!toMonth)),
   });
 
-  // Biểu đồ cột đi theo đúng bộ lọc phía trên: chọn theo tháng thì vẽ cột tháng, chọn theo ngày
-  // thì vẽ cột ngày, còn "Hôm nay" thì lấy 14 ngày gần nhất để hôm nay có bối cảnh so sánh.
   const trendParams = useMemo(() => {
     if (periodMode === "month") {
       return {
@@ -420,9 +413,6 @@ export default function AdminDashboard() {
     Number(inventoryInfo?.outOfStockCount || 0);
   const urgentWork = orderWorkload + inventoryRisk + backorderCount;
 
-  // Bộ lọc thời gian áp cho nhóm thẻ "Phát sinh ..." và biểu đồ cột xu hướng. Các panel ưu
-  // tiên/kho/đơn kẹt vẫn giữ phạm vi riêng vì chúng là số hiện tại, không phải số phát sinh —
-  // ép chúng theo bộ lọc sẽ làm sai nghĩa. Mỗi panel đều tự ghi rõ phạm vi của mình ở ghi chú.
   const periodLabel =
     periodMode === "date"
       ? fromDate === toDate
@@ -433,8 +423,7 @@ export default function AdminDashboard() {
           ? `tháng ${formatMonthLabel(fromMonth)}`
           : `từ tháng ${formatMonthLabel(fromMonth)} đến ${formatMonthLabel(toMonth)}`
         : "hôm nay";
-  // Mốc so sánh được gọi thẳng tên để câu chú thích dưới mỗi thẻ đọc trôi chảy
-  // ("Hôm qua: 3,1 triệu" thay vì "Kỳ trước: 3,1 triệu").
+
   const comparisonNoun =
     periodMode === "today"
       ? "hôm qua"
@@ -452,8 +441,6 @@ export default function AdminDashboard() {
     ? rangeResults?.currentMonthOrders
     : dailyResults?.todayOrders;
 
-  // Toàn bộ phần "% so với kỳ trước" đi qua describeTrend: nó tự chọn giữa %, "gấp N lần",
-  // "Mới" hay chênh lệch tuyệt đối tuỳ vào mốc so sánh có hợp lệ hay không.
   const periodChange = (metric: "revenue" | "profit" | "order") => {
     const source = isRangeMode ? rangeResults : dailyResults;
     if (!source) return undefined;
@@ -465,12 +452,7 @@ export default function AdminDashboard() {
     describeTrend(change, noun, currency);
   const orderTrend = (change?: MetricChange, noun = comparisonNoun) =>
     describeTrend(change, noun, orderCountText);
-  // 3 thẻ "Chất lượng đơn hàng" chỉ có Ý NGHĨA khi kỳ này thật sự có đơn để tính tỷ lệ (mẫu số > 0)
-  // — nếu không, giá trị chính đã hiện "--" (qualityRateText), nhưng badge % lại tính riêng từ SỐ
-  // LƯỢNG tuyệt đối (deliveredChange/returnedChange/cancelledChange), không quan tâm mẫu số. Hậu
-  // quả: hôm nay 0 đơn chốt xong nhưng hôm qua có 1 đơn bị huỷ vẫn ra đúng "-100%" về mặt số học,
-  // rồi do "huỷ giảm là tốt" nên hiện xanh "cải thiện" — trong khi thực chất chỉ là "hôm nay chưa có
-  // dữ liệu", không phải tỷ lệ huỷ đã cải thiện. Ép về trạng thái "Không đổi" khi mẫu số kỳ này = 0.
+
   const NO_QUALITY_DATA_CHANGE: MetricChange = {
     current: 0,
     previous: 0,
@@ -494,17 +476,13 @@ export default function AdminDashboard() {
       lowerIsBetter,
     );
 
-  // Chất lượng vận hành trong kỳ đang chọn: bán hàng đi kèm kho vận nên "đơn giao được bao nhiêu",
-  // "bao nhiêu bị trả về kho", "bao nhiêu bị huỷ" là 3 số bắt buộc phải có trên trang tổng quan.
-  // Đếm theo thời điểm sự kiện xảy ra (nhận hàng/hoàn/huỷ) trong kỳ, không phải ngày tạo đơn.
   const orderQualitySource = isRangeMode ? rangeResults : dailyResults;
   const deliveredOrders = orderQualitySource?.deliveredOrders ?? 0;
   const returnedOrders = orderQualitySource?.returnedOrders ?? 0;
   const cancelledOrders = orderQualitySource?.cancelledOrders ?? 0;
-  // Mẫu số của tỷ lệ giao thành công / hoàn hàng: chỉ tính trên đơn ĐÃ XUẤT KHO (giao thành công
-  // hoặc bị hoàn) — đơn bị huỷ trước khi giao không nằm trong 2 tỷ lệ này vì chưa từng ra khỏi kho.
+
   const shippedResolved = deliveredOrders + returnedOrders;
-  // Mẫu số của tỷ lệ huỷ đơn: tính trên TỔNG đơn đã chốt xong trong kỳ (giao thành công + hoàn + huỷ).
+
   const totalResolvedOrders = shippedResolved + cancelledOrders;
   const deliverySuccessRate = qualityRateText(deliveredOrders, shippedResolved);
   const returnRate = qualityRateText(returnedOrders, shippedResolved);
@@ -537,9 +515,7 @@ export default function AdminDashboard() {
     stats?.totalOrders && stats.totalOrders > 0
       ? Number(stats.totalRevenue || 0) / Number(stats.totalOrders)
       : 0;
-  // Không nhân 100: chuẩn "đơn/100 khách" chỉ đọc được khi nền khách hàng đủ lớn (hàng trăm-nghìn
-  // khách). Với nền khách nhỏ (vài chục/vài trăm), nhân 100 biến một tỷ lệ hợp lý (~16 đơn/khách)
-  // thành số hàng nghìn gây hiểu lầm — cùng lỗi "số quá to" như % tăng trưởng lúc trước.
+
   const orderPerCustomer =
     customerTotal > 0 ? Number(stats?.totalOrders || 0) / customerTotal : 0;
   const hasCategoryChartData = categoryRows.some(
@@ -980,11 +956,6 @@ function SectionHeading({ hint, title }: { hint?: string; title: string }) {
   );
 }
 
-/**
- * Thẻ chỉ số. Mọi thẻ có cùng cấu trúc và cùng chiều cao để hàng thẻ không bị so le:
- * nhãn → con số → badge biến động → câu giải thích. Badge KHÔNG bao giờ in thẳng % thô;
- * describeTrend đã chọn sẵn cách nói đúng cho từng tình huống mốc so sánh.
- */
 function MetricCard({
   emphasis,
   label,
@@ -1039,9 +1010,7 @@ function MetricCard({
             {trend.label}
           </span>
         )}
-        {/* Chỉ 1 dòng phụ dưới badge: ưu tiên note (thông tin riêng, không có ở đâu khác) hơn
-            trend.hint (chỉ diễn giải lại bằng lời cái badge đã nói bằng số) — badge + note là đủ,
-            không cần cả 2 dòng giải thích xu hướng chồng lên ghi chú định nghĩa. */}
+
         {(note ?? trend?.hint) && (
           <p className="mt-1.5 text-[10.5px] leading-4 text-slate-500">
             {note ?? trend?.hint}

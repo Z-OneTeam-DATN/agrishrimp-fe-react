@@ -119,9 +119,6 @@ const formatDate = (value: unknown) => {
   return String(value);
 };
 
-// Chỉ dùng cho hiển thị trên màn hình (thẻ tổng quan/biểu đồ) — KHÔNG dùng trong bảng chi tiết
-// (formatCellValue) vì bảng đó còn phục vụ xuất Excel, thêm chữ "VND" sẽ biến số thành text,
-// làm hỏng khả năng tính tổng/sắp xếp trong file Excel xuất ra.
 const formatMoney = (value: number) => `${formatNumber(value)} VND`;
 
 const formatCellValue = (value: unknown, key: string) => {
@@ -139,11 +136,7 @@ export default function SalesReportPage() {
   const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const { user, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
-  // Chỉ super admin (bypass mặc định trong hasPermission) hoặc tài khoản được cấp riêng quyền
-  // REPORT_REVENUE_VIEW_ALL_BRANCHES mới được chọn "Tất cả chi nhánh" / xem chi nhánh khác —
-  // trước đây suy đoán qua việc tài khoản có gắn branch hay không, dễ sai khi dữ liệu thiếu
-  // (một nhân viên thường bị thiếu branch cũng vô tình được xem hết, còn super admin có gắn
-  // sẵn 1 branch "nhà" lại bị khoá không xem được toàn hệ thống).
+
   const canSelectAllBranches = hasPermission(P.REPORT_REVENUE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
@@ -232,8 +225,6 @@ export default function SalesReportPage() {
     );
   }, [detail, searchTerm]);
 
-  // Đổi loại báo cáo hoặc gõ tìm kiếm mới thì phải về trang 1 — không thì có thể đứng ở trang 5
-  // của bộ dữ liệu cũ trong khi bộ dữ liệu mới chỉ có 2 trang, làm bảng hiện trống trơn.
   useEffect(() => {
     setDetailPage(1);
   }, [activeDetailType, searchTerm]);

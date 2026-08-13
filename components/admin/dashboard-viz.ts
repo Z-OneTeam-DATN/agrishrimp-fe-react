@@ -1,10 +1,5 @@
 import { MetricChange } from "@/app/types/dashboard.type";
 
-// Bảng màu chuỗi dữ liệu của trang tổng quan. Thứ tự slot là cố định: 1 chỉ tiêu luôn giữ đúng
-// 1 màu dù bộ lọc có làm đổi thứ hạng, nếu không người đọc quen "doanh thu màu xanh" sẽ bị đánh lừa.
-// Bộ màu này đã được kiểm bằng validate_palette.js trên nền trắng (đạt cả 3 mức: dải sáng, độ bão
-// hoà, và khoảng cách màu cho người mù màu). Vì 3 màu nhạt hơn không đạt tương phản 3:1 với nền
-// trắng nên mọi biểu đồ dùng chúng đều phải kèm nhãn/chú thích chữ, không được để màu đứng một mình.
 export const VIZ_SERIES = {
   revenue: "#2a78d6",
   cost: "#eb6834",
@@ -40,9 +35,6 @@ export const toFiniteNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-// VND không có đơn vị lẻ dưới đồng (hào/xu đã bỏ từ lâu) — nhưng các phép chia (ví dụ tổng doanh
-// thu / tổng đơn) luôn ra số thập phân, và toLocaleString mặc định hiện tới 3 chữ số lẻ. Phải làm
-// tròn + khoá maximumFractionDigits, nếu không sẽ hiện những số vô nghĩa kiểu "6.416.576,577 VND".
 export const currency = (value?: number | null) =>
   `${Math.round(toFiniteNumber(value)).toLocaleString("vi-VN", {
     maximumFractionDigits: 0,
@@ -73,29 +65,18 @@ export const decimalText = (value: number, digits = 1) =>
 export type TrendTone = "up" | "down" | "flat" | "neutral";
 
 export type TrendDisplay = {
-  // Chuỗi ngắn hiện trong badge: "+12,5%", "gấp 3,2 lần", "Mới", "Không đổi"...
+
   label: string;
   tone: TrendTone;
-  // Câu giải thích ngắn đặt cạnh badge, luôn nói rõ đang so với cái gì.
+
   hint: string;
 };
 
-// Ngưỡng đổi cách diễn đạt: từ +200% trở lên, "gấp N lần" dễ đọc hơn nhiều so với "+1.240%".
 const RATIO_THRESHOLD_PERCENT = 200;
 
 const invertTone = (tone: TrendTone): TrendTone =>
   tone === "up" ? "down" : tone === "down" ? "up" : tone;
 
-/**
- * Quyết định CÁCH NÓI về mức tăng trưởng, thay vì in thẳng % ra màn hình.
- *
- * Đây là chỗ sửa lỗi "số % quá to": phần trăm chỉ dùng được khi kỳ trước > 0 (backend đã đánh dấu
- * bằng `comparable`), và ngay cả khi dùng được, tăng quá mạnh vẫn chuyển sang "gấp N lần". Các
- * trường hợp còn lại (kỳ trước = 0, kỳ trước lỗ) không có % nào đúng cả nên phải nói bằng lời.
- *
- * `lowerIsBetter`: mặc định tăng = màu tốt (doanh thu, đơn hàng...). Với các chỉ số mà TĂNG lại là
- * xấu (đơn hoàn, đơn huỷ), bật cờ này để đảo màu — chữ vẫn là "+3 đơn" như cũ, chỉ riêng màu đổi.
- */
 export const describeTrend = (
   change: MetricChange | undefined,
   comparisonLabel: string,
@@ -154,7 +135,6 @@ export const describeTrend = (
     };
   }
 
-  // Tăng quá mạnh: đọc "gấp 12,4 lần" nhanh hơn "+1.140%" và không làm vỡ khung thẻ số.
   if (percent >= RATIO_THRESHOLD_PERCENT && previous > 0) {
     return {
       label: `gấp ${decimalText(current / previous)} lần`,
@@ -170,9 +150,6 @@ export const describeTrend = (
   };
 };
 
-// Tỷ lệ trên tổng số đơn ĐÃ XỬ LÝ XONG trong kỳ (giao thành công + hoàn + huỷ). Mẫu số = 0 nghĩa
-// là kỳ này chưa có đơn nào chốt xong — không có gì để chia, phải trả "--" thay vì "0%" gây hiểu
-// lầm là "0% thành công" (nghe như đang tệ) trong khi thực ra chỉ là chưa có dữ liệu.
 export const qualityRateText = (numerator: number, denominator: number) =>
   denominator > 0
     ? `${decimalText((toFiniteNumber(numerator) / denominator) * 100)}%`
@@ -191,3 +168,4 @@ export const TREND_BADGE_CLASS: Record<TrendTone, string> = {
   flat: "border-slate-200 bg-slate-50 text-slate-600",
   neutral: "border-slate-200 bg-slate-50 text-slate-600",
 };
+

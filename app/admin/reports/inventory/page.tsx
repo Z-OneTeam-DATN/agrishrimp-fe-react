@@ -244,3 +244,4 @@ function InventoryReportListContent() {
     </div>
   );
 }
+

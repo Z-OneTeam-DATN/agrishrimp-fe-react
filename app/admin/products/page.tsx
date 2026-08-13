@@ -40,7 +40,6 @@ export default function ProductsPage() {
 
     const { user, isLoadingAuth } = useAuthStore();
 
-    // Hook phân quyền
     const { hasPermission, hasAnyPermission } = usePermissions();
     const canManagePricingSettings = hasPermission(P.SETTING_UPDATE);
     const canViewImportPrice = hasAnyPermission([
@@ -57,14 +56,12 @@ export default function ProductsPage() {
     const [brands, setBrands] = useState<{id: number, name: string}[]>([]);
     const [suppliers, setSuppliers] = useState<string[]>([]);
 
-    // 0. Kiểm tra quyền truy cập route
     useEffect(() => {
         if (!isLoadingAuth && !hasPermission(P.PRODUCT_VIEW)) {
             router.push("/admin/forbidden");
         }
     }, [isLoadingAuth, hasPermission, router]);
 
-    // Filter states
     const [filters, setFilters] = useState({
         keyword: "",
         categoryId: "all",
@@ -78,11 +75,9 @@ export default function ProductsPage() {
 
     const [debouncedKeyword, setDebouncedKeyword] = useState("");
 
-    // Phân trang
     const [currentPage, setCurrentPage] = useState(0);
     const pageSize = 20;
 
-    // State Cấu hình Lợi nhuận
     const [isSettingOpen, setIsSettingOpen] = useState(false);
     const [profitMargin, setProfitMargin] = useState("30");
     const [originalProfitMargin, setOriginalProfitMargin] = useState("30");
@@ -91,7 +86,6 @@ export default function ProductsPage() {
     const [isSavingMargin, setIsSavingMargin] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Multi-tier pricing configuration states
     const [isMultiTierEnabled, setIsMultiTierEnabled] = useState(false);
     const [originalIsMultiTierEnabled, setOriginalIsMultiTierEnabled] = useState(false);
     const [minMarginFloor, setMinMarginFloor] = useState("3.0");
@@ -100,7 +94,6 @@ export default function ProductsPage() {
     const [originalCategoryOffsets, setOriginalCategoryOffsets] = useState<Record<number, string>>({});
     const [dbCategories, setDbCategories] = useState<any[]>([]);
 
-    // State Cấu hình AI gợi ý giá bán
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState<{
         insufficientData?: boolean;
@@ -123,9 +116,9 @@ export default function ProductsPage() {
             const today = new Date();
             const startDate = new Date();
             startDate.setDate(today.getDate() - 30);
-            
+
             const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
-            
+
             const pnlData = await ProfitLossService.getReport(
                 toIsoDate(startDate),
                 toIsoDate(today),
@@ -177,7 +170,6 @@ export default function ProductsPage() {
         return () => clearTimeout(timer);
     }, [filters.keyword]);
 
-    // Fetch categories & Profit Margin
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
@@ -299,7 +291,7 @@ export default function ProductsPage() {
         try {
             setIsDeleting(true);
             const res = await ProductService.delete(id);
-            // Nếu Backend trả về 200 OK
+
             if (res.success) {
                 toast.success(res.message || "Đã xóa sản phẩm thành công.");
                 fetchProducts();
@@ -444,7 +436,6 @@ export default function ProductsPage() {
         setCurrentPage(0);
     }, [selectedBrand]);
 
-
     const totalPages = Math.ceil(sortedProducts.length / pageSize);
     const currentProducts = sortedProducts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
     const totalSkuCount = useMemo(
@@ -565,7 +556,6 @@ export default function ProductsPage() {
             ? "text-amber-600"
             : "text-emerald-600";
 
-    // Tránh render chớp giao diện (flickering) khi chưa check xong quyền
     if (isLoadingAuth) {
         return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-slate-400 w-8 h-8" /></div>;
     }
@@ -579,7 +569,6 @@ export default function ProductsPage() {
                     </h1>
                 </div>
 
-                 {/* 1. Thanh lọc (Đưa lên trên, không chứa nút hành động) */}
                 <div className="flex flex-wrap items-center gap-2">
                     <Select
                         value={filters.categoryId}
@@ -643,7 +632,6 @@ export default function ProductsPage() {
                     </div>
                 </div>
 
-                {/* 2. Card tổng quan */}
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                     {productOverviewCards.map((card) => {
                         const statusMap: Record<string, string> = {
@@ -680,7 +668,6 @@ export default function ProductsPage() {
                     })}
                 </div>
 
-                {/* 3. Chế độ xem & Nút hành động (Nằm ngang dưới card tổng quan) */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                         <button
@@ -796,7 +783,6 @@ export default function ProductsPage() {
 
                                             <p className={cn("mt-2 text-[12px] font-medium", marginHintClass)}>{marginHint}</p>
 
-                                            {/* Multi-tier pricing configuration section */}
                                             <div className="mt-5 border-t border-slate-100 pt-4 space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <div className="space-y-0.5">
@@ -822,7 +808,7 @@ export default function ProductsPage() {
 
                                                 {isMultiTierEnabled && (
                                                     <div className="rounded-[4px] border border-slate-200 bg-slate-50/50 p-4 space-y-4 animate-fadeIn">
-                                                        {/* Min margin floor configuration */}
+
                                                         <div className="grid grid-cols-2 items-center gap-4">
                                                             <div className="space-y-0.5">
                                                                 <Label className="text-[11px] font-bold text-slate-600 uppercase block">Biên lợi nhuận tối thiểu sàn (%)</Label>
@@ -844,7 +830,6 @@ export default function ProductsPage() {
                                                             </div>
                                                         </div>
 
-                                                        {/* Category margin offsets list */}
                                                         <div className="space-y-2.5 pt-2 border-t border-slate-100">
                                                             <Label className="text-[11px] font-black text-slate-600 uppercase block">Bù trừ biên lợi nhuận theo danh mục</Label>
                                                             <div className="max-h-[160px] overflow-y-auto pr-1 space-y-2">
@@ -874,7 +859,6 @@ export default function ProductsPage() {
                                                 )}
                                             </div>
 
-                                            {/* AI pricing suggestion section */}
                                             <div className="mt-5 border-t border-slate-100 pt-4">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <Label className="text-[12px] font-black text-indigo-900 uppercase flex items-center gap-1.5">
@@ -1185,3 +1169,4 @@ export default function ProductsPage() {
         </div>
     );
 }
+

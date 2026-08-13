@@ -1,5 +1,3 @@
-// Kết quả so sánh 1 chỉ số với kỳ trước. Con số % chỉ được phép hiển thị khi comparable = true;
-// các cờ còn lại cho biết vì sao % không có nghĩa (kỳ trước = 0 hoặc kỳ trước lỗ).
 export interface MetricChange {
   current: number;
   previous: number;
@@ -76,8 +74,7 @@ export interface MonthlyResults {
   revenueChange?: MetricChange;
   profitChange?: MetricChange;
   orderChange?: MetricChange;
-  // Đếm theo thời điểm sự kiện xảy ra (receivedAt/returnedAt/cancelledAt) trong kỳ, không phải
-  // ngày tạo đơn — nên phản ánh đúng "kỳ này xử lý được gì" bất kể đơn tạo từ lúc nào.
+
   deliveredOrders: number;
   returnedOrders: number;
   cancelledOrders: number;
@@ -115,7 +112,7 @@ export interface BusinessTrendPoint {
 }
 
 export interface BusinessTrend {
-  // Độ chi tiết THỰC TẾ backend đã dùng — có thể là MONTH dù client xin DAY khi khoảng chọn quá dài.
+
   granularity: "DAY" | "MONTH";
   rangeLabel: string;
   points: BusinessTrendPoint[];
@@ -166,3 +163,4 @@ export interface PendingOrder {
   status: string;
   paymentStatus: string;
 }
+

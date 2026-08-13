@@ -60,9 +60,7 @@ function InventoryIOSummaryContent() {
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
   const [branches, setBranches] = useState<any[]>([]);
-  // Tồn đầu/nhập/xuất/tồn cuối đều cộng dồn được bình thường giữa các chi nhánh (y hệt cách "Báo
-  // cáo tồn kho" cộng cột "Hệ thống") — trước đây thiếu lựa chọn "Tất cả chi nhánh" do nhầm tưởng
-  // không cộng dồn được, không phải giới hạn kỹ thuật thật sự.
+
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
     canSelectAllBranches ? "all" : ownBranchId || "",
   );
@@ -302,3 +300,4 @@ export default function InventoryIOSummaryReportPage() {
     </PermissionGuard>
   );
 }
+

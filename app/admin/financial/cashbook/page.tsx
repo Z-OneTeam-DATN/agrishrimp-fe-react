@@ -110,9 +110,7 @@ export default function CashbookPage() {
 function CashbookPageContent() {
   const { user, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
-  // Chỉ super admin (bypass mặc định trong hasPermission) hoặc tài khoản được cấp riêng quyền
-  // REPORT_FINANCE_VIEW_ALL_BRANCHES mới được chọn "Tất cả chi nhánh" / xem chi nhánh khác —
-  // không còn suy đoán qua việc tài khoản có gắn branch hay không (dễ sai khi dữ liệu thiếu).
+
   const canSelectAllBranches = hasPermission(P.REPORT_FINANCE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
@@ -190,7 +188,6 @@ function CashbookPageContent() {
     }
   }, [endDate, selectedBranchId, startDate]);
 
-  // Chỉ tính toán định lượng (thuần Java, không tốn phí) — tự chạy khi đổi chi nhánh.
   const fetchRiskData = useCallback(async () => {
     try {
       setAnalyzingRisk(true);
@@ -238,8 +235,6 @@ function CashbookPageContent() {
     void fetchRiskData();
   }, [fetchRiskData]);
 
-  // Tự động chạy phân tích AI 1 lần ngay khi có dữ liệu định lượng mới (vào trang lần đầu hoặc
-  // đổi bộ lọc) — người dùng không cần bấm nút. Nút "Phân tích lại" chỉ dùng để chạy lại thủ công.
   useEffect(() => {
     if (riskData && !riskData.insufficientData) {
       void handleAiAnalysis();
@@ -364,7 +359,6 @@ function CashbookPageContent() {
     doc.save(`So_quy_${startDate}_den_${endDate}.pdf`);
     toast.success("Đã xuất PDF sổ quỹ");
   };
-
 
   const chartWindow = useMemo(() => chartData.slice(-12), [chartData]);
   const chartMax = useMemo(() => {
@@ -509,7 +503,6 @@ function CashbookPageContent() {
           </div>
         </div>
 
-        {/* AI Cashflow Risk Panel */}
         <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -557,9 +550,9 @@ function CashbookPageContent() {
             </div>
           ) : riskData ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Left panel: metrics & risk status */}
+
               <div className="lg:col-span-4 space-y-4">
-                {/* Risk Badge */}
+
                 <div className={cn(
                   "rounded-[6px] p-4 text-center border",
                   riskData.riskLevel === "SAFE" && "bg-emerald-50/80 border-emerald-200 text-emerald-800",
@@ -579,7 +572,6 @@ function CashbookPageContent() {
                   )}
                 </div>
 
-                {/* Breakdown table */}
                 <div className="border border-slate-100 rounded-[6px] overflow-hidden text-xs">
                   <div className="bg-slate-50 px-3 py-2 border-b border-slate-100 font-semibold text-slate-600">
                     Chi tiết dự phóng
@@ -610,7 +602,6 @@ function CashbookPageContent() {
                 </div>
               </div>
 
-              {/* Center panel: NLP Reasoning */}
               <div className="lg:col-span-8 space-y-4">
                 {analyzingAi ? (
                   <div className="flex h-full flex-col items-center justify-center gap-2 border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
@@ -619,13 +610,12 @@ function CashbookPageContent() {
                   </div>
                 ) : aiAnalysis ? (
                   <div className="space-y-4">
-                    {/* Reasoning text */}
+
                     <div className="bg-slate-50/60 rounded-[6px] border border-slate-100 p-4">
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Phân tích chuyên gia AI</p>
                       <p className="text-[13px] leading-relaxed text-slate-700">{aiAnalysis.reasoning}</p>
                     </div>
 
-                    {/* Recommendations */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="bg-blue-50/30 rounded-[6px] border border-blue-100/50 p-4 space-y-2">
                         <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Hành động khuyến nghị</p>
@@ -650,7 +640,6 @@ function CashbookPageContent() {
             </div>
           ) : null}
 
-          {/* Prioritized Debts Table Section */}
           {!analyzingRisk && riskData?.prioritizedDebts?.length > 0 && (
             <div className="border border-slate-100 rounded-[6px] overflow-hidden mt-4">
               <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">

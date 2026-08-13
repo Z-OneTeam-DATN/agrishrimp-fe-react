@@ -84,8 +84,6 @@ export default function AdminDashboardTrendChart({
   const margin =
     totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0;
 
-  // Chỉ ghi số trực tiếp cho chuỗi chính (doanh thu) và chỉ khi ít cột — ghi số lên cả 3 chuỗi
-  // là 20+ con số chen nhau, không ai đọc. Giá vốn/lợi nhuận đã có trục, tooltip và bảng số liệu.
   const showRevenueLabels = points.length <= 8;
 
   const title = isMonthly
@@ -149,16 +147,14 @@ export default function AdminDashboardTrendChart({
                 >
                   {({ height, width }) => (
                     <BarChart
-                      // Buộc remount khi kích thước container đổi thật (thay vì update tại chỗ) —
-                      // nếu không, Recharts giữ lại scale/trục cũ và nội suy sang scale mới, ra NaN
-                      // cho toạ độ gridline/cột trong lúc SafeChartViewport đo lại kích thước.
+
                       key={`${width}x${height}`}
                       width={width}
                       height={height}
                       data={points}
                       margin={{ left: 0, right: 8, top: 16, bottom: 0 }}
                       barCategoryGap="22%"
-                      // 2px khoảng trắng giữa các cột trong cùng cụm thay cho việc vẽ viền quanh cột.
+
                       barGap={2}
                     >
                       <CartesianGrid
@@ -202,9 +198,7 @@ export default function AdminDashboardTrendChart({
                           fill={series.color}
                           radius={[4, 4, 0, 0]}
                           maxBarSize={26}
-                          // Recharts đọc thẳng props.minPointSize trong getComposedData thay vì qua
-                          // defaultProps của React — thiếu prop này làm nó coi minPointSize là hàm và
-                          // gọi thẳng, crash "t is not a function" ngay khi mount biểu đồ.
+
                           minPointSize={0}
                           isAnimationActive={false}
                           label={
@@ -326,3 +320,4 @@ function TrendTable({
     </div>
   );
 }
+

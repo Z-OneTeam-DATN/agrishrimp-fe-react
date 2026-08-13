@@ -53,7 +53,6 @@ export default function AdminDashboardCharts({
     0,
   );
 
-  // Ưu tiên % do backend tính; nếu thiếu thì suy ra từ doanh thu, cuối cùng mới đến sản lượng.
   const rawChartCategoryRows =
     totalPercent > 0
       ? normalizedCategoryRows
@@ -221,3 +220,4 @@ function NumberBar({
     </div>
   );
 }
+

@@ -3,10 +3,6 @@
 import { BarChart3, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-/**
- * Khung chuẩn cho mọi thẻ ở trang tổng quan: tiêu đề + mô tả ngắn ở đầu, ghi chú cách tính ở chân.
- * Mọi biểu đồ đều phải nói rõ "số này lấy từ đâu", nếu không người xem sẽ tự suy diễn sai.
- */
 export function Panel({
   action,
   children,
@@ -44,10 +40,6 @@ export function Panel({
   );
 }
 
-/**
- * Chú giải màu. Luôn hiển thị khi biểu đồ có từ 2 chuỗi trở lên — màu sắc không bao giờ được
- * là kênh thông tin duy nhất (người mù màu và bản in đen trắng vẫn phải đọc được).
- */
 export function ChartLegend({
   items,
   className = "",
@@ -76,7 +68,6 @@ export function ChartLegend({
   );
 }
 
-/** Nút chuyển giữa biểu đồ và bảng số — bảng là bản đọc được không phụ thuộc màu. */
 export function ViewToggle({
   onChange,
   value,
@@ -138,3 +129,4 @@ export function EmptyState({
     </div>
   );
 }
+

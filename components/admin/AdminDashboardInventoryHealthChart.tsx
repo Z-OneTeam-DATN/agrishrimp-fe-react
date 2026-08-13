@@ -13,16 +13,12 @@ interface AdminDashboardInventoryHealthChartProps {
   lowStockCount: number;
   outOfStockCount: number;
   backorderCount: number;
-  // Danh sách chi tiết từng mặt hàng đang thiếu trong đơn — đã có sẵn từ query backorder-report
-  // của trang tổng quan (dùng để tính backorderCount), không cần gọi API riêng để hiện chi tiết.
+
   backorderItems?: MissingItemReport[];
-  // Chi nhánh đang chọn trên trang tổng quan — truyền sang báo cáo để 2 trang nhìn cùng phạm vi
-  // dữ liệu; không truyền (undefined) nghĩa là "Tất cả chi nhánh".
+
   branchId?: string;
 }
 
-// Thang trạng thái (ổn → cảnh báo → nguy cấp) dùng bộ màu trạng thái riêng (không phải màu chuỗi
-// dữ liệu) để không bị nhầm với biểu đồ doanh thu ở panel khác.
 const STATUS_COLORS = {
   stable: "#0ca30c",
   low: "#fab219",
@@ -48,13 +44,8 @@ export default function AdminDashboardInventoryHealthChart({
   const safeBackorder = Math.max(0, toFiniteNumber(backorderCount));
   const stableCount = Math.max(0, safeTotalItems - safeLowStock - safeOutOfStock);
 
-  // "Sắp hết hàng"/"Hết hàng" cùng đổ vào 1 báo cáo (báo cáo tồn dưới định mức đã gồm cả 2 loại,
-  // chỉ khác việc tồn = 0 hay > 0) — bấm vào để biết ĐÍCH DANH mặt hàng nào cần nhập, thay vì chỉ
-  // thấy con số tổng không làm được gì với nó.
   const belowMinHref = `/admin/reports/inventory/below-min${branchId ? `?branchId=${branchId}` : ""}`;
 
-  // "Thiếu hàng trong đơn" đo bằng SỐ LƯỢNG còn thiếu (không phải số mặt hàng) nên không được gộp
-  // vào cùng 1 vòng tròn với 3 mục kia (đơn vị khác nhau) — chỉ 3 mục theo số mặt hàng mới lên donut.
   const donutRows = [
     { key: "stable", label: "Còn hàng ổn định", value: stableCount, color: STATUS_COLORS.stable },
     { key: "low", label: "Sắp hết hàng", value: safeLowStock, color: STATUS_COLORS.low },
@@ -88,9 +79,7 @@ export default function AdminDashboardInventoryHealthChart({
       )}
       <div className="grid gap-3">
         {rows.map((row) => {
-          // "Còn hàng ổn định"/"Sắp hết hàng"/"Hết hàng" dẫn sang trang khác; riêng "Thiếu hàng
-          // trong đơn" mở xổ ngay tại chỗ vì dữ liệu chi tiết đã có sẵn trên trang, không cần điều
-          // hướng đi đâu cả. Chỉ cho tương tác khi thật sự có gì để xem — dòng "0" bấm vào vô nghĩa.
+
           const isLinkable = !!row.href && row.value > 0;
           const isExpandableBackorder =
             row.key === "backorder" && safeBackorder > 0 && backorderItems.length > 0;
@@ -191,3 +180,4 @@ export default function AdminDashboardInventoryHealthChart({
     </div>
   );
 }
+

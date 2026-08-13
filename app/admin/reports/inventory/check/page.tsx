@@ -54,8 +54,6 @@ const formatDateVN = (value?: string | null) => {
   return d.toLocaleDateString("vi-VN");
 };
 
-// COMPLETED / COUNTING_COMPLETED (giá trị legacy) đều là trạng thái "đã duyệt cân bằng tồn kho" —
-// chỉ những phiếu này mới có số liệu chốt cuối cùng, đáng tin cậy để đưa vào báo cáo.
 const COMPLETED_STATUSES = new Set(["COMPLETED", "COUNTING_COMPLETED"]);
 
 type CheckReportRow = {
@@ -76,9 +74,7 @@ function InventoryCheckReportContent() {
   const router = useRouter();
   const { user, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
-  // Trang báo cáo này giờ gọi endpoint riêng /inventory-reports/check (phân quyền theo
-  // REPORT_INVENTORY_VIEW_ALL_BRANCHES), không còn dùng chung /inventory-checks với màn hình thủ
-  // kho — nên có dropdown chi nhánh riêng, giống 3 báo cáo tồn kho còn lại.
+
   const canSelectAllBranches = hasPermission(P.REPORT_INVENTORY_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
@@ -363,3 +359,4 @@ export default function InventoryCheckReportPage() {
     </PermissionGuard>
   );
 }
+

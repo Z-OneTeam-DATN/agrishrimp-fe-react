@@ -33,8 +33,7 @@ export default function AdminDashboardTopProductsChart({
   }));
 
   const totalRevenue = rows.reduce((sum, row) => sum + row.revenue, 0);
-  // Donut chỉ đọc được khi có tiền để so tỷ trọng — nếu doanh thu top 5 đều bằng 0 (chỉ có số
-  // lượng bán), phần tròn không mang nghĩa gì nên rơi về bảng danh sách thay vì vẽ 1 vòng trơ.
+
   const chartRows = rows
     .filter((row) => row.revenue > 0)
     .map((row) => ({ ...row, percentage: (row.revenue / totalRevenue) * 100 }));
@@ -149,3 +148,4 @@ export default function AdminDashboardTopProductsChart({
     </div>
   );
 }
+

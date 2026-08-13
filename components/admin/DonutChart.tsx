@@ -9,15 +9,6 @@ export interface DonutSegment {
   label: string;
 }
 
-/**
- * Donut vẽ bằng SVG thuần (stroke-dasharray trên 1 vòng tròn), không qua Recharts.
- *
- * Lý do: `<Pie>` của Recharts (kể cả khi đổi từ đo tay sang ResponsiveContainer) không vẽ ra vòng
- * tròn trong trình duyệt thực tế — chỉ có phần nhãn giữa (không phụ thuộc kích thước đo được) hiện
- * ra, còn SVG của Pie thì không, dù test 2 cơ chế đo kích thước khác nhau đều ra kết quả giống hệt
- * nhau. Cách vẽ này dùng viewBox CỐ ĐỊNH (100x100, không cần đo runtime), CSS chỉ co giãn khung
- * chứa — loại bỏ hoàn toàn phần đo kích thước động (nguồn nghi vấn) khỏi phương trình.
- */
 export function DonutChart({
   centerLabel,
   centerSub,
@@ -39,8 +30,7 @@ export function DonutChart({
   );
 
   let cumulative = 0;
-  // Khoảng hở 2 đơn vị (trên vòng chu vi 100-đơn-vị) giữa các lát cắt, thay cho việc vẽ viền quanh
-  // từng lát — đúng nguyên tắc "2px surface gap" đang dùng cho các biểu đồ khác trong dashboard.
+
   const gapUnits = 2;
 
   return (
@@ -102,3 +92,4 @@ export function DonutChart({
     </div>
   );
 }
+
