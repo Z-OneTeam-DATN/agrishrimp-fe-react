@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Download, FileText, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Download, FileText, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,7 +108,6 @@ function ProfitLossReportContent() {
   const [prevData, setPrevData] = useState<ProfitLossData | null>(null);
   const [isExplainOpen, setIsExplainOpen] = useState(false);
 
-  // AI states
   const [insightResult, setInsightResult] = useState<ProfitLossInsightResult | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
@@ -116,7 +116,7 @@ function ProfitLossReportContent() {
   const fetchInsightData = async () => {
     if (!startDate || !endDate) return;
     setLoadingInsight(true);
-    setAiAnalysis(null); // Clear previous AI analysis when filters change
+    setAiAnalysis(null);
     try {
       const data = await ProfitLossInsightService.getInsightAnalysis({
         branchId,
@@ -156,9 +156,6 @@ function ProfitLossReportContent() {
     }
   };
 
-  // Tự động chạy phân tích AI 1 lần ngay khi có dữ liệu định lượng mới (vào trang lần đầu hoặc
-  // đổi bộ lọc) — người dùng không cần bấm nút. Nút "Phân tích lại" chỉ dùng để chạy lại thủ công
-  // (ví dụ khi muốn Gemini viết lại diễn giải khác) mà không cần đổi bộ lọc.
   useEffect(() => {
     if (insightResult) {
       void handleAiAnalysis();
@@ -274,8 +271,7 @@ function ProfitLossReportContent() {
   };
 
   const calcPercent = (curr: number, prev: number) => {
-    // Kỳ trước = 0 thì không chia được để ra % thật — trả "Mới" thay vì bịa "+100%" (kỳ trước
-    // có thể chỉ là chưa phát sinh, không phải "tăng đúng gấp đôi").
+
     if (prev === 0) return curr > 0 ? "Mới" : "0%";
     const percent = ((curr - prev) / prev) * 100;
     return `${percent > 0 ? "+" : ""}${percent.toFixed(1)}%`;
@@ -357,10 +353,7 @@ function ProfitLossReportContent() {
       isItalic: true,
     },
     {
-      // Gộp "II" (nhóm) và "II-1 Giá vốn hàng hóa" thành 1 dòng — trước đây 3 dòng con của II là
-      // Giá vốn/Thanh toán điểm/Phí ship trả đối tác, nhưng 2 dòng sau LUÔN = 0 (hệ thống chưa có
-      // sổ điểm thưởng hay bảng thanh toán vận chuyển cho NCC vận chuyển) nên đã bỏ khỏi bảng —
-      // còn lại đúng 1 dòng, giữ "II" và "II-1" riêng là dư thừa (2 dòng số y hệt nhau).
+
       id: "II",
       label: "II. Giá vốn hàng hóa",
       prev: prev.cogs,
@@ -369,10 +362,7 @@ function ProfitLossReportContent() {
       isBold: true,
     },
     {
-      // "Lợi nhuận gộp" (I - Giá vốn) và "Lợi nhuận ròng" từng là 2 dòng khác nhau, nhưng vì
-      // Thu nhập khác/Chi phí khác/Thanh toán điểm/Phí ship trả đối tác đều luôn = 0 (chưa có
-      // nguồn dữ liệu thật) nên 2 số này LUÔN bằng nhau — hiện cả 2 dòng gây trùng lặp, chỉ giữ
-      // 1 dòng "Lợi nhuận ròng" làm kết quả cuối cùng.
+
       id: "RESULT",
       label: "Lợi nhuận ròng (I - II)",
       prev: prev.netProfit,
@@ -443,6 +433,13 @@ function ProfitLossReportContent() {
     <div className="space-y-3">
       <div className="mt-2 mb-8 px-1">
         <div className="mb-4">
+          <Link
+            href="/admin/financial"
+            className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-blue-600"
+          >
+            <ArrowLeft size={14} />
+            Quay lại Tổng quan tài chính
+          </Link>
           <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
             Lãi lỗ
           </h1>
@@ -503,7 +500,6 @@ function ProfitLossReportContent() {
           </div>
         </div>
 
-        {/* AI Profit & Loss Insight Panel */}
         <div className="mt-4 rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -533,8 +529,7 @@ function ProfitLossReportContent() {
             </div>
           ) : insightResult ? (
             <div className="space-y-4">
-              
-              {/* 1. Warnings and Status Badges */}
+
               {insightResult.warnings && insightResult.warnings.length > 0 && (
                 <div className="rounded-[6px] border border-amber-100 bg-amber-50/50 p-3.5 space-y-1.5">
                   <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Cảnh báo rủi ro</p>
@@ -546,9 +541,8 @@ function ProfitLossReportContent() {
                 </div>
               )}
 
-              {/* 2. Key Metrics Row */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Biên giá vốn */}
+
                 <div className="rounded-[6px] p-3.5 border bg-slate-50/80 border-slate-100 flex flex-col justify-between">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tỷ lệ giá vốn/doanh thu thuần</p>
@@ -568,7 +562,6 @@ function ProfitLossReportContent() {
                   </div>
                 </div>
 
-                {/* Tỷ lệ hoàn hàng */}
                 <div className="rounded-[6px] p-3.5 border bg-slate-50/80 border-slate-100 flex flex-col justify-between">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tỷ lệ hoàn trả hàng</p>
@@ -588,7 +581,6 @@ function ProfitLossReportContent() {
                   </div>
                 </div>
 
-                {/* Biến động lợi nhuận */}
                 <div className="rounded-[6px] p-3.5 border bg-slate-50/80 border-slate-100 flex flex-col justify-between">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Biến động lợi nhuận ròng</p>
@@ -629,7 +621,6 @@ function ProfitLossReportContent() {
                 </div>
               </div>
 
-              {/* 3. Contribution Breakdown Table */}
               <div className="border border-slate-100 rounded-[6px] overflow-hidden text-xs">
                 <div className="bg-slate-50 px-3 py-2 border-b border-slate-100 font-bold text-slate-600 uppercase tracking-wide text-[10px]">
                   Phân rã biến động các chỉ tiêu đóng góp
@@ -652,25 +643,25 @@ function ProfitLossReportContent() {
                       <div className="flex items-center gap-6 whitespace-nowrap text-right text-xs">
                         <div>
                           <span className="text-slate-400 block text-[9px] font-medium uppercase">Kỳ này</span>
-                          <span className="font-bold text-slate-700">{formatNumber(item.currentValue)} ₫</span>
+                          <span className="font-bold text-slate-700">{formatNumber(item.currentValue)} VND</span>
                         </div>
                         {item.previousValue !== null && item.previousValue !== undefined && (
                           <>
                             <div>
                               <span className="text-slate-400 block text-[9px] font-medium uppercase">Kỳ trước</span>
-                              <span className="text-slate-500">{formatNumber(item.previousValue)} ₫</span>
+                              <span className="text-slate-500">{formatNumber(item.previousValue)} VND</span>
                             </div>
                             <div>
                               <span className="text-slate-400 block text-[9px] font-medium uppercase">Biến động</span>
                               <span className={cn(
                                 "font-semibold",
-                                item.changeAmount > 0 
-                                  ? (item.factor === "COGS" || item.factor === "RETURNS" ? "text-rose-500" : "text-blue-500") 
-                                  : item.changeAmount < 0 
+                                item.changeAmount > 0
+                                  ? (item.factor === "COGS" || item.factor === "RETURNS" ? "text-rose-500" : "text-blue-500")
+                                  : item.changeAmount < 0
                                   ? (item.factor === "COGS" || item.factor === "RETURNS" ? "text-blue-500" : "text-rose-500")
                                   : "text-slate-500"
                               )}>
-                                {item.changeAmount > 0 ? "+" : ""}{formatNumber(item.changeAmount)} ₫
+                                {item.changeAmount > 0 ? "+" : ""}{formatNumber(item.changeAmount)} VND
                               </span>
                             </div>
                           </>
@@ -681,7 +672,6 @@ function ProfitLossReportContent() {
                 </div>
               </div>
 
-              {/* 4. AI Explanation Text */}
               {analyzingInsight ? (
                 <div className="flex flex-col items-center justify-center py-6 space-y-2 bg-slate-50/50 rounded-[6px] border border-dashed border-slate-200">
                   <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />

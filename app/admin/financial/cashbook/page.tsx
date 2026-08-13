@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowDownRight,
+  ArrowLeft,
   ArrowUpRight,
   Download,
   FileText,
@@ -108,9 +110,7 @@ export default function CashbookPage() {
 function CashbookPageContent() {
   const { user, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
-  // Chỉ super admin (bypass mặc định trong hasPermission) hoặc tài khoản được cấp riêng quyền
-  // REPORT_FINANCE_VIEW_ALL_BRANCHES mới được chọn "Tất cả chi nhánh" / xem chi nhánh khác —
-  // không còn suy đoán qua việc tài khoản có gắn branch hay không (dễ sai khi dữ liệu thiếu).
+
   const canSelectAllBranches = hasPermission(P.REPORT_FINANCE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
@@ -188,7 +188,6 @@ function CashbookPageContent() {
     }
   }, [endDate, selectedBranchId, startDate]);
 
-  // Chỉ tính toán định lượng (thuần Java, không tốn phí) — tự chạy khi đổi chi nhánh.
   const fetchRiskData = useCallback(async () => {
     try {
       setAnalyzingRisk(true);
@@ -236,8 +235,6 @@ function CashbookPageContent() {
     void fetchRiskData();
   }, [fetchRiskData]);
 
-  // Tự động chạy phân tích AI 1 lần ngay khi có dữ liệu định lượng mới (vào trang lần đầu hoặc
-  // đổi bộ lọc) — người dùng không cần bấm nút. Nút "Phân tích lại" chỉ dùng để chạy lại thủ công.
   useEffect(() => {
     if (riskData && !riskData.insufficientData) {
       void handleAiAnalysis();
@@ -363,7 +360,6 @@ function CashbookPageContent() {
     toast.success("Đã xuất PDF sổ quỹ");
   };
 
-
   const chartWindow = useMemo(() => chartData.slice(-12), [chartData]);
   const chartMax = useMemo(() => {
     if (chartWindow.length === 0) return 1;
@@ -394,6 +390,13 @@ function CashbookPageContent() {
       <div className="mt-2 mb-8 space-y-4 px-1">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
+            <Link
+              href="/admin/financial"
+              className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-blue-600"
+            >
+              <ArrowLeft size={14} />
+              Quay lại Tổng quan tài chính
+            </Link>
             <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
               Sổ quỹ / Tiền chi
             </h1>
@@ -500,7 +503,6 @@ function CashbookPageContent() {
           </div>
         </div>
 
-        {/* AI Cashflow Risk Panel */}
         <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -548,9 +550,9 @@ function CashbookPageContent() {
             </div>
           ) : riskData ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Left panel: metrics & risk status */}
+
               <div className="lg:col-span-4 space-y-4">
-                {/* Risk Badge */}
+
                 <div className={cn(
                   "rounded-[6px] p-4 text-center border",
                   riskData.riskLevel === "SAFE" && "bg-emerald-50/80 border-emerald-200 text-emerald-800",
@@ -570,7 +572,6 @@ function CashbookPageContent() {
                   )}
                 </div>
 
-                {/* Breakdown table */}
                 <div className="border border-slate-100 rounded-[6px] overflow-hidden text-xs">
                   <div className="bg-slate-50 px-3 py-2 border-b border-slate-100 font-semibold text-slate-600">
                     Chi tiết dự phóng
@@ -601,7 +602,6 @@ function CashbookPageContent() {
                 </div>
               </div>
 
-              {/* Center panel: NLP Reasoning */}
               <div className="lg:col-span-8 space-y-4">
                 {analyzingAi ? (
                   <div className="flex h-full flex-col items-center justify-center gap-2 border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
@@ -610,13 +610,12 @@ function CashbookPageContent() {
                   </div>
                 ) : aiAnalysis ? (
                   <div className="space-y-4">
-                    {/* Reasoning text */}
+
                     <div className="bg-slate-50/60 rounded-[6px] border border-slate-100 p-4">
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Phân tích chuyên gia AI</p>
                       <p className="text-[13px] leading-relaxed text-slate-700">{aiAnalysis.reasoning}</p>
                     </div>
 
-                    {/* Recommendations */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="bg-blue-50/30 rounded-[6px] border border-blue-100/50 p-4 space-y-2">
                         <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Hành động khuyến nghị</p>
@@ -641,7 +640,6 @@ function CashbookPageContent() {
             </div>
           ) : null}
 
-          {/* Prioritized Debts Table Section */}
           {!analyzingRisk && riskData?.prioritizedDebts?.length > 0 && (
             <div className="border border-slate-100 rounded-[6px] overflow-hidden mt-4">
               <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
@@ -1070,10 +1068,10 @@ function CashbookPageContent() {
                 Hiển thị {ledgerRows.length} / {filteredEntries.length} giao dịch
               </span>
               <span className="text-blue-600">
-                Thu hiển thị: {formatNumber(filteredTotals.income)}
+                Tổng thu (khớp bộ lọc): {formatNumber(filteredTotals.income)}
               </span>
               <span className="text-rose-600">
-                Chi hiển thị: {formatNumber(filteredTotals.expense)}
+                Tổng chi (khớp bộ lọc): {formatNumber(filteredTotals.expense)}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -1107,16 +1105,27 @@ function CashbookPageContent() {
             <DialogTitle className="uppercase">Trợ giúp sổ quỹ</DialogTitle>
             <DialogDescription>
               Sổ quỹ này chỉ ghi nhận các giao dịch thực sự ảnh hưởng tiền đã được
-              ghi sổ, hiện tại là phiếu thanh toán nhà cung cấp.
+              ghi sổ: tiền thu từ khách hàng đã thanh toán và tiền chi thanh toán
+              nhà cung cấp.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-sm text-slate-600">
             <p>
+              <span className="font-bold text-slate-800">Phiếu thu (IN):</span>{" "}
+              là các đơn hàng khách đã thanh toán (paymentStatus = PAID) — đơn
+              chuyển khoản/PayOS tính từ lúc đặt hàng, đơn COD tính từ lúc giao
+              nhận thành công vì tiền chỉ thực về quỹ khi đó.
+            </p>
+            <p>
+              <span className="font-bold text-slate-800">Phiếu chi (OUT):</span>{" "}
+              là các khoản thanh toán cho nhà cung cấp đã ghi nhận trên phiếu
+              nhập hàng.
+            </p>
+            <p>
               <span className="font-bold text-slate-800">Số dư đầu kỳ:</span>{" "}
-              bằng tổng dòng tiền đã ghi nhận trước ngày bắt đầu. Hệ thống hiện
-              mới có dòng chi thanh toán NCC nên số dư đầu kỳ phản ánh số đã chi
-              lũy kế trước kỳ.
+              bằng tổng thu từ đơn hàng đã thanh toán trừ tổng chi thanh toán NCC,
+              tính lũy kế đến trước ngày bắt đầu.
             </p>
             <p>
               <span className="font-bold text-slate-800">Tổng thu / tổng chi:</span>{" "}
@@ -1131,9 +1140,9 @@ function CashbookPageContent() {
             </p>
             <p>
               <span className="font-bold text-slate-800">Phạm vi dữ liệu:</span>{" "}
-              hiện màn này chỉ phản ánh các phiếu thanh toán nhà cung cấp đã ghi
-              nhận. Phiếu nhập/xuất kho không có bút toán tiền riêng sẽ không xuất
-              hiện ở đây.
+              hiện màn này phản ánh tiền thu từ đơn hàng đã thanh toán và tiền chi
+              thanh toán nhà cung cấp đã ghi nhận. Phiếu nhập/xuất kho không có
+              bút toán tiền riêng (chưa thanh toán) sẽ không xuất hiện ở đây.
             </p>
           </div>
         </DialogContent>

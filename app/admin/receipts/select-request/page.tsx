@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Check, Loader2, Search } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, Check, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
@@ -163,9 +164,25 @@ export default function SelectPurchaseRequestForReceiptPage() {
   return (
     <div className="space-y-5 px-1 pb-8 text-slate-900">
       <div className="flex flex-col gap-4 pt-2 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-[20px] font-semibold uppercase text-slate-900">
-          Chọn phiếu yêu cầu mua
-        </h1>
+        <div>
+          <h1 className="text-[20px] font-semibold uppercase text-slate-900">
+            Chọn phiếu yêu cầu mua
+          </h1>
+          <p className="mt-1 text-[12px] text-slate-500">
+            Phải có phiếu yêu cầu mua đã gửi nhà cung cấp thì mới tạo được
+            phiếu nhập kho. Chưa có phiếu phù hợp thì tạo mới trước.
+          </p>
+        </div>
+        <Button
+          type="button"
+          asChild
+          className="h-9 bg-blue-600 px-4 text-[12px] font-semibold hover:bg-blue-700"
+        >
+          <Link href="/admin/purchase-requests/new">
+            <Plus size={14} className="mr-1.5" />
+            Tạo yêu cầu mua mới
+          </Link>
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -212,8 +229,25 @@ export default function SelectPurchaseRequestForReceiptPage() {
         {isLoading ? (
           <AdminDataSyncLoader />
         ) : displayRows.length === 0 ? (
-          <div className="py-16 text-center text-[12px] text-slate-400">
-            Không có phiếu yêu cầu nào còn hàng cần nhập
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="text-[12px] text-slate-400">
+              Không có phiếu yêu cầu nào còn hàng cần nhập.
+              {requests.length > 0 &&
+                " Thử xoá bộ lọc tìm kiếm, hoặc tạo phiếu yêu cầu mua mới cho mặt hàng cần nhập."}
+              {requests.length === 0 &&
+                " Chưa có phiếu yêu cầu mua nào — tạo mới để gửi nhà cung cấp trước khi nhập kho."}
+            </p>
+            <Button
+              type="button"
+              asChild
+              variant="outline"
+              className="h-9 px-4 text-[12px] font-semibold"
+            >
+              <Link href="/admin/purchase-requests/new">
+                <Plus size={14} className="mr-1.5" />
+                Tạo yêu cầu mua mới
+              </Link>
+            </Button>
           </div>
         ) : (
           <>

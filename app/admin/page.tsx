@@ -4,20 +4,22 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BarChart3, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { dashboardService } from "@/app/services/dashboard.service";
 import { branchService } from "@/app/services/branchService";
 import { orderService } from "@/app/services/order.service";
+import { MissingItemReport } from "@/app/types/order.types";
 import {
+  BusinessTrend,
   CategoryDistribution,
   CustomerInsights,
   DailyResults,
   DashboardStats,
   InventoryInfo,
+  MetricChange,
   MonthlyResults,
   PendingOrdersSummary,
-  SalesPerformanceData,
   TopProduct,
 } from "@/app/types/dashboard.type";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,16 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import WarehouseWorkflowCards from "@/components/admin/WarehouseWorkflowCards";
+import { Panel } from "@/components/admin/DashboardPanel";
+import {
+  TREND_BADGE_CLASS,
+  type TrendDisplay,
+  currency,
+  decimalText,
+  describeTrend,
+  numberText,
+  qualityRateText,
+} from "@/components/admin/dashboard-viz";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -41,14 +53,21 @@ const AdminDashboardCharts = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
-        <Panel title="Doanh thu theo ngày">
-          <div className="h-[300px] rounded-[4px] bg-slate-50" />
-        </Panel>
-        <Panel title="Cơ cấu doanh thu nhóm hàng">
-          <div className="h-[300px] rounded-[4px] bg-slate-50" />
-        </Panel>
-      </div>
+      <Panel title="Cơ cấu doanh thu nhóm hàng">
+        <div className="h-[300px] rounded-[4px] bg-slate-50" />
+      </Panel>
+    ),
+  },
+);
+
+const AdminDashboardTrendChart = dynamic(
+  () => import("@/components/admin/AdminDashboardTrendChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <Panel title="Doanh thu · giá vốn · lợi nhuận theo tháng">
+        <div className="h-[300px] rounded-[4px] bg-slate-50" />
+      </Panel>
     ),
   },
 );
@@ -61,33 +80,27 @@ const AdminDashboardOrderChart = dynamic(
   },
 );
 
+const AdminDashboardTopProductsChart = dynamic(
+  () => import("@/components/admin/AdminDashboardTopProductsChart"),
+  {
+    ssr: false,
+    loading: () => <div className="h-[220px] rounded-[4px] bg-slate-50" />,
+  },
+);
+
+const AdminDashboardInventoryHealthChart = dynamic(
+  () => import("@/components/admin/AdminDashboardInventoryHealthChart"),
+  {
+    ssr: false,
+    loading: () => <div className="h-[180px] rounded-[4px] bg-slate-50" />,
+  },
+);
+
 type BranchOption = {
   id: number;
   name: string;
 };
 
-type OrderRisk = {
-  totalMissingQuantity?: number;
-};
-
-const currency = (value?: number | null) =>
-  `${Number(value || 0).toLocaleString("vi-VN")} đ`;
-
-const compactCurrency = (value?: number | null) => {
-  const amount = Number(value || 0);
-  if (amount >= 1_000_000_000) {
-    return `${(amount / 1_000_000_000).toFixed(1)} tỷ`;
-  }
-  if (amount >= 1_000_000) {
-    return `${(amount / 1_000_000).toFixed(1)} triệu`;
-  }
-  return currency(amount);
-};
-
-const numberText = (value?: number | null) =>
-  Number(value || 0).toLocaleString("vi-VN");
-
-// "2026-08" (giá trị của <input type="month">) -> "8/2026"
 const formatMonthLabel = (value: string) => {
   const [year, month] = value.split("-");
   if (!year || !month) return value;
@@ -123,24 +136,15 @@ const formatDateLabel = (value: string) => {
 
 type DashboardPeriodMode = "today" | "date" | "month";
 
-const percentText = (value?: number | null) => {
-  const amount = Number(value || 0);
-  if (amount === 0) return "0%";
-  return `${amount > 0 ? "+" : ""}${amount.toFixed(1)}%`;
+const monthEndDate = (value: string) => {
+  const [year, month] = value.split("-").map(Number);
+  if (!year || !month) return value;
+  const lastDay = new Date(year, month, 0).getDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 };
 
-// Khi hôm qua = 0, % tăng trưởng không có ý nghĩa (chia cho 0) — backend trả về isNew=true
-// thay vì bịa ra "+100%", nên hiển thị nhãn "Mới" cho rõ ràng thay vì một con số gây hiểu lầm.
-const trendText = (value?: number | null, isNew?: boolean) =>
-  isNew ? "Mới" : percentText(value);
-
-const getTrendColor = (value?: number | null, isNew?: boolean) => {
-  if (isNew) return "text-blue-600";
-  const amount = Number(value || 0);
-  if (amount > 0) return "text-blue-600";
-  if (amount < 0) return "text-red-600";
-  return "text-slate-400";
-};
+const orderCountText = (value: number) => `${numberText(value)} đơn`;
+const customerCountText = (value: number) => `${numberText(value)} khách`;
 
 const orderStatusRows = (pending?: PendingOrdersSummary) => [
   {
@@ -200,9 +204,7 @@ export default function AdminDashboard() {
 
   const scopedBranchId = (user?.branch?.id ?? warehouseId)?.toString();
   const roleSlug = normalizeRoleSlug(user?.role);
-  // Chỉ Super Admin mới được lọc/xem tất cả chi nhánh. Admin thường và tài khoản gắn
-  // với 1 chi nhánh (Manager/Staff/Employee...) luôn bị khoá vào đúng chi nhánh của họ,
-  // kể cả khi tài khoản đó vô tình không có branch_id trong DB.
+
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
   const canSelectAllBranches = isSuperAdmin;
   const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
@@ -216,8 +218,7 @@ export default function AdminDashboard() {
     !isLoadingAuth && !isLoadingPermissions && !!user && !!accessToken && canViewDashboard;
 
   useEffect(() => {
-    // Super Admin không bị khoá theo scopedBranchId dù tài khoản của họ có gắn branch_id
-    // hay không — mặc định xem "Tất cả chi nhánh" trừ khi họ tự chọn 1 chi nhánh cụ thể.
+
     if (!isSuperAdmin && scopedBranchId) {
       setSelectedBranchId(scopedBranchId);
     }
@@ -288,6 +289,45 @@ export default function AdminDashboard() {
         (periodMode === "month" && !!fromMonth && !!toMonth)),
   });
 
+  const trendParams = useMemo(() => {
+    if (periodMode === "month") {
+      return {
+        granularity: "MONTH" as const,
+        startDate: `${fromMonth}-01`,
+        endDate: monthEndDate(toMonth),
+      };
+    }
+    if (periodMode === "date") {
+      return {
+        granularity: "DAY" as const,
+        startDate: fromDate,
+        endDate: toDate,
+      };
+    }
+    const today = new Date();
+    return {
+      granularity: "DAY" as const,
+      startDate: toIsoDate(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate() - 13),
+      ),
+      endDate: toIsoDate(today),
+    };
+  }, [periodMode, fromDate, toDate, fromMonth, toMonth]);
+
+  const {
+    data: businessTrend,
+    isLoading: isTrendLoading,
+    isError: isTrendError,
+  } = useQuery<BusinessTrend>({
+    queryKey: ["business-trend", selectedBranchId, trendParams],
+    queryFn: () =>
+      dashboardService.getBusinessTrend({
+        branchId: selectedBranchId,
+        ...trendParams,
+      }),
+    enabled: canRunProtectedQueries,
+  });
+
   const { data: pendingSummary, isError: isPendingSummaryError } =
     useQuery<PendingOrdersSummary>({
       queryKey: ["pending-orders-summary", selectedBranchId],
@@ -311,13 +351,6 @@ export default function AdminDashboard() {
     enabled: canRunProtectedQueries,
   });
 
-  const { data: salesPerformance, isError: isSalesPerformanceError } =
-    useQuery({
-      queryKey: ["sales-performance", selectedBranchId],
-      queryFn: () => dashboardService.getSalesPerformance(selectedBranchId),
-      enabled: canRunProtectedQueries,
-    });
-
   const {
     data: categoryDistribution = [],
     isError: isCategoryDistributionError,
@@ -328,7 +361,7 @@ export default function AdminDashboard() {
   });
 
   const { data: backorders = [], isError: isBackordersError } = useQuery<
-    OrderRisk[]
+    MissingItemReport[]
   >({
     queryKey: ["backorder-report", selectedBranchId],
     queryFn: () => orderService.getBackorderReport(selectedBranchId),
@@ -340,10 +373,10 @@ export default function AdminDashboard() {
     isStatsError ||
     isDailyError ||
     isRangeError ||
+    isTrendError ||
     isPendingSummaryError ||
     isInventoryInfoError ||
     isTopProductsError ||
-    isSalesPerformanceError ||
     isCategoryDistributionError ||
     isCustomerInsightsError ||
     isBackordersError;
@@ -380,8 +413,6 @@ export default function AdminDashboard() {
     Number(inventoryInfo?.outOfStockCount || 0);
   const urgentWork = orderWorkload + inventoryRisk + backorderCount;
 
-  // Bộ lọc này chỉ đổi 3 thẻ chỉ số vận hành đầu trang. Các panel ưu tiên/kho vẫn giữ
-  // phạm vi riêng của chúng để không làm sai ý nghĩa "hôm nay" hoặc số liệu tồn hiện tại.
   const periodLabel =
     periodMode === "date"
       ? fromDate === toDate
@@ -392,42 +423,71 @@ export default function AdminDashboard() {
           ? `tháng ${formatMonthLabel(fromMonth)}`
           : `từ tháng ${formatMonthLabel(fromMonth)} đến ${formatMonthLabel(toMonth)}`
         : "hôm nay";
-  const comparisonLabel =
+
+  const comparisonNoun =
     periodMode === "today"
-      ? "so với hôm qua"
+      ? "hôm qua"
       : periodMode === "month" && fromMonth === toMonth
-        ? "so với tháng trước"
-        : "so với kỳ trước";
+        ? "tháng trước"
+        : "kỳ trước";
   const isPrimaryMetricsLoading = isRangeMode ? isRangeLoading : isDailyLoading;
   const revenueValue = isRangeMode
     ? rangeResults?.currentMonthRevenue
     : dailyResults?.todayRevenue;
-  const revenuePercent = isRangeMode
-    ? rangeResults?.revenueChangePercent
-    : dailyResults?.revenueChangePercent;
-  const revenueIsNew = isRangeMode
-    ? rangeResults?.revenueIsNew
-    : dailyResults?.revenueIsNew;
   const profitValue = isRangeMode
     ? rangeResults?.currentMonthProfit
     : dailyResults?.todayProfit;
-  const profitPercent = isRangeMode
-    ? rangeResults?.profitChangePercent
-    : dailyResults?.profitChangePercent;
-  const profitIsNew = isRangeMode
-    ? rangeResults?.profitIsNew
-    : dailyResults?.profitIsNew;
   const ordersValue = isRangeMode
     ? rangeResults?.currentMonthOrders
     : dailyResults?.todayOrders;
-  const ordersPercent = isRangeMode
-    ? rangeResults?.orderChangePercent
-    : dailyResults?.orderChangePercent;
-  const ordersIsNew = isRangeMode
-    ? rangeResults?.orderIsNew
-    : dailyResults?.orderIsNew;
 
-  const salesRows = salesPerformance?.data ?? [];
+  const periodChange = (metric: "revenue" | "profit" | "order") => {
+    const source = isRangeMode ? rangeResults : dailyResults;
+    if (!source) return undefined;
+    if (metric === "revenue") return source.revenueChange;
+    if (metric === "profit") return source.profitChange;
+    return source.orderChange;
+  };
+  const moneyTrend = (change?: MetricChange, noun = comparisonNoun) =>
+    describeTrend(change, noun, currency);
+  const orderTrend = (change?: MetricChange, noun = comparisonNoun) =>
+    describeTrend(change, noun, orderCountText);
+
+  const NO_QUALITY_DATA_CHANGE: MetricChange = {
+    current: 0,
+    previous: 0,
+    changeAmount: 0,
+    changePercent: 0,
+    comparable: false,
+    newBaseline: false,
+    negativeBaseline: false,
+    direction: "FLAT",
+  };
+  const qualityTrend = (
+    denominatorThisPeriod: number,
+    change: MetricChange | undefined,
+    lowerIsBetter: boolean,
+    noun = comparisonNoun,
+  ) =>
+    describeTrend(
+      denominatorThisPeriod > 0 ? change : NO_QUALITY_DATA_CHANGE,
+      noun,
+      orderCountText,
+      lowerIsBetter,
+    );
+
+  const orderQualitySource = isRangeMode ? rangeResults : dailyResults;
+  const deliveredOrders = orderQualitySource?.deliveredOrders ?? 0;
+  const returnedOrders = orderQualitySource?.returnedOrders ?? 0;
+  const cancelledOrders = orderQualitySource?.cancelledOrders ?? 0;
+
+  const shippedResolved = deliveredOrders + returnedOrders;
+
+  const totalResolvedOrders = shippedResolved + cancelledOrders;
+  const deliverySuccessRate = qualityRateText(deliveredOrders, shippedResolved);
+  const returnRate = qualityRateText(returnedOrders, shippedResolved);
+  const cancelRate = qualityRateText(cancelledOrders, totalResolvedOrders);
+
   const categoryRows = categoryDistribution.slice(0, 5).map((item) => ({
     ...item,
     percentage: Number.isFinite(Number(item.percentage))
@@ -455,30 +515,9 @@ export default function AdminDashboard() {
     stats?.totalOrders && stats.totalOrders > 0
       ? Number(stats.totalRevenue || 0) / Number(stats.totalOrders)
       : 0;
-  const orderPerCustomer =
-    customerTotal > 0
-      ? (Number(stats?.totalOrders || 0) / customerTotal) * 100
-      : 0;
-  const revenueChartRows = salesRows.map((item: SalesPerformanceData) => {
-    const parsedDate = new Date(item.date);
 
-    return {
-      date: Number.isNaN(parsedDate.getTime())
-        ? "--/--"
-        : parsedDate.toLocaleDateString("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-          }),
-      revenue: Number.isFinite(Number(item.revenue)) ? Number(item.revenue) : 0,
-      profit: Number.isFinite(Number(item.profit)) ? Number(item.profit) : 0,
-      orders: Number.isFinite(Number(item.orderCount))
-        ? Number(item.orderCount)
-        : 0,
-    };
-  });
-  const hasRevenueChartData = revenueChartRows.some(
-    (item) => item.revenue > 0 || item.profit > 0 || item.orders > 0,
-  );
+  const orderPerCustomer =
+    customerTotal > 0 ? Number(stats?.totalOrders || 0) / customerTotal : 0;
   const hasCategoryChartData = categoryRows.some(
     (item) =>
       Number(item.percentage || 0) > 0 ||
@@ -497,9 +536,9 @@ export default function AdminDashboard() {
         queryClient.invalidateQueries({ queryKey: ["daily-results"] }),
         queryClient.invalidateQueries({ queryKey: ["monthly-results"] }),
         queryClient.invalidateQueries({ queryKey: ["business-results"] }),
+        queryClient.invalidateQueries({ queryKey: ["business-trend"] }),
         queryClient.invalidateQueries({ queryKey: ["inventory-info"] }),
         queryClient.invalidateQueries({ queryKey: ["top-products"] }),
-        queryClient.invalidateQueries({ queryKey: ["sales-performance"] }),
         queryClient.invalidateQueries({ queryKey: ["category-distribution"] }),
         queryClient.invalidateQueries({ queryKey: ["customer-insights"] }),
         queryClient.invalidateQueries({ queryKey: ["pending-orders-summary"] }),
@@ -565,7 +604,7 @@ export default function AdminDashboard() {
             Tổng quan vận hành
           </h1>
           <p className="mt-1 text-[12px] text-slate-500">
-            Phạm vi: {branchLabel}
+            Phạm vi: {branchLabel} · Kỳ xem: {periodLabel}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -692,74 +731,113 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label={`Doanh thu ${periodLabel}`}
-          value={compactCurrency(revenueValue)}
-          subValue={trendText(revenuePercent, revenueIsNew)}
-          subLabel={comparisonLabel}
-          loading={isPrimaryMetricsLoading}
-          trendColor={getTrendColor(revenuePercent, revenueIsNew)}
-        />
-        <MetricCard
-          label={`Lợi nhuận ${periodLabel}`}
-          value={compactCurrency(profitValue)}
-          subValue={trendText(profitPercent, profitIsNew)}
-          subLabel={comparisonLabel}
-          loading={isPrimaryMetricsLoading}
-          trendColor={getTrendColor(profitPercent, profitIsNew)}
-        />
-        <MetricCard
-          label={`Đơn ${periodLabel}`}
-          value={numberText(ordersValue)}
-          subValue={trendText(ordersPercent, ordersIsNew)}
-          subLabel={comparisonLabel}
-          loading={isPrimaryMetricsLoading}
-          trendColor={getTrendColor(ordersPercent, ordersIsNew)}
-        />
-        <MetricCard
-          label="Việc cần xử lý"
-          value={numberText(urgentWork)}
-          subValue={`${orderWorkload} đơn · ${inventoryRisk + backorderCount} kho`}
-          subLabel="đang cần chú ý"
-          trendColor={urgentWork > 0 ? "text-amber-600" : "text-slate-400"}
-        />
-        <MetricCard
-          compact
-          label="Tổng doanh thu"
-          value={compactCurrency(stats?.totalRevenue)}
-          subValue={trendText(stats?.revenueChangePercent, stats?.revenueIsNew)}
-          subLabel="so với hôm qua"
-          loading={isStatsLoading}
-          trendColor={getTrendColor(stats?.revenueChangePercent, stats?.revenueIsNew)}
-        />
-        <MetricCard
-          compact
-          label="Tổng đơn hàng"
-          value={numberText(stats?.totalOrders)}
-          subValue={trendText(stats?.ordersChangePercent, stats?.ordersIsNew)}
-          subLabel="so với hôm qua"
-          loading={isStatsLoading}
-          trendColor={getTrendColor(stats?.ordersChangePercent, stats?.ordersIsNew)}
-        />
-        <MetricCard
-          compact
-          label="Khách hàng"
-          value={numberText(stats?.totalCustomers)}
-          subValue={trendText(stats?.customersChangePercent, stats?.customersIsNew)}
-          subLabel="so với hôm qua"
-          loading={isStatsLoading}
-          trendColor={getTrendColor(stats?.customersChangePercent, stats?.customersIsNew)}
-        />
-        <MetricCard
-          compact
-          label="Giá trị tồn kho"
-          value={compactCurrency(inventoryInfo?.totalInventoryValue)}
-          subValue={trendText(inventoryInfo?.valueChangePercent, inventoryInfo?.valueIsNew)}
-          subLabel="so với hôm qua"
-          trendColor={getTrendColor(inventoryInfo?.valueChangePercent, inventoryInfo?.valueIsNew)}
-        />
-      </div>
+      <section className="space-y-2">
+        <SectionHeading title={`Phát sinh ${periodLabel}`} />
+        <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Doanh thu"
+            value={currency(revenueValue)}
+            trend={moneyTrend(periodChange("revenue"))}
+            loading={isPrimaryMetricsLoading}
+          />
+          <MetricCard
+            label="Lợi nhuận"
+            value={currency(profitValue)}
+            trend={moneyTrend(periodChange("profit"))}
+            loading={isPrimaryMetricsLoading}
+            note="Doanh thu trừ giá vốn, chưa trừ chi phí vận hành."
+          />
+          <MetricCard
+            label="Đơn hàng"
+            value={numberText(ordersValue)}
+            trend={orderTrend(periodChange("order"))}
+            loading={isPrimaryMetricsLoading}
+          />
+          <MetricCard
+            label="Việc cần xử lý"
+            value={numberText(urgentWork)}
+            note={`${numberText(orderWorkload)} việc từ đơn hàng · ${numberText(
+              inventoryRisk + backorderCount,
+            )} việc từ kho. Đây là số hiện tại, không so với kỳ trước.`}
+            emphasis={urgentWork > 0 ? "warning" : undefined}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <SectionHeading title={`Chất lượng đơn hàng ${periodLabel}`} />
+        <div className="grid auto-rows-fr gap-4 sm:grid-cols-3">
+          <MetricCard
+            label="Giao hàng thành công"
+            value={deliverySuccessRate}
+            trend={qualityTrend(shippedResolved, orderQualitySource?.deliveredChange, false)}
+            loading={isPrimaryMetricsLoading}
+            note={
+              shippedResolved > 0
+                ? `${numberText(deliveredOrders)}/${numberText(shippedResolved)} đơn đã xuất kho trong kỳ`
+                : "Chưa có đơn nào xuất kho trong kỳ này"
+            }
+          />
+          <MetricCard
+            label="Tỷ lệ hoàn hàng"
+            value={returnRate}
+            trend={qualityTrend(shippedResolved, orderQualitySource?.returnedChange, true)}
+            loading={isPrimaryMetricsLoading}
+            note={
+              shippedResolved > 0
+                ? `${numberText(returnedOrders)}/${numberText(shippedResolved)} đơn đã xuất kho bị trả về`
+                : "Chưa có đơn nào xuất kho trong kỳ này"
+            }
+            emphasis={returnedOrders > 0 ? "warning" : undefined}
+          />
+          <MetricCard
+            label="Tỷ lệ huỷ đơn"
+            value={cancelRate}
+            trend={qualityTrend(totalResolvedOrders, orderQualitySource?.cancelledChange, true)}
+            loading={isPrimaryMetricsLoading}
+            note={
+              totalResolvedOrders > 0
+                ? `${numberText(cancelledOrders)}/${numberText(totalResolvedOrders)} đơn đã chốt xong bị huỷ`
+                : "Chưa có đơn nào chốt xong trong kỳ này"
+            }
+            emphasis={cancelledOrders > 0 ? "warning" : undefined}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <SectionHeading title="Luỹ kế toàn hệ thống" hint="So với cuối hôm qua" />
+        <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Tổng doanh thu"
+            value={currency(stats?.totalRevenue)}
+            trend={moneyTrend(stats?.revenueChange, "cuối hôm qua")}
+            loading={isStatsLoading}
+          />
+          <MetricCard
+            label="Tổng đơn hàng"
+            value={numberText(stats?.totalOrders)}
+            trend={orderTrend(stats?.ordersChange, "cuối hôm qua")}
+            loading={isStatsLoading}
+          />
+          <MetricCard
+            label="Khách hàng"
+            value={numberText(stats?.totalCustomers)}
+            trend={describeTrend(
+              stats?.customersChange,
+              "cuối hôm qua",
+              customerCountText,
+            )}
+            loading={isStatsLoading}
+          />
+          <MetricCard
+            label="Giá trị tồn kho"
+            value={currency(inventoryInfo?.totalInventoryValue)}
+            trend={moneyTrend(inventoryInfo?.valueChange, "cuối hôm qua")}
+            note="Suy ra từ biến động nhập/xuất trong ngày vì kho không lưu ảnh chụp theo ngày."
+          />
+        </div>
+      </section>
 
       {canViewWarehouseWorkflows && (
         <Panel title="Phiếu kho cần xử lý">
@@ -767,32 +845,16 @@ export default function AdminDashboard() {
         </Panel>
       )}
 
-      <Panel title="Ưu tiên hôm nay">
-        <div className="grid gap-3 md:grid-cols-3">
-          <PriorityCard
-            label="Xử lý đơn"
-            value={orderWorkload}
-            description="Duyệt, thanh toán, đóng gói và giao hàng."
-            href="/admin/orders-all"
-          />
-          <PriorityCard
-            label="Bổ sung hàng"
-            value={inventoryRisk + backorderCount}
-            description="Mặt hàng thấp tồn, hết hàng hoặc thiếu trong đơn."
-            href="/admin/products"
-          />
-          <PriorityCard
-            label="Theo dõi tiền"
-            value={Number(dailyResults?.todayRevenue || 0)}
-            valueText={compactCurrency(dailyResults?.todayRevenue)}
-            description="So doanh thu, lợi nhuận và dòng đơn trong ngày."
-            href="/admin/financial"
-          />
-        </div>
-      </Panel>
+      <AdminDashboardTrendChart
+        trend={businessTrend}
+        isLoading={isTrendLoading}
+      />
 
-      <Panel title="Khách hàng và chuyển đổi">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <Panel
+        title="Khách hàng và chuyển đổi"
+        footnote="Lượt truy cập do hệ thống tự đo ở tầng middleware (không phải Google Analytics) và tính cho toàn site, không tách theo chi nhánh."
+      >
+        <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <InsightBox
             label="Lượt truy cập hôm nay"
             value={numberText(customerInsights?.todayVisitors)}
@@ -809,28 +871,30 @@ export default function AdminDashboard() {
             note="Theo trạng thái tài khoản"
           />
           <InsightBox
-            label="Đơn / 100 khách"
-            value={orderPerCustomer.toFixed(1)}
-            note="Số đơn trung bình trên mỗi 100 khách (không phải % khách đã mua)"
+            label="Đơn / khách"
+            value={decimalText(orderPerCustomer)}
+            note="Số đơn trung bình mỗi khách đã đặt (không phải % khách đã mua)"
           />
           <InsightBox
             label="Giá trị đơn TB"
-            value={compactCurrency(averageOrderValue)}
+            value={currency(averageOrderValue)}
             note="Tổng doanh thu / tổng đơn"
           />
         </div>
       </Panel>
 
       <AdminDashboardCharts
-        revenueChartRows={revenueChartRows}
-        hasRevenueChartData={hasRevenueChartData}
         categoryRows={categoryRows}
         hasCategoryChartData={hasCategoryChartData}
         categoryTotalPercent={categoryTotalPercent}
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Panel title="Đơn hàng đang kẹt">
+      <div className="grid auto-rows-fr gap-4 xl:grid-cols-3">
+        <Panel
+          title="Đơn hàng đang kẹt"
+          description={`${numberText(orderWorkload)} đơn đang nằm ở các bước chưa xong`}
+          footnote="Số đơn hiện đang ở mỗi trạng thái (không phải số phát sinh trong kỳ). Bấm vào từng dòng để mở đúng danh sách cần xử lý."
+        >
           <div className="space-y-4">
             <AdminDashboardOrderChart
               orderChartRows={orderChartRows}
@@ -853,179 +917,105 @@ export default function AdminDashboard() {
           </div>
         </Panel>
 
-        <Panel title="Sức khỏe tồn kho">
-          <div className="grid gap-3">
-            <NumberBar
-              label="Còn hàng ổn định"
-              value={numberText(
-                Math.max(
-                  0,
-                  Number(inventoryInfo?.totalItems || 0) - inventoryRisk,
-                ),
-              )}
-              percent={
-                inventoryInfo?.totalItems
-                  ? ((Number(inventoryInfo.totalItems) - inventoryRisk) /
-                      Number(inventoryInfo.totalItems)) *
-                    100
-                  : 0
-              }
-              tone="#059669"
-            />
-            <NumberBar
-              label="Sắp hết hàng"
-              value={numberText(inventoryInfo?.lowStockCount)}
-              percent={
-                inventoryInfo?.totalItems
-                  ? (Number(inventoryInfo.lowStockCount || 0) /
-                      Number(inventoryInfo.totalItems)) *
-                    100
-                  : 0
-              }
-              tone="#d97706"
-            />
-            <NumberBar
-              label="Hết hàng"
-              value={numberText(inventoryInfo?.outOfStockCount)}
-              percent={
-                inventoryInfo?.totalItems
-                  ? (Number(inventoryInfo.outOfStockCount || 0) /
-                      Number(inventoryInfo.totalItems)) *
-                    100
-                  : 0
-              }
-              tone="#dc2626"
-            />
-            <NumberBar
-              label="Thiếu hàng trong đơn"
-              value={numberText(backorderCount)}
-              percent={backorderCount > 0 ? 100 : 0}
-              tone="#b45309"
-            />
-          </div>
+        <Panel
+          title="Sức khỏe tồn kho"
+          description={`${numberText(inventoryInfo?.totalItems)} mặt hàng đang theo dõi`}
+          footnote="Thanh ngang là tỷ lệ trên tổng số mặt hàng. Riêng 'Thiếu hàng trong đơn' là số lượng còn thiếu để giao đủ các đơn đã nhận, không phải số mặt hàng. Bấm vào từng dòng để xem đích danh mặt hàng: 'Còn hàng ổn định' mở danh sách sản phẩm, 'Sắp hết hàng'/'Hết hàng' mở báo cáo dưới định mức, 'Thiếu hàng trong đơn' xổ ngay danh sách tại chỗ."
+        >
+          <AdminDashboardInventoryHealthChart
+            totalItems={Number(inventoryInfo?.totalItems || 0)}
+            lowStockCount={Number(inventoryInfo?.lowStockCount || 0)}
+            outOfStockCount={Number(inventoryInfo?.outOfStockCount || 0)}
+            backorderCount={backorderCount}
+            backorderItems={backorders}
+            branchId={selectedBranchId}
+          />
         </Panel>
 
-        <Panel title="Top sản phẩm bán chạy">
-          {topProducts.length === 0 ? (
-            <EmptyText text="Chưa có dữ liệu sản phẩm bán chạy." />
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {topProducts.slice(0, 5).map((product, index) => (
-                <div
-                  key={product.productId}
-                  className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 py-3"
-                >
-                  <span className="text-[12px] font-medium text-slate-400">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[12.5px] font-semibold text-slate-900">
-                      {product.productName}
-                    </p>
-                    <p className="mt-1 text-[10.5px] text-slate-500">
-                      Đã bán {numberText(product.quantitySold)}
-                    </p>
-                  </div>
-                  <p className="text-right text-[12px] font-semibold text-slate-900">
-                    {compactCurrency(product.revenue)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+        <Panel
+          title="Top sản phẩm bán chạy"
+          description="5 sản phẩm dẫn đầu theo doanh thu"
+          footnote="Xếp theo số lượng đã bán của đơn đã hoàn tất/đang giao, tính trên toàn bộ lịch sử (không giới hạn theo thời gian). Biểu đồ tròn chia theo tỷ trọng doanh thu — bấm 'Số liệu' để xem dạng danh sách."
+        >
+          <AdminDashboardTopProductsChart topProducts={topProducts} />
         </Panel>
       </div>
 
+    </div>
+  );
+}
+
+function SectionHeading({ hint, title }: { hint?: string; title: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <h2 className="text-[12px] font-semibold uppercase tracking-wide text-slate-700">
+        {title}
+      </h2>
+      {hint && <p className="text-[10.5px] text-slate-500">{hint}</p>}
     </div>
   );
 }
 
 function MetricCard({
-  compact,
+  emphasis,
   label,
   loading,
-  subLabel,
-  subValue,
-  trendColor = "text-slate-500",
+  note,
+  trend,
   value,
 }: {
-  compact?: boolean;
+  emphasis?: "warning";
   label: string;
   loading?: boolean;
-  subLabel?: string;
-  subValue?: string;
-  trendColor?: string;
+  note?: string;
+  trend?: TrendDisplay | null;
   value: string;
 }) {
+  const TrendIcon =
+    trend?.tone === "up"
+      ? ArrowUpRight
+      : trend?.tone === "down"
+        ? ArrowDownRight
+        : Minus;
+
   return (
-    <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-[10.5px] font-semibold text-slate-500">{label}</p>
+    <div
+      className={`flex h-full flex-col rounded-[4px] border bg-white p-4 shadow-sm ${
+        emphasis === "warning" ? "border-amber-300" : "border-slate-200"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">
+          {label}
+        </p>
+        {emphasis === "warning" && (
+          <AlertTriangle size={14} className="shrink-0 text-amber-600" />
+        )}
+      </div>
       {loading ? (
         <Skeleton className="mt-3 h-7 w-32 rounded-[4px]" />
       ) : (
-        <p
-          className={`mt-2 font-semibold text-slate-900 ${
-            compact ? "text-[20px]" : "text-[24px]"
-          }`}
-        >
+        <p className="mt-2 text-[24px] font-semibold leading-tight text-slate-900">
           {value}
         </p>
       )}
-      {(subValue || subLabel) && (
-        <p className="mt-2 text-[11px] text-slate-400">
-          {subValue && (
-            <span className={`font-semibold ${trendColor}`}>{subValue}</span>
-          )}{" "}
-          {subLabel}
-        </p>
-      )}
-    </div>
-  );
-}
+      <div className="mt-auto pt-3">
+        {trend && (
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${
+              TREND_BADGE_CLASS[trend.tone]
+            }`}
+          >
+            <TrendIcon size={11} aria-hidden />
+            {trend.label}
+          </span>
+        )}
 
-function Panel({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="rounded-[4px] border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <h2 className="text-[12px] font-semibold text-slate-900">{title}</h2>
-      </div>
-      <div className="p-4">{children}</div>
-    </section>
-  );
-}
-
-function NumberBar({
-  label,
-  percent,
-  tone = "#64748b",
-  value,
-}: {
-  label: string;
-  percent: number;
-  tone?: string;
-  value: string;
-}) {
-  const safePercent = Math.max(0, Math.min(100, percent));
-
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between gap-3">
-        <span className="truncate text-[12px] text-slate-600">{label}</span>
-        <span className="shrink-0 text-[12px] font-semibold text-slate-900">
-          {value}
-        </span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-100">
-        <div
-          className="h-2 rounded-full"
-          style={{ width: `${safePercent}%`, backgroundColor: tone }}
-        />
+        {(note ?? trend?.hint) && (
+          <p className="mt-1.5 text-[10.5px] leading-4 text-slate-500">
+            {note ?? trend?.hint}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1041,72 +1031,13 @@ function InsightBox({
   value: string;
 }) {
   return (
-    <div className="rounded-[4px] border border-slate-200 bg-white p-4">
+    <div className="flex h-full flex-col rounded-[4px] border border-slate-200 bg-white p-4">
       <p className="text-[10.5px] font-semibold text-slate-500">{label}</p>
       <p className="mt-2 text-[18px] font-semibold text-slate-900">{value}</p>
-      <p className="mt-2 text-[10.5px] leading-4 text-slate-400">{note}</p>
-    </div>
-  );
-}
-
-function PriorityCard({
-  description,
-  href,
-  label,
-  value,
-  valueText,
-}: {
-  description: string;
-  href: string;
-  label: string;
-  value: number;
-  valueText?: string;
-}) {
-  const isWarning = value > 0 && !valueText;
-
-  return (
-    <Link
-      href={href}
-      className="rounded-[4px] border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[12px] font-semibold text-slate-900">{label}</p>
-        {isWarning && <AlertTriangle size={15} className="text-amber-600" />}
-      </div>
-      <p className="mt-3 text-[22px] font-semibold text-slate-900">
-        {valueText || numberText(value)}
+      <p className="mt-auto pt-2 text-[10.5px] leading-4 text-slate-400">
+        {note}
       </p>
-      <p className="mt-2 text-[11px] leading-5 text-slate-500">{description}</p>
-    </Link>
-  );
-}
-
-function EmptyText({
-  className = "min-h-[180px]",
-  hint,
-  icon: Icon = BarChart3,
-  text,
-}: {
-  className?: string;
-  hint?: string;
-  icon?: LucideIcon;
-  text: string;
-}) {
-  return (
-    <div
-      className={`flex items-center justify-center rounded-[4px] border border-dashed border-slate-200 bg-slate-50 px-4 text-center ${className}`}
-    >
-      <div className="flex max-w-[320px] flex-col items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm">
-          <Icon size={18} />
-        </div>
-        <div className="space-y-1">
-          <p className="text-[12px] font-medium text-slate-600">{text}</p>
-          {hint && (
-            <p className="text-[11px] leading-5 text-slate-400">{hint}</p>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
+

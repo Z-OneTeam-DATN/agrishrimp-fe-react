@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
+import { TablePagination } from "@/components/admin/shared/TablePagination";
+import { DonutChart } from "@/components/admin/DonutChart";
+import { ChartLegend } from "@/components/admin/DashboardPanel";
+import { VIZ_CATEGORICAL, numberText } from "@/components/admin/dashboard-viz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,7 +58,10 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { registerVietnameseFont, VIETNAMESE_PDF_FONT } from "@/lib/pdf-vietnamese-font";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -112,6 +119,8 @@ const formatDate = (value: unknown) => {
   return String(value);
 };
 
+const formatMoney = (value: number) => `${formatNumber(value)} VND`;
+
 const formatCellValue = (value: unknown, key: string) => {
   if (value == null || value === "") return "N/A";
   if (typeof value === "number" && (key.toLowerCase().includes("amount") || key.toLowerCase().includes("revenue") || key.toLowerCase().includes("profit") || key.toLowerCase().includes("value"))) {
@@ -126,7 +135,9 @@ const formatCellValue = (value: unknown, key: string) => {
 export default function SalesReportPage() {
   const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const { user, warehouseId } = useAuthStore();
-  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
+  const { hasPermission } = usePermissions();
+
+  const canSelectAllBranches = hasPermission(P.REPORT_REVENUE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(true);
@@ -141,6 +152,8 @@ export default function SalesReportPage() {
   const [activeDetailType, setActiveDetailType] = useState<keyof typeof DETAIL_OPTIONS>("revenue_time");
   const [revenueReportType, setRevenueReportType] = useState<"revenue_time">("revenue_time");
   const [searchTerm, setSearchTerm] = useState("");
+  const [detailPage, setDetailPage] = useState(1);
+  const DETAIL_PAGE_SIZE = 20;
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -212,6 +225,15 @@ export default function SalesReportPage() {
     );
   }, [detail, searchTerm]);
 
+  useEffect(() => {
+    setDetailPage(1);
+  }, [activeDetailType, searchTerm]);
+
+  const pagedRows = useMemo(
+    () => filteredRows.slice((detailPage - 1) * DETAIL_PAGE_SIZE, detailPage * DETAIL_PAGE_SIZE),
+    [filteredRows, detailPage],
+  );
+
   const chartData = useMemo(() => ({
     labels: summary?.revenue.trend.map((item) => formatDate(item.date)) || [],
     datasets: [
@@ -248,6 +270,12 @@ export default function SalesReportPage() {
           boxWidth: 10,
         },
       },
+      tooltip: {
+        callbacks: {
+          label: (context: any) =>
+            `${context.dataset?.label || ""}: ${formatMoney(context.parsed?.y ?? 0)}`,
+        },
+      },
     },
     scales: {
       y: {
@@ -277,6 +305,7 @@ export default function SalesReportPage() {
   const exportPdf = () => {
     if (!detail) return;
     const doc = new jsPDF({ orientation: "landscape" });
+    registerVietnameseFont(doc);
     doc.setFontSize(14);
     doc.text(detail.label, 14, 14);
     doc.setFontSize(10);
@@ -287,8 +316,8 @@ export default function SalesReportPage() {
       body: filteredRows.map((row) =>
         detail.columns.map((column) => String(formatCellValue(row[column.key], column.key))),
       ),
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 8, font: VIETNAMESE_PDF_FONT },
+      headStyles: { fillColor: [37, 99, 235], font: VIETNAMESE_PDF_FONT, fontStyle: "bold" },
     });
     doc.save(`bao_cao_doanh_thu_${detail.type}_${startDate}_${endDate}.pdf`);
     toast.success("Đã xuất PDF báo cáo");
@@ -321,10 +350,18 @@ export default function SalesReportPage() {
   }, [activeDetailType, loadDetail, openDetail, scrollToDetailSection]);
 
   const deliveryMax = Math.max(1, ...(summary?.delivery.breakdown.map((item) => item.count) || [1]));
+  const deliverySegments = (summary?.delivery.breakdown || [])
+    .filter((item) => item.count > 0)
+    .map((item, index) => ({
+      key: item.label,
+      value: item.count,
+      color: VIZ_CATEGORICAL[index % VIZ_CATEGORICAL.length],
+      label: `${item.label}: ${numberText(item.count)} đơn`,
+    }));
   const overviewCards = [
     {
       label: "Doanh thu",
-      value: loading ? "..." : formatNumber(summary?.revenue.totalRevenue || 0),
+      value: loading ? "..." : formatMoney(summary?.revenue.totalRevenue || 0),
       hint: `${summary?.revenue.totalOrders || 0} đơn hoàn tất`,
       icon: TrendingUp,
       tone: "from-blue-600/12 to-cyan-500/10 text-blue-700",
@@ -338,14 +375,14 @@ export default function SalesReportPage() {
     },
     {
       label: "Đã thu",
-      value: loading ? "..." : formatNumber(summary?.payment.paidAmount || 0),
+      value: loading ? "..." : formatMoney(summary?.payment.paidAmount || 0),
       hint: `${summary?.payment.paidOrders || 0} đơn đã thanh toán`,
       icon: CreditCard,
       tone: "from-violet-600/12 to-fuchsia-500/10 text-violet-700",
     },
     {
       label: "Giá trị TB / đơn",
-      value: loading ? "..." : formatNumber(summary?.orders.averageOrderValue || 0),
+      value: loading ? "..." : formatMoney(summary?.orders.averageOrderValue || 0),
       hint: `${summary?.orders.totalProductsSold || 0} sản phẩm đã bán`,
       icon: ShoppingCart,
       tone: "from-amber-500/15 to-orange-500/10 text-amber-700",
@@ -467,7 +504,7 @@ export default function SalesReportPage() {
                 </Badge>
               </div>
               <div className="mt-5 space-y-2">
-                <p className="text-[36px] font-semibold leading-none tracking-tight text-slate-900">{card.value}</p>
+                <p className="text-[22px] font-semibold leading-tight tracking-tight text-slate-900">{card.value}</p>
                 <p className="text-[12px] text-slate-500">{card.hint}</p>
               </div>
             </div>
@@ -487,8 +524,8 @@ export default function SalesReportPage() {
               </p>
             </div>
             <div className="text-right">
-              <div className="text-[28px] font-semibold tracking-tight text-blue-600">
-                {loading ? "..." : formatNumber(summary?.revenue.totalRevenue || 0)}
+              <div className="text-[20px] font-semibold tracking-tight text-blue-600">
+                {loading ? "..." : formatMoney(summary?.revenue.totalRevenue || 0)}
               </div>
               <p className="text-[11px] text-slate-400">
                 {loading ? "..." : `${summary?.revenue.totalOrders || 0} đơn thành công`}
@@ -505,7 +542,7 @@ export default function SalesReportPage() {
               {DETAIL_OPTIONS[revenueReportType]} <ChevronDown size={14} />
             </button>
             <span className="text-[11px] text-blue-600">
-              Lợi nhuận: {formatNumber(summary?.revenue.totalProfit || 0)}
+              Lợi nhuận: {formatMoney(summary?.revenue.totalProfit || 0)}
             </span>
           </div>
 
@@ -549,36 +586,51 @@ export default function SalesReportPage() {
             </button>
           </div>
 
-          <div className="flex-1 space-y-3 px-6">
+          <div className="flex-1 space-y-4 px-6">
             {loading ? (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">Đang tải thống kê giao hàng...</div>
             ) : (
-              summary?.delivery.breakdown.map((item) => (
-                <div key={item.key} className="space-y-1">
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-slate-600">{item.label}</span>
-                    <span className="font-bold text-slate-800">{item.count}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-blue-500"
-                      style={{ width: `${Math.max(8, (item.count / deliveryMax) * 100)}%` }}
+              <>
+                {deliverySegments.length > 0 && (
+                  <div className="space-y-2 border-b border-slate-100 pb-4">
+                    <DonutChart
+                      size={160}
+                      thickness={20}
+                      centerLabel={numberText(summary?.delivery.totalShipments || 0)}
+                      centerSub="đơn"
+                      segments={deliverySegments}
+                    />
+                    <ChartLegend
+                      items={deliverySegments.map((segment) => ({
+                        color: segment.color,
+                        label: segment.key,
+                        note: numberText(segment.value),
+                      }))}
+                      className="justify-center"
                     />
                   </div>
+                )}
+                <div className="space-y-3">
+                  {summary?.delivery.breakdown.map((item) => (
+                    <div key={item.key} className="space-y-1">
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-slate-600">{item.label}</span>
+                        <span className="font-bold text-slate-800">{item.count}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-blue-500"
+                          style={{ width: `${Math.max(8, (item.count / deliveryMax) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))
+              </>
             )}
           </div>
 
           <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 p-5">
-            <Select value="delivery_detail" onValueChange={() => openDetail("delivery_detail")}>
-              <SelectTrigger className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none">
-                <SelectValue placeholder="Chọn loại báo cáo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="delivery_detail">Báo cáo giao hàng chi tiết</SelectItem>
-              </SelectContent>
-            </Select>
             <Button className="h-[38px] w-full bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleViewDetail("delivery_detail")}>
               Xem tiến độ giao hàng
             </Button>
@@ -598,7 +650,7 @@ export default function SalesReportPage() {
             </div>
           </div>
           <div className="px-6 pt-3 text-[12px] text-rose-600">
-            Giá trị trả: {formatNumber(summary?.returns.totalReturnedAmount || 0)}
+            Giá trị trả: {formatMoney(summary?.returns.totalReturnedAmount || 0)}
           </div>
           <div className="space-y-1 p-5">
             <ReportLink label="Trả hàng theo đơn hàng" icon={RotateCcw} type="returns_by_order" />
@@ -613,8 +665,8 @@ export default function SalesReportPage() {
               <p className="text-[11px] text-slate-400">Theo thời gian, nhân viên, phương thức, chi nhánh</p>
             </div>
             <div className="text-right">
-              <div className="text-[24px] font-semibold tracking-tight text-blue-600">
-                {loading ? "..." : formatNumber(summary?.payment.paidAmount || 0)}
+              <div className="text-[18px] font-semibold tracking-tight text-blue-600">
+                {loading ? "..." : formatMoney(summary?.payment.paidAmount || 0)}
               </div>
               <p className="text-[11px] text-slate-400">
                 {summary?.payment.paidOrders || 0} đã thu / {summary?.payment.unpaidOrders || 0} chưa thu
@@ -639,7 +691,7 @@ export default function SalesReportPage() {
                 {loading ? "..." : summary?.orders.totalOrders || 0}
               </div>
               <p className="text-[11px] text-slate-400">
-                {formatNumber(summary?.orders.averageOrderValue || 0)} / đơn
+                {formatMoney(summary?.orders.averageOrderValue || 0)} / đơn
               </p>
             </div>
           </div>
@@ -718,7 +770,7 @@ export default function SalesReportPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRows.map((row, index) => (
+                pagedRows.map((row, index) => (
                   <TableRow key={`${detail?.type || "detail"}-${index}`} className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]">
                     {detail?.columns.map((column) => (
                       <TableCell
@@ -737,6 +789,12 @@ export default function SalesReportPage() {
             </TableBody>
           </Table>
         </div>
+        <TablePagination
+          page={detailPage}
+          totalItems={filteredRows.length}
+          pageSize={DETAIL_PAGE_SIZE}
+          onPageChange={setDetailPage}
+        />
         </div>
       </div>
       </div>

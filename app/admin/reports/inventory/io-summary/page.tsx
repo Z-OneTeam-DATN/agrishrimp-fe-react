@@ -60,9 +60,10 @@ function InventoryIOSummaryContent() {
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
   const [branches, setBranches] = useState<any[]>([]);
-  // Báo cáo xuất nhập tồn luôn tính theo 1 chi nhánh cụ thể (tồn đầu/cuối kỳ không cộng dồn được
-  // giữa các chi nhánh), nên không có lựa chọn "Tất cả chi nhánh" như 2 báo cáo kia.
-  const [selectedBranchId, setSelectedBranchId] = useState<string>(ownBranchId || "");
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(
+    canSelectAllBranches ? "all" : ownBranchId || "",
+  );
   const [dateFrom, setDateFrom] = useState(toIso(firstDayOfMonth));
   const [dateTo, setDateTo] = useState(toIso(today));
   const [rows, setRows] = useState<InventoryIOSummaryData[]>([]);
@@ -195,6 +196,7 @@ function InventoryIOSummaryContent() {
             <SelectValue placeholder="Chọn chi nhánh" />
           </SelectTrigger>
           <SelectContent className="rounded-none">
+            {canSelectAllBranches && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
             {branches.map((b) => (
               <SelectItem key={b.id} value={b.id.toString()}>
                 {b.name}
@@ -298,3 +300,4 @@ export default function InventoryIOSummaryReportPage() {
     </PermissionGuard>
   );
 }
+

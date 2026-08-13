@@ -1,3 +1,14 @@
+export interface MetricChange {
+  current: number;
+  previous: number;
+  changeAmount: number;
+  changePercent: number;
+  comparable: boolean;
+  newBaseline: boolean;
+  negativeBaseline: boolean;
+  direction: "UP" | "DOWN" | "FLAT";
+}
+
 export interface DashboardStats {
   totalOrders: number;
   totalRevenue: number;
@@ -9,6 +20,9 @@ export interface DashboardStats {
   ordersIsNew: boolean;
   customersChangePercent: number;
   customersIsNew: boolean;
+  revenueChange?: MetricChange;
+  ordersChange?: MetricChange;
+  customersChange?: MetricChange;
 }
 
 export interface CustomerInsights {
@@ -32,6 +46,15 @@ export interface DailyResults {
   yesterdayOrders: number;
   orderChangePercent: number;
   orderIsNew: boolean;
+  revenueChange?: MetricChange;
+  profitChange?: MetricChange;
+  orderChange?: MetricChange;
+  deliveredOrders: number;
+  returnedOrders: number;
+  cancelledOrders: number;
+  deliveredChange?: MetricChange;
+  returnedChange?: MetricChange;
+  cancelledChange?: MetricChange;
 }
 
 export interface MonthlyResults {
@@ -48,6 +71,16 @@ export interface MonthlyResults {
   previousMonthOrders: number;
   orderChangePercent: number;
   orderIsNew: boolean;
+  revenueChange?: MetricChange;
+  profitChange?: MetricChange;
+  orderChange?: MetricChange;
+
+  deliveredOrders: number;
+  returnedOrders: number;
+  cancelledOrders: number;
+  deliveredChange?: MetricChange;
+  returnedChange?: MetricChange;
+  cancelledChange?: MetricChange;
 }
 
 export interface RecentActivity {
@@ -66,6 +99,23 @@ export interface InventoryInfo {
   totalInventoryValue: number;
   valueChangePercent: number;
   valueIsNew: boolean;
+  valueChange?: MetricChange;
+}
+
+export interface BusinessTrendPoint {
+  period: string;
+  label: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  orders: number;
+}
+
+export interface BusinessTrend {
+
+  granularity: "DAY" | "MONTH";
+  rangeLabel: string;
+  points: BusinessTrendPoint[];
 }
 
 export interface TopProduct {
@@ -113,3 +163,4 @@ export interface PendingOrder {
   status: string;
   paymentStatus: string;
 }
+

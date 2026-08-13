@@ -67,13 +67,24 @@ export const InventoryReportService = {
   },
 
   async getIOSummary(filters: {
-    branchId: string | number;
+    branchId: string | number | null;
     startDate: string;
     endDate: string;
   }): Promise<InventoryIOSummaryData[]> {
     const response = await apiJava.get("/inventory-reports/io-summary", {
-      params: filters,
+      params: {
+        ...filters,
+        branchId: !filters.branchId || filters.branchId === "all" ? null : filters.branchId,
+      },
+    });
+    return response.data;
+  },
+
+  async getCheckNotes(branchId?: string | number | null): Promise<any[]> {
+    const response = await apiJava.get("/inventory-reports/check", {
+      params: { branchId: !branchId || branchId === "all" ? null : branchId },
     });
     return response.data;
   },
 };
+

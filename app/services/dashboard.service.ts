@@ -1,5 +1,6 @@
 import { apiJava } from "@/lib/axios";
 import {
+  BusinessTrend,
   DashboardStats,
   CustomerInsights,
   DailyResults,
@@ -20,6 +21,13 @@ type BusinessResultsParams = {
   endDate?: string;
   startMonth?: string;
   endMonth?: string;
+};
+
+type BusinessTrendParams = {
+  branchId?: string;
+  granularity: "DAY" | "MONTH";
+  startDate?: string;
+  endDate?: string;
 };
 
 export const dashboardService = {
@@ -77,6 +85,21 @@ export const dashboardService = {
       `${DASHBOARD_BASE_URL}/business-results`,
       {
         params: { branchId, startDate, endDate, startMonth, endMonth },
+      },
+    );
+    return response.data;
+  },
+
+  getBusinessTrend: async ({
+    branchId,
+    granularity,
+    startDate,
+    endDate,
+  }: BusinessTrendParams): Promise<BusinessTrend> => {
+    const response = await apiJava.get<BusinessTrend>(
+      `${DASHBOARD_BASE_URL}/business-trend`,
+      {
+        params: { branchId, granularity, startDate, endDate },
       },
     );
     return response.data;
@@ -151,3 +174,4 @@ export const dashboardService = {
     return response.data;
   },
 };
+

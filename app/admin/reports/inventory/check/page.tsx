@@ -12,6 +12,13 @@ import {
 import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,10 +30,13 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { TablePagination } from "@/components/admin/shared/TablePagination";
 
-import { InventoryCheckApiService } from "@/app/services/inventory.service";
+import { InventoryReportService } from "@/app/services/inventory-report.service";
+import { branchService } from "@/app/services/branchService";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const PAGE_SIZE = 20;
 
@@ -44,8 +54,6 @@ const formatDateVN = (value?: string | null) => {
   return d.toLocaleDateString("vi-VN");
 };
 
-// COMPLETED / COUNTING_COMPLETED (giá trị legacy) đều là trạng thái "đã duyệt cân bằng tồn kho" —
-// chỉ những phiếu này mới có số liệu chốt cuối cùng, đáng tin cậy để đưa vào báo cáo.
 const COMPLETED_STATUSES = new Set(["COMPLETED", "COUNTING_COMPLETED"]);
 
 type CheckReportRow = {
@@ -64,10 +72,20 @@ type CheckReportRow = {
 
 function InventoryCheckReportContent() {
   const router = useRouter();
+  const { user, warehouseId } = useAuthStore();
+  const { hasPermission } = usePermissions();
+
+  const canSelectAllBranches = hasPermission(P.REPORT_INVENTORY_VIEW_ALL_BRANCHES);
+  const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
+
   const today = new Date();
   const defaultStart = new Date(today);
   defaultStart.setDate(defaultStart.getDate() - 30);
 
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(
+    canSelectAllBranches ? "all" : ownBranchId || "all",
+  );
   const [dateFrom, setDateFrom] = useState(toIso(defaultStart));
   const [dateTo, setDateTo] = useState(toIso(today));
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,10 +94,33 @@ function InventoryCheckReportContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [page, setPage] = useState(1);
 
+  useEffect(() => {
+    if (!canSelectAllBranches && ownBranchId) {
+      setSelectedBranchId(ownBranchId);
+    }
+  }, [canSelectAllBranches, ownBranchId]);
+
+  useEffect(() => {
+    const loadBranches = async () => {
+      try {
+        const res = await branchService.getAll();
+        const list = Array.isArray(res) ? res : res?.data || res?.content || [];
+        setBranches(
+          !canSelectAllBranches && ownBranchId
+            ? list.filter((b: any) => String(b.id) === ownBranchId)
+            : list,
+        );
+      } catch (error) {
+        console.error("Lỗi tải danh sách chi nhánh", error);
+      }
+    };
+    void loadBranches();
+  }, [canSelectAllBranches, ownBranchId]);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const data = await InventoryCheckApiService.getAll();
+      const data = await InventoryReportService.getCheckNotes(selectedBranchId);
       setNotes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Lỗi tải báo cáo kiểm kê:", error);
@@ -91,7 +132,8 @@ function InventoryCheckReportContent() {
 
   useEffect(() => {
     void fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranchId]);
 
   const rows: CheckReportRow[] = useMemo(() => {
     const start = dateFrom ? new Date(dateFrom) : null;
@@ -211,6 +253,20 @@ function InventoryCheckReportContent() {
       </div>
 
       <div className="px-6 py-2 flex flex-wrap items-center gap-4 bg-white/50">
+        <Select value={selectedBranchId} onValueChange={setSelectedBranchId} disabled={!canSelectAllBranches}>
+          <SelectTrigger className="h-8 w-[200px] text-[13px] border-slate-300 rounded-none shadow-none bg-white font-medium">
+            <SelectValue placeholder="Chọn chi nhánh" />
+          </SelectTrigger>
+          <SelectContent className="rounded-none">
+            {canSelectAllBranches && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+            {branches.map((b) => (
+              <SelectItem key={b.id} value={b.id.toString()}>
+                {b.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <AdminDateRangeFilters idPrefix="inventory-check-report" fromDate={dateFrom} toDate={dateTo} onFromDateChange={setDateFrom} onToDateChange={setDateTo} />
 
         <div className="relative flex-1 max-w-[320px]">
@@ -303,3 +359,4 @@ export default function InventoryCheckReportPage() {
     </PermissionGuard>
   );
 }
+

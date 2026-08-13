@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   ChevronDown,
   HelpCircle,
   Download,
@@ -113,9 +115,6 @@ function SupplierDebtReportContent() {
   const [analyzingInsight, setAnalyzingInsight] = useState(false);
   const [analyzingAi, setAnalyzingAi] = useState(false);
 
-  // Chỉ tính toán định lượng (thuần Java, không tốn phí) — tự chạy khi đổi filter. Bước gọi
-  // Gemini viết văn diễn giải tách riêng ở handleAiAnalysis, phải bấm nút mới chạy, tránh tốn
-  // quota AI mỗi lần đổi ngày/chi nhánh (đồng bộ với cách làm ở trang Lãi lỗ/Sổ quỹ).
   const fetchInsightData = useCallback(async () => {
     try {
       setAnalyzingInsight(true);
@@ -159,8 +158,6 @@ function SupplierDebtReportContent() {
     void fetchInsightData();
   }, [fetchInsightData]);
 
-  // Tự động chạy phân tích AI 1 lần ngay khi có dữ liệu định lượng mới (vào trang lần đầu hoặc
-  // đổi bộ lọc) — người dùng không cần bấm nút. Nút "Phân tích lại" chỉ dùng để chạy lại thủ công.
   useEffect(() => {
     if (insightData && !insightData.insufficientData) {
       void handleAiAnalysis();
@@ -311,6 +308,13 @@ function SupplierDebtReportContent() {
       <div className="mt-2 mb-8 space-y-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
+            <Link
+              href="/admin/financial"
+              className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-blue-600"
+            >
+              <ArrowLeft size={14} />
+              Quay lại Tổng quan tài chính
+            </Link>
             <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
               Công nợ NCC
             </h1>
@@ -425,7 +429,6 @@ function SupplierDebtReportContent() {
           </Select>
         </div>
 
-        {/* AI Supplier Debt Insight Panel */}
         <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -474,12 +477,12 @@ function SupplierDebtReportContent() {
           ) : insightData ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                {/* Left side: metrics */}
+
                 <div className="lg:col-span-4 space-y-4">
                   <div className="rounded-[6px] p-4 text-center border bg-slate-50 border-slate-200">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-455">Tổng công nợ</p>
                     <p className="text-2xl font-black text-slate-800 mt-1">
-                      {insightData.totalOutstandingDebt.toLocaleString("vi-VN")} ₫
+                      {insightData.totalOutstandingDebt.toLocaleString("vi-VN")} VND
                     </p>
                     {insightData.totalDebtChangeVsPreviousPeriod !== null && (
                       <div className="flex items-center justify-center gap-1 mt-2">
@@ -498,7 +501,6 @@ function SupplierDebtReportContent() {
                     )}
                   </div>
 
-                  {/* Factor Breakdown table */}
                   <div className="border border-slate-100 rounded-[6px] overflow-hidden text-xs">
                     <div className="bg-slate-50 px-3 py-2 border-b border-slate-100 font-semibold text-slate-600">
                       Chỉ số đánh giá
@@ -516,7 +518,7 @@ function SupplierDebtReportContent() {
                               "font-semibold",
                               item.factor === "AGE_DISTRIBUTION" && item.value > 0 ? "text-rose-600 font-bold" : "text-slate-800"
                             )}>
-                              {item.factor === "TOTAL_DEBT" && `${item.value.toLocaleString("vi-VN")} ₫`}
+                              {item.factor === "TOTAL_DEBT" && `${item.value.toLocaleString("vi-VN")} VND`}
                               {item.factor === "AGE_DISTRIBUTION" && `${item.value} đối tác`}
                               {item.factor === "TREND" && `${item.value > 0 ? "+" : ""}${item.value}%`}
                             </span>
@@ -528,7 +530,6 @@ function SupplierDebtReportContent() {
                   </div>
                 </div>
 
-                {/* Right side: AI text explaining summary & recommendations */}
                 <div className="lg:col-span-8 space-y-4">
                   {analyzingAi ? (
                     <div className="flex h-full flex-col items-center justify-center gap-2 border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
@@ -537,13 +538,12 @@ function SupplierDebtReportContent() {
                     </div>
                   ) : aiAnalysis ? (
                     <div className="space-y-4">
-                      {/* Summary */}
+
                       <div className="bg-slate-50/60 rounded-[6px] border border-slate-100 p-4">
                         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nhận xét phân tích của AI</p>
                         <p className="text-[13px] leading-relaxed text-slate-700">{aiAnalysis.summary}</p>
                       </div>
 
-                      {/* Recommendation */}
                       <div className="bg-blue-50/30 rounded-[6px] border border-blue-100/50 p-4 space-y-2">
                         <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Hành động khuyến nghị</p>
                         <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line">{aiAnalysis.recommendation}</p>
@@ -557,9 +557,8 @@ function SupplierDebtReportContent() {
                 </div>
               </div>
 
-              {/* Priority Ranking & Staff summary lists inside the AI panel */}
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 pt-2 border-t border-slate-100">
-                {/* 1. Priority Ranking list (8 columns) */}
+
                 <div className="xl:col-span-8 space-y-2">
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Xếp hạng ưu tiên xử lý công nợ nhà cung cấp
@@ -587,7 +586,7 @@ function SupplierDebtReportContent() {
                               </div>
                             </TableCell>
                             <TableCell className="py-2 text-right font-bold text-slate-850">
-                              {sup.totalDebt.toLocaleString("vi-VN")} ₫
+                              {sup.totalDebt.toLocaleString("vi-VN")} VND
                             </TableCell>
                             <TableCell className="py-2 text-right font-medium text-slate-600">
                               {sup.weightedAvgDebtAge.toFixed(1)} ngày
@@ -614,7 +613,6 @@ function SupplierDebtReportContent() {
                   </div>
                 </div>
 
-                {/* 2. Staff Debt Summary list (4 columns) */}
                 <div className="xl:col-span-4 space-y-2">
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Công nợ theo nhân viên phụ trách
@@ -634,7 +632,7 @@ function SupplierDebtReportContent() {
                               {staff.staffName}
                             </TableCell>
                             <TableCell className="py-2.5 pr-4 text-right font-bold text-rose-600">
-                              {staff.totalDebtFromOrders.toLocaleString("vi-VN")} ₫
+                              {staff.totalDebtFromOrders.toLocaleString("vi-VN")} VND
                             </TableCell>
                           </TableRow>
                         ))}
@@ -651,7 +649,6 @@ function SupplierDebtReportContent() {
                 </div>
               </div>
 
-              {/* Disclaimer */}
               {aiAnalysis && (
                 <p className="text-[10px] text-slate-400 italic">
                   * Ghi chú miễn trừ trách nhiệm: Phân tích và hành động khuyến nghị được tự động tổng hợp từ dữ liệu công nợ thời gian thực bằng mô hình ngôn ngữ AI. Quyết định thanh toán sau cùng cần dựa trên thỏa thuận hợp đồng thực tế với các nhà cung cấp.
@@ -713,7 +710,7 @@ function SupplierDebtReportContent() {
                         {row.phone || "---"}
                       </TableCell>
                       <TableCell className="py-3 pr-6 text-right text-[14px] font-semibold text-rose-600">
-                        {row.totalDebt.toLocaleString("vi-VN")} ₫
+                        {row.totalDebt.toLocaleString("vi-VN")} VND
                       </TableCell>
                     </TableRow>
                   ))}
