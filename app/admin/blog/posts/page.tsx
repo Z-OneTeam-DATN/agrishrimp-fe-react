@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Plus, Edit, Trash2, Eye, EyeOff, Loader2, FileText, Search, CheckCircle2, XCircle,
+  Plus, Edit, Trash2, Eye, EyeOff, Loader2, FileText, Search, CheckCircle2, XCircle, Sparkles,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -38,6 +38,7 @@ import {
   adminApproveBlogPost,
   adminRejectBlogPost,
   adminDeleteBlogPost,
+  adminRunShrimpPriceBlogAutomation,
 } from "@/app/services/blog.service";
 
 const PAGE_SIZE = 20;
@@ -70,6 +71,7 @@ export default function BlogPostsPage() {
   const [rejectTarget, setRejectTarget] = useState<BlogPostDTO | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [generatingShrimpPost, setGeneratingShrimpPost] = useState(false);
   const didInitKeywordEffect = useRef(false);
 
   const loadData = async (
@@ -187,6 +189,27 @@ export default function BlogPostsPage() {
       toast.error("Xóa bài viết thất bại");
     } finally {
       setDeleteId(null);
+    }
+  };
+
+  const handleGenerateShrimpPricePost = async () => {
+    setGeneratingShrimpPost(true);
+    try {
+      const generated = await adminRunShrimpPriceBlogAutomation();
+      toast.success(generated?.title ? `Đã tạo bài: ${generated.title}` : "Đã tạo bài giá tôm chờ duyệt");
+      setKeyword("");
+      setStatusFilter("all");
+      setCategoryFilter("all");
+      setAuthorFilter("all");
+      setPage(0);
+      await Promise.all([
+        loadData("", "all", "all", "all", 0),
+        loadFilterOptions(),
+      ]);
+    } catch {
+      toast.error("Không thể tạo bài giá tôm lúc này");
+    } finally {
+      setGeneratingShrimpPost(false);
     }
   };
 
@@ -330,6 +353,22 @@ export default function BlogPostsPage() {
           </div>
 
           <div className="flex flex-wrap justify-end gap-2">
+            {canApprove && (
+              <Button
+                type="button"
+                onClick={handleGenerateShrimpPricePost}
+                disabled={generatingShrimpPost}
+                variant="outline"
+                className="h-[38px] rounded-[4px] border-blue-200 bg-white px-4 text-[13px] font-medium text-blue-700 shadow-sm hover:bg-blue-50"
+              >
+                {generatingShrimpPost ? (
+                  <Loader2 size={15} className="mr-1.5 animate-spin" />
+                ) : (
+                  <Sparkles size={15} className="mr-1.5" />
+                )}
+                Tạo bài giá tôm
+              </Button>
+            )}
             <Link href="/admin/blog/posts/new">
               <Button className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
                 <Plus size={15} className="mr-1.5" />

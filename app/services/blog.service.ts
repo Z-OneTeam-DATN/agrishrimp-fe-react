@@ -76,6 +76,13 @@ export interface BlogCommentPayload {
   parentId?: number | null;
 }
 
+export interface BlogAutomationPostResult {
+  id: number;
+  slug: string;
+  status: BlogPostDTO["status"];
+  title: string;
+}
+
 // ─── PUBLIC ──────────────────────────────────────────────────────────────────
 
 export const getPublicBlogPosts = async (params?: {
@@ -190,6 +197,11 @@ export const adminRejectBlogPost = async (id: number, reason: string): Promise<v
 
 export const adminDeleteBlogPost = async (id: number): Promise<void> => {
   await apiJava.delete(buildJavaApiUrl(`/blog/posts/${id}` as any));
+};
+
+export const adminRunShrimpPriceBlogAutomation = async (): Promise<BlogAutomationPostResult> => {
+  const res = await apiJava.post(buildJavaApiUrl("/blog/automations/shrimp-price/run"));
+  return res.data?.data;
 };
 
 export const adminGetBlogCategories = async (): Promise<BlogCategoryDTO[]> => {
