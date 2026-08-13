@@ -459,6 +459,8 @@ export default function DiseaseForm({
         id: product.id,
         label: `${product.name} #${product.id}`,
         imageUrl: resolveProductOptionImage(product),
+        categoryId: product.category?.id ?? product.categoryName ?? null,
+        categoryName: product.category?.name ?? product.categoryName ?? null,
       })),
     [productsQuery.data],
   );
