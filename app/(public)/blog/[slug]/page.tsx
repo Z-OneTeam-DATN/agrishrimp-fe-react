@@ -612,7 +612,10 @@ export default function BlogDetailPage() {
                   "[&_span]:text-inherit [&_p]:normal-case [&_h1]:normal-case [&_h2]:normal-case [&_h3]:normal-case",
                   "[&_figure]:mx-0 [&_figcaption]:text-center [&_figcaption]:text-xs [&_figcaption]:text-slate-500",
                   "[&_iframe]:w-full [&_.blog-video-embed]:my-6 [&_.blog-video-embed]:overflow-hidden [&_.blog-video-embed]:rounded-xl [&_.blog-video-embed]:bg-slate-950 [&_.blog-video-embed_iframe]:aspect-video [&_.blog-video-embed_iframe]:border-0",
-                  "[&_.blog-table-wrap]:my-6 [&_.blog-table-wrap]:overflow-x-auto [&_table]:min-w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3",
+                  "[&_.blog-table-wrap]:my-6 [&_.blog-table-wrap]:max-w-full [&_.blog-table-wrap]:overflow-x-auto [&_.blog-table-wrap]:rounded-lg [&_.blog-table-wrap]:border [&_.blog-table-wrap]:border-slate-200",
+                  "[&_.blog-table-wrap_table]:m-0 [&_.blog-table-wrap_table]:min-w-[760px] [&_.blog-table-wrap_table]:w-full [&_.blog-table-wrap_table]:border-collapse [&_.blog-table-wrap_table]:text-left [&_.blog-table-wrap_table]:text-[12.5px] [&_.blog-table-wrap_table]:leading-5",
+                  "[&_.blog-table-wrap_th]:whitespace-nowrap [&_.blog-table-wrap_th]:border-b [&_.blog-table-wrap_th]:border-slate-200 [&_.blog-table-wrap_th]:bg-slate-50 [&_.blog-table-wrap_th]:px-3 [&_.blog-table-wrap_th]:py-2.5 [&_.blog-table-wrap_th]:font-semibold [&_.blog-table-wrap_th]:text-slate-500",
+                  "[&_.blog-table-wrap_td]:border-b [&_.blog-table-wrap_td]:border-slate-100 [&_.blog-table-wrap_td]:px-3 [&_.blog-table-wrap_td]:py-3 [&_.blog-table-wrap_td]:align-top [&_.blog-table-wrap_td]:text-slate-700 [&_.blog-table-wrap_td]:[overflow-wrap:anywhere]",
                   "[&_span]:whitespace-normal [&_img]:mx-auto"
                 )}
                 dangerouslySetInnerHTML={{ __html: normalizedContentHtml }}
