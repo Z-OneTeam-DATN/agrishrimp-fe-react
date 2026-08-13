@@ -55,12 +55,11 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { ACTIVITY_LOG_PERMISSIONS } from "@/lib/workspace-permissions";
-import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 import { isAdminRole } from "@/lib/roles";
 import {
-  ADMIN_ORDER_STATUS_PAGES,
-  getAdminOrderStatusHref,
-} from "@/lib/admin-order-status-pages";
+  canUseBranchOrderRoutes,
+  resolveOrderRouteAccess,
+} from "@/lib/order-routing";
 
 const SIDEBAR_COUNTS_CACHE_KEY = "admin_sidebar_counts_v1";
 const SIDEBAR_COUNTS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -155,27 +154,34 @@ export default function AdminSidebar() {
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
   const isAdmin = isAdminRole(user?.role);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
-  const isBranchAccount = !isAdmin && Boolean(user?.branch?.id || warehouseId);
+  const orderRouteAccess = resolveOrderRouteAccess({
+    canViewSystemOrders,
+    canUseBranchOrders: isBranchScopedOrderUser,
+  });
+  const isBranchAccount =
+    !canViewSystemOrders && Boolean(user?.branch?.id || warehouseId);
   const canAccessPurchaseRequests = hasAnyPermission(PURCHASE_REQUEST_PERMISSIONS);
   const canAccessImports = hasAnyPermission(IMPORT_PERMISSIONS);
   const canAccessExports = hasAnyPermission(EXPORT_PERMISSIONS);
   const canAccessTransfers = hasAnyPermission(TRANSFER_PERMISSIONS);
   const canAccessInventoryChecks = hasAnyPermission(INVENTORY_CHECK_PERMISSIONS);
   const canAccessCustomerChat = hasAnyPermission(CUSTOMER_CHAT_PERMISSIONS);
+  const canAccessOrderManagement = orderRouteAccess.canAccessOrderModule;
   const canAccessRoleModule = hasAnyPermission([
     P.ROLE_VIEW,
     P.ROLE_CREATE,
     P.ROLE_UPDATE,
     P.ROLE_DELETE,
   ]);
-  const orderListHref = getOrderListPath(user);
+  const orderListHref = orderRouteAccess.orderListPath;
   const orderListBasePath = orderListHref.split("?")[0];
   const isAdminOrderDetailActive = /^\/admin\/orders\/\d+$/.test(pathname);
   const isOrderListActive =
     pathname === "/admin/orders" ||
     pathname === orderListBasePath ||
-    (isAdmin && isAdminOrderDetailActive) ||
+    (canViewSystemOrders && isAdminOrderDetailActive) ||
     (pathname.startsWith("/admin/orders-processing") &&
       orderListBasePath === "/admin/orders-processing") ||
     (pathname.startsWith("/admin/orders-all") &&
@@ -189,11 +195,10 @@ export default function AdminSidebar() {
     P.ROLE_DELETE,
     P.SUPPLIER_VIEW,
   ]);
-  const canViewBusinessSection = hasAnyPermission([
-    P.ORDER_VIEW,
-    P.VOUCHER_VIEW,
-    P.CUSTOMER_VIEW,
-  ]) || canAccessCustomerChat;
+  const canViewBusinessSection =
+    canAccessOrderManagement ||
+    hasAnyPermission([P.ORDER_VIEW, P.VOUCHER_VIEW, P.CUSTOMER_VIEW]) ||
+    canAccessCustomerChat;
   const canViewCatalogSection = hasAnyPermission([
     P.PRODUCT_VIEW,
     P.CATEGORY_VIEW,
@@ -216,9 +221,8 @@ export default function AdminSidebar() {
     P.DASHBOARD_VIEW,
     P.REPORT_FINANCE_VIEW,
   ]);
-  const canViewSettings = hasPermission(P.SETTING_VIEW) || hasPermission(P.DRIVER_VIEW) || isAdmin;
-  const canAccessOrderManagement =
-    hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
+  const canViewSettings =
+    hasPermission(P.SETTING_VIEW) || hasPermission(P.DRIVER_VIEW) || isAdmin;
   const canViewBannerSection = hasPermission(P.BANNER_VIEW);
   const canViewBlogSection = hasAnyPermission([
     P.BLOG_VIEW,
@@ -689,36 +693,49 @@ export default function AdminSidebar() {
                   icon={ShoppingCart}
                   isOpen={openGroups.includes("orders")}
                   onToggle={() => toggleGroup("orders")}
-                  active={pathname.startsWith("/admin/orders")}
+                  active={
+                    pathname.startsWith("/admin/orders") ||
+                    pathname.startsWith("/admin/orders-processing")
+                  }
                 >
                   <SidebarLink
                     href={orderListHref}
                     icon={List}
-                    label={isAdmin ? "Danh sách đơn hàng" : "Đơn hàng chi nhánh"}
+                    label={
+                      canViewSystemOrders
+                        ? "Danh sách đơn hàng"
+                        : "Đơn hàng chi nhánh"
+                    }
                     active={isOrderListActive}
                     isChild
                   />
-                  {isAdmin &&
-                    ADMIN_ORDER_STATUS_PAGES.map((page) => {
-                      const href = getAdminOrderStatusHref(page.slug);
-                      return (
-                        <SidebarLink
-                          key={page.slug}
-                          href={href}
-                          icon={List}
-                          label={page.label}
-                          active={pathname === href}
-                          isChild
-                        />
-                      );
-                    })}
-                  <SidebarLink
-                    href="/admin/orders/return"
-                    icon={RotateCcw}
-                    label="Trả hàng"
-                    active={pathname.startsWith("/admin/orders/return")}
-                    isChild
-                  />
+                  {canAccessOrderManagement ? (
+                    <SidebarLink
+                      href="/admin/orders-processing"
+                      icon={List}
+                      label="Xử lý đơn hàng"
+                      active={pathname.startsWith("/admin/orders-processing")}
+                      isChild
+                    />
+                  ) : null}
+                  {canAccessOrderManagement ? (
+                    <SidebarLink
+                      href="/admin/orders/return"
+                      icon={RotateCcw}
+                      label="Trả hàng"
+                      active={pathname.startsWith("/admin/orders/return")}
+                      isChild
+                    />
+                  ) : null}
+                  {canViewSystemOrders ? (
+                    <SidebarLink
+                      href="/admin/orders/incomplete"
+                      icon={List}
+                      label="Đơn hàng chưa hoàn tất"
+                      active={pathname.startsWith("/admin/orders/incomplete")}
+                      isChild
+                    />
+                  ) : null}
                 </SidebarGroup>
               )}
 

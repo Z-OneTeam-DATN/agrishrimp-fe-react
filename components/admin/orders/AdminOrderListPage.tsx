@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  getReplenishmentDocumentLinks,
   getReplenishmentResultMessage,
   orderService,
   type AdminOrderSummaryResponse,
@@ -41,14 +42,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
-import {
-  ADMIN_ORDER_STATUS_PAGES,
-  AdminOrderPageStatus,
-} from "@/lib/admin-order-status-pages";
+import { ADMIN_ORDER_STATUS_PAGES } from "@/lib/admin-order-status-pages";
 import { formatDate, getCurrentMonthDateTimeRange } from "@/lib/dateUtils";
+import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
+import { readAdminOrdersRefreshSignal } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
-import { isAdminRole } from "@/lib/roles";
-import { getOrderListPath } from "@/lib/order-routing";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
@@ -62,10 +61,22 @@ import {
   canRequestReplenishmentAction,
   OrderWorkflowBadge,
 } from "./OrderStateBadges";
+import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
+
+export type AdminOrderStatusGroup = {
+  id: string;
+  label: string;
+  status: string;
+  description?: string;
+};
 
 type AdminOrderListPageProps = {
   title: string;
-  fixedStatus?: AdminOrderPageStatus;
+  fixedStatus?: OrderStatus;
+  fixedStatusQuery?: string;
+  statusGroups?: AdminOrderStatusGroup[];
+  defaultStatusGroupId?: string;
+  subtitle?: string;
 };
 
 type PaymentFilter = "ALL" | "PAID" | "UNPAID";
@@ -92,11 +103,19 @@ const ORDER_STATUS_FILTER_OPTIONS: Array<{ label: string; value: StatusFilter }>
 export default function AdminOrderListPage({
   title,
   fixedStatus,
+  fixedStatusQuery,
+  statusGroups,
+  defaultStatusGroupId,
+  subtitle,
 }: AdminOrderListPageProps) {
   const router = useRouter();
   const { hasPermission, isLoadingAuth } = usePermissions();
-  const { user } = useAuthStore();
+  const { user, warehouseId } = useAuthStore();
   const defaultMonthRange = useMemo(() => getCurrentMonthDateTimeRange(), []);
+  const statusGroupItems = useMemo(() => statusGroups ?? [], [statusGroups]);
+  const [activeGroupId, setActiveGroupId] = useState(
+    () => defaultStatusGroupId ?? statusGroups?.[0]?.id ?? "",
+  );
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -110,29 +129,66 @@ export default function AdminOrderListPage({
   const [ordersPage, setOrdersPage] = useState<PageResponse<MyOrder> | null>(null);
   const [orderSummary, setOrderSummary] =
     useState<AdminOrderSummaryResponse | null>(null);
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [advancingOrderId, setAdvancingOrderId] = useState<number | null>(null);
+  const lastRefreshSignalRef = useRef(0);
 
-  const isAdmin = isAdminRole(user?.role);
-  const isAllOrdersPage = !fixedStatus;
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const orderRouteAccess = useMemo(
+    () =>
+      resolveOrderRouteAccess({
+        canViewSystemOrders,
+        canUseBranchOrders,
+        status: fixedStatus,
+      }),
+    [canUseBranchOrders, canViewSystemOrders, fixedStatus],
+  );
+  const activeStatusGroup = useMemo(
+    () =>
+      statusGroupItems.find((group) => group.id === activeGroupId) ??
+      statusGroupItems[0] ??
+      null,
+    [activeGroupId, statusGroupItems],
+  );
+  const selectedFixedStatus =
+    activeStatusGroup?.status ?? fixedStatusQuery ?? fixedStatus;
+  const isAllOrdersPage = !selectedFixedStatus;
+
+  useEffect(() => {
+    if (statusGroupItems.length === 0) {
+      return;
+    }
+
+    if (!statusGroupItems.some((group) => group.id === activeGroupId)) {
+      setActiveGroupId(defaultStatusGroupId ?? statusGroupItems[0].id);
+    }
+  }, [activeGroupId, defaultStatusGroupId, statusGroupItems]);
 
   useEffect(() => {
     if (isLoadingAuth) {
       return;
     }
 
-    if (!isAdmin) {
-      router.replace(getOrderListPath(user, fixedStatus));
+    if (!canViewSystemOrders) {
+      router.replace(orderRouteAccess.orderListPath);
       return;
     }
 
-    if (!hasPermission(P.ORDER_VIEW)) {
+    if (!orderRouteAccess.canAccessOrderModule) {
       router.push("/admin/forbidden");
     }
-  }, [fixedStatus, hasPermission, isAdmin, isLoadingAuth, router, user]);
+  }, [
+    canViewSystemOrders,
+    isLoadingAuth,
+    orderRouteAccess.canAccessOrderModule,
+    orderRouteAccess.orderListPath,
+    router,
+  ]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -144,11 +200,17 @@ export default function AdminOrderListPage({
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [fixedStatus, search, statusFilter, paymentFilter, startDateFilter, endDateFilter]);
+  }, [
+    selectedFixedStatus,
+    search,
+    statusFilter,
+    paymentFilter,
+    startDateFilter,
+    endDateFilter,
+  ]);
 
-  const adminOrderFilters = useMemo(
+  const baseAdminOrderFilters = useMemo(
     () => ({
-      status: fixedStatus ?? (statusFilter === "ALL" ? undefined : statusFilter),
       search: search || undefined,
       paymentStatus: paymentFilter === "ALL" ? undefined : paymentFilter,
       startDate: startDateFilter || undefined,
@@ -156,23 +218,36 @@ export default function AdminOrderListPage({
     }),
     [
       endDateFilter,
-      fixedStatus,
       paymentFilter,
       search,
       startDateFilter,
+    ],
+  );
+
+  const adminOrderFilters = useMemo(
+    () => ({
+      ...baseAdminOrderFilters,
+      status:
+        selectedFixedStatus ??
+        (statusFilter === "ALL" ? undefined : statusFilter),
+    }),
+    [
+      baseAdminOrderFilters,
+      selectedFixedStatus,
       statusFilter,
     ],
   );
 
   const fetchOrders = useCallback(async () => {
-    if (!isAdmin) {
+    if (!canViewSystemOrders) {
       return;
     }
 
     setIsLoading(true);
     setExpandedId(null);
+    setDetailCache({});
     try {
-      const [data, summary] = await Promise.all([
+      const [data, summary, groupCountEntries] = await Promise.all([
         orderService.getAdminOrders({
           ...adminOrderFilters,
           page: currentPage,
@@ -181,26 +256,93 @@ export default function AdminOrderListPage({
         isAllOrdersPage
           ? orderService.getAdminOrderSummary(adminOrderFilters)
           : Promise.resolve(null),
+        statusGroupItems.length > 0
+          ? Promise.all(
+              statusGroupItems.map(async (group) => {
+                const groupSummary = await orderService.getAdminOrderSummary({
+                  ...baseAdminOrderFilters,
+                  status: group.status,
+                });
+
+                return [group.id, groupSummary.totalOrders] as const;
+              }),
+            )
+          : Promise.resolve(null),
       ]);
       setOrdersPage(data);
       setOrders(data.content ?? []);
       setOrderSummary(summary);
+      if (groupCountEntries) {
+        setGroupCounts(
+          groupCountEntries.reduce<Record<string, number>>(
+            (nextCounts, [groupId, count]) => ({
+              ...nextCounts,
+              [groupId]: count,
+            }),
+            {},
+          ),
+        );
+      }
+      lastRefreshSignalRef.current = Math.max(
+        lastRefreshSignalRef.current,
+        readAdminOrdersRefreshSignal(),
+      );
       setSelectedItems([]);
     } catch {
       setOrderSummary(null);
+      setGroupCounts({});
       toast.error("Không thể tải danh sách đơn hàng toàn hệ thống.");
     } finally {
       setIsLoading(false);
     }
-  }, [adminOrderFilters, currentPage, isAdmin, isAllOrdersPage]);
+  }, [
+    adminOrderFilters,
+    baseAdminOrderFilters,
+    canViewSystemOrders,
+    currentPage,
+    isAllOrdersPage,
+    statusGroupItems,
+  ]);
 
   useEffect(() => {
-    if (isLoadingAuth || !isAdmin) {
+    if (isLoadingAuth || !canViewSystemOrders) {
       return;
     }
 
     void fetchOrders();
-  }, [fetchOrders, isAdmin, isLoadingAuth]);
+  }, [canViewSystemOrders, fetchOrders, isLoadingAuth]);
+
+  const refreshOrdersIfNeeded = useCallback(() => {
+    const nextSignal = readAdminOrdersRefreshSignal();
+    if (nextSignal <= lastRefreshSignalRef.current) {
+      return;
+    }
+
+    lastRefreshSignalRef.current = nextSignal;
+    void fetchOrders();
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    if (isLoadingAuth || !canViewSystemOrders) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshOrdersIfNeeded();
+      }
+    };
+
+    window.addEventListener("focus", refreshOrdersIfNeeded);
+    window.addEventListener("pageshow", refreshOrdersIfNeeded);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refreshOrdersIfNeeded);
+      window.removeEventListener("pageshow", refreshOrdersIfNeeded);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [canViewSystemOrders, isLoadingAuth, refreshOrdersIfNeeded]);
 
   const pageShortageCount = useMemo(
     () => orders.filter(hasOrderShortage).length,
@@ -237,12 +379,7 @@ export default function AdminOrderListPage({
     }
   }, [currentPage, ordersPage]);
 
-  const handleToggleRow = async (orderId: number) => {
-    if (expandedId === orderId) {
-      setExpandedId(null);
-      return;
-    }
-
+  const openOrderDetailRow = async (orderId: number) => {
     setExpandedId(orderId);
 
     if (!detailCache[orderId]) {
@@ -258,6 +395,23 @@ export default function AdminOrderListPage({
     }
   };
 
+  const handleToggleRow = async (orderId: number) => {
+    if (expandedId === orderId) {
+      setExpandedId(null);
+      return;
+    }
+
+    await openOrderDetailRow(orderId);
+  };
+
+  const handleOpenReplenishmentDocuments = async (
+    event: React.MouseEvent,
+    orderId: number,
+  ) => {
+    event.stopPropagation();
+    await openOrderDetailRow(orderId);
+  };
+
   const handleRequestReplenishment = async (
     event: React.MouseEvent,
     orderId: number,
@@ -267,6 +421,36 @@ export default function AdminOrderListPage({
 
     try {
       const response = await orderService.requestAdminOrderReplenishment(orderId);
+      const responseDocuments = response.planItems ?? [];
+      const hasCreatedDocuments =
+        getReplenishmentDocumentLinks(responseDocuments).length > 0;
+      if (hasCreatedDocuments) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === orderId
+              ? {
+                  ...order,
+                  replenishmentRequested: true,
+                  replenishmentDocuments: responseDocuments,
+                }
+              : order,
+          ),
+        );
+        setDetailCache((prev) => {
+          const detail = prev[orderId];
+          return detail
+            ? {
+                ...prev,
+                [orderId]: {
+                  ...detail,
+                  replenishmentRequested: true,
+                  replenishmentDocuments: responseDocuments,
+                },
+              }
+            : prev;
+        });
+        await openOrderDetailRow(orderId);
+      }
       toast.success(getReplenishmentResultMessage(orderCode, response));
       await fetchOrders();
     } catch (error) {
@@ -374,10 +558,48 @@ export default function AdminOrderListPage({
           {title}
         </h1>
         <p className="text-[13px] text-slate-500">
+          {subtitle ?? (
+            <>
           Quản lý theo đơn hàng, giao hàng, thanh toán và tình trạng thiếu hàng
           trên cùng một màn hình.
+            </>
+          )}
         </p>
       </div>
+
+      {statusGroupItems.length > 0 ? (
+        <div className="grid grid-cols-1 overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm sm:grid-cols-2 xl:grid-cols-7">
+          {statusGroupItems.map((group) => {
+            const isActiveGroup = activeStatusGroup?.id === group.id;
+
+            return (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => setActiveGroupId(group.id)}
+                className={cn(
+                  "flex min-h-[74px] flex-col items-start justify-center border-b border-r border-slate-200 px-4 py-3 text-left transition-colors last:border-r-0 sm:last:border-r-0 xl:border-b-0 xl:last:border-r-0",
+                  isActiveGroup
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-white text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                <span className="text-[12px] font-semibold">
+                  {group.label}
+                </span>
+                <span className="mt-1 text-[20px] font-semibold leading-none text-slate-900">
+                  {(groupCounts[group.id] ?? 0).toLocaleString("vi-VN")}
+                </span>
+                {group.description ? (
+                  <span className="mt-1 line-clamp-1 text-[10px] text-slate-400">
+                    {group.description}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-2 xl:flex-row xl:flex-nowrap xl:items-center xl:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:min-w-0 xl:flex-nowrap">
@@ -441,7 +663,7 @@ export default function AdminOrderListPage({
             step={60}
             value={startDateFilter}
             onChange={(event) => setStartDateFilter(event.target.value)}
-            className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[200px] xl:w-[190px]"
+            className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
           />
 
           <Input
@@ -449,7 +671,7 @@ export default function AdminOrderListPage({
             step={60}
             value={endDateFilter}
             onChange={(event) => setEndDateFilter(event.target.value)}
-            className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[200px] xl:w-[190px]"
+            className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
           />
         </div>
 
@@ -559,6 +781,17 @@ export default function AdminOrderListPage({
                   const detail = detailCache[orderId];
                   const isLoadingDetail = loadingDetailId === orderId;
                   const orderDetail = detail ?? order;
+                  const replenishmentDocuments =
+                    orderDetail.replenishmentDocuments ??
+                    order.replenishmentDocuments ??
+                    [];
+                  const hasReplenishmentDocuments =
+                    Boolean(
+                      orderDetail.replenishmentRequested ??
+                        order.replenishmentRequested,
+                    ) ||
+                    getReplenishmentDocumentLinks(replenishmentDocuments)
+                      .length > 0;
                   const nextAction =
                     hasPermission(P.ORDER_UPDATE)
                       ? getNextOrderWorkflowAction(orderDetail)
@@ -645,16 +878,28 @@ export default function AdminOrderListPage({
                             ) : allowReplenishment ? (
                               <Button
                                 size="sm"
-                                className="h-8 w-[124px] justify-center bg-rose-600 text-[12px] hover:bg-rose-700"
+                                className={cn(
+                                  "h-8 w-[132px] justify-center text-[12px]",
+                                  hasReplenishmentDocuments
+                                    ? "bg-emerald-600 hover:bg-emerald-700"
+                                    : "bg-rose-600 hover:bg-rose-700",
+                                )}
                                 onClick={(event) =>
-                                  void handleRequestReplenishment(
-                                    event,
-                                    orderId,
-                                    orderCode,
-                                  )
+                                  hasReplenishmentDocuments
+                                    ? void handleOpenReplenishmentDocuments(
+                                        event,
+                                        orderId,
+                                      )
+                                    : void handleRequestReplenishment(
+                                        event,
+                                        orderId,
+                                        orderCode,
+                                      )
                                 }
                               >
-                                Xin điều chuyển
+                                {hasReplenishmentDocuments
+                                  ? "Đã xử lý thiếu hàng"
+                                  : "Xử lý thiếu hàng"}
                               </Button>
                             ) : null}
                           </div>
@@ -767,6 +1012,11 @@ export default function AdminOrderListPage({
                                       {order.note}
                                     </div>
                                   ) : null}
+                                  <ReplenishmentDocumentLinks
+                                    documents={replenishmentDocuments}
+                                    className="mt-3"
+                                    compact
+                                  />
                                 </div>
                               </div>
 
@@ -831,9 +1081,13 @@ export default function AdminOrderListPage({
                                                 <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[6px] border border-slate-200 bg-slate-50">
                                                   {item.image ? (
                                                     <img
-                                                      src={item.image}
+                                                      src={resolveImageUrl(item.image)}
                                                       alt={item.productName}
                                                       className="h-full w-full object-cover"
+                                                      onError={(event) => {
+                                                        event.currentTarget.onerror = null;
+                                                        event.currentTarget.src = "/placeholder.png";
+                                                      }}
                                                     />
                                                   ) : (
                                                     <Package

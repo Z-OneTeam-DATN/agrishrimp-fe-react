@@ -114,6 +114,7 @@ export interface PageResponse<T> {
   totalElements: number;
   number: number; // 0-based current page
   size: number;
+  failed?: boolean;
 }
 
 export interface PublicVariantAttributeValue {

@@ -5,7 +5,6 @@ import { useMutation } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { confirmOrder } from "@/app/services/orderService"
-import { useCartStore } from "@/stores/useCartStore"
 import { isConflictError, isTokenExpiredError, getFriendlyError, isRateLimitedError, getRetryAfterSeconds } from "@/app/utils/apiError"
 import type { ConfirmOrderPayload, PrepareOrderResponse } from "@/app/types/order.types"
 
@@ -27,7 +26,6 @@ interface UseConfirmOrderOptions {
 export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
   const { onConflict, onQuoteChanged, onTokenExpired, onRateLimited } = options
   const router = useRouter()
-  const { clearCart } = useCartStore()
 
   return useMutation({
     mutationFn: (payload: ConfirmOrderPayload) => confirmOrder(payload),
@@ -39,19 +37,18 @@ export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
         // Chưa clearCart — thanh toán chưa hoàn tất, cart sẽ clear ở /order-success
         window.location.href = data.checkoutUrl
       } else {
-        // COD / CASH / TRANSFER: đơn đã xong, clear cart và redirect
-        clearCart()
+        // COD / CASH / TRANSFER: redirect trước, /order-success sẽ clear cart sau khi hiển thị kết quả.
         const orderId = data.orderId
         const orderCode = data.orderCode ?? ""
         // Dùng cùng trang /order-success với payOS để tránh xung đột dynamic route
         // Backend payOS config should return to https://agrishrimp.io.vn/order-success
         if (orderId) {
-          router.push(
+          router.replace(
             `/order-success?orderId=${orderId}&orderCode=${encodeURIComponent(orderCode)}&method=offline`
           )
           return
         }
-        router.push("/orders/list")
+        router.replace(`/order-success?orderCode=${encodeURIComponent(orderCode)}&method=offline`)
       }
     },
 

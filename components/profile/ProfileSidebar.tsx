@@ -8,6 +8,7 @@ import {
   Lock,
   MapPin,
   ClipboardList,
+  RotateCcw,
   Ticket,
   LogOut,
   Camera,
@@ -196,6 +197,13 @@ export default function ProfileSidebar({
       <nav className="flex flex-col">
         <Link href="/orders/list" onClick={handleLinkClick} className={itemClass("/orders/list")}>
           <ClipboardList size={18} className="mr-2.5 text-[#1965a2]" /> Đơn hàng của tôi
+        </Link>
+        <Link
+          href="/orders/return/list"
+          onClick={handleLinkClick}
+          className={itemClass("/orders/return/list")}
+        >
+          <RotateCcw size={18} className="mr-2.5 text-[#1965a2]" /> Yêu cầu trả hàng
         </Link>
       </nav>
 

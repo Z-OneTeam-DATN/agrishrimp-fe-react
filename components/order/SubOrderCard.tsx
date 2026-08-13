@@ -118,9 +118,6 @@ export function SubOrderCard({
           <span className="text-sm font-medium text-gray-700">
             {formatMoney(subOrder.shippingFee)}
           </span>
-          {subOrder.shippingEstimate && (
-            <span className="text-[10px] text-amber-500 ml-1">(Ước tính)</span>
-          )}
         </div>
       </div>
 
@@ -145,4 +142,3 @@ export function SubOrderCard({
     </div>
   )
 }
-

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { orderService } from "@/app/services/order.service";
 import { BranchOrder } from "@/app/types/order.types";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -203,7 +204,7 @@ export default function OrderManagementPage() {
       toast.success(`Đã tạo lệnh điều chuyển cho ${order.orderCode}${transferSummary}`);
       fetchOrders(activeTab, search);
     } catch {
-      toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
+      toast.error("Không thể xử lý thiếu hàng.");
     }
   };
 
@@ -411,7 +412,7 @@ export default function OrderManagementPage() {
                                       onClick={(event) => handleRequestReplenishment(event, order)}
                                     >
                                       <PackageCheck size={15} className="mr-1.5" />
-                                      Xin lệnh điều chuyển
+                                      Xử lý thiếu hàng
                                     </Button>
                                   ) : activeTab === "PENDING" ? (
                                     <Button
@@ -429,7 +430,7 @@ export default function OrderManagementPage() {
                                       onClick={(event) => handleRequestReplenishment(event, order)}
                                     >
                                       <PackageCheck size={15} className="mr-1.5" />
-                                      Xin lệnh điều chuyển
+                                      Xử lý thiếu hàng
                                     </Button>
                                   ) : activeTab === "CONFIRMED" ? (
                                     <Button
@@ -507,9 +508,13 @@ export default function OrderManagementPage() {
                                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-100 bg-slate-50">
                                                   {item.image ? (
                                                     <img
-                                                      src={item.image}
+                                                      src={resolveImageUrl(item.image)}
                                                       alt={item.productName}
                                                       className="h-full w-full object-cover"
+                                                      onError={(event) => {
+                                                        event.currentTarget.onerror = null;
+                                                        event.currentTarget.src = "/placeholder.png";
+                                                      }}
                                                     />
                                                   ) : (
                                                     <Package size={18} className="text-slate-200" />

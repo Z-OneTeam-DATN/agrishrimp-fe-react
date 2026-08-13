@@ -17,19 +17,25 @@ import { orderService } from "@/app/services/order.service";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
+import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 import { P } from "@/lib/permissions";
-import { getOrderListPath } from "@/lib/order-routing";
-import { isAdminRole } from "@/lib/roles";
 
 interface PendingOrdersProps {
   branchId?: string;
 }
 
 export default function PendingOrders({ branchId }: PendingOrdersProps) {
-  const { user, isLoadingAuth } = useAuthStore();
-  const isAdmin = isAdminRole(user?.role);
+  const { user, isLoadingAuth, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
-  const canViewSystemBackorders = hasPermission(P.ORDER_VIEW) && !user?.branch?.id;
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const getOrderHref = (status?: string | null) =>
+    getOrderListPath({
+      canViewSystemOrders,
+      canUseBranchOrders,
+      status,
+    });
+  const canViewSystemBackorders = canViewSystemOrders;
 
   const { data, isLoading } = useQuery({
     queryKey: ["pending-orders-summary", branchId],
@@ -57,50 +63,50 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
 
   const items = [
     {
-      label: "Thiếu hàng",
+      label: "Thiáº¿u hĂ ng",
       count: backorderCount,
       icon: AlertTriangle,
-      href: getOrderListPath(user, "PENDING"),
+      href: getOrderHref("AWAITING_REPLENISHMENT"),
     },
     {
-      label: "Chờ duyệt",
+      label: "Chá» duyá»‡t",
       count: data?.pendingApproval ?? 0,
       icon: FileSearch,
-      href: getOrderListPath(user, "PENDING"),
+      href: getOrderHref("PENDING"),
     },
-    ...(isAdmin
+    ...(canViewSystemOrders
       ? [
           {
-            label: "Chờ thanh toán",
+            label: "Chá» thanh toĂ¡n",
             count: data?.pendingPayment ?? 0,
             icon: CreditCard,
-            href: getOrderListPath(user, "AWAITING_PAYMENT"),
+            href: getOrderHref("AWAITING_PAYMENT"),
           },
         ]
       : []),
     {
-      label: "Chờ đóng gói",
+      label: "Chá» Ä‘Ă³ng gĂ³i",
       count: data?.pendingPacking ?? 0,
       icon: Package,
-      href: getOrderListPath(user, "PROCESSING"),
+      href: getOrderHref("PROCESSING"),
     },
     {
-      label: "Chờ bàn giao",
+      label: "Chá» bĂ n giao",
       count: data?.pendingPickup ?? 0,
       icon: Truck,
-      href: getOrderListPath(user, "READY_FOR_PICKUP"),
+      href: getOrderHref("READY_FOR_PICKUP"),
     },
     {
-      label: "Đang giao",
+      label: "Äang giao",
       count: data?.shipping ?? 0,
       icon: Share2,
-      href: getOrderListPath(user, "SHIPPING"),
+      href: getOrderHref("SHIPPING"),
     },
     {
-      label: "Hủy giao chờ nhận",
+      label: "Há»§y giao chá» nháº­n",
       count: data?.cancelPending ?? 0,
       icon: Ban,
-      href: getOrderListPath(user, "CANCELLED"),
+      href: getOrderHref("CANCELLED"),
     },
   ];
 
@@ -109,11 +115,11 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <div>
           <h2 className="text-[12px] font-semibold text-slate-900">
-            Điểm nghẽn cần xử lý trước
+            Äiá»ƒm ngháº½n cáº§n xá»­ lĂ½ trÆ°á»›c
           </h2>
         </div>
         <span className="text-[10.5px] font-medium text-slate-400">
-          Theo trạng thái
+          Theo tráº¡ng thĂ¡i
         </span>
       </div>
 
@@ -126,16 +132,16 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
               </div>
               <div>
                 <p className="text-[12.5px] font-semibold text-rose-700">
-                  Thiếu {backorderCount} sản phẩm ở {backorders?.length ?? 0}{" "}
-                  dòng hàng.
+                  Thiáº¿u {backorderCount} sáº£n pháº©m á»Ÿ {backorders?.length ?? 0}{" "}
+                  dĂ²ng hĂ ng.
                 </p>
               </div>
             </div>
             <Link
-              href={getOrderListPath(user, "PENDING")}
+              href={getOrderHref("AWAITING_REPLENISHMENT")}
               className="inline-flex h-9 items-center justify-center rounded-[4px] border border-rose-200 bg-white px-3.5 text-[12px] font-semibold text-rose-700 transition hover:bg-rose-100"
             >
-              Xem đơn thiếu hàng
+              Xem Ä‘Æ¡n thiáº¿u hĂ ng
             </Link>
           </div>
         </div>

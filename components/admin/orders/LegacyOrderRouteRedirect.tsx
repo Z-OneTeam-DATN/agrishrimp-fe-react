@@ -1,19 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { getOrderListPath } from "@/lib/order-routing";
+import { usePermissions } from "@/hooks/usePermissions";
+import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
+import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 export function LegacyOrderRouteRedirect({
-  message = "Màn quản lý đơn hàng cũ đã được khóa. Đang chuyển sang luồng mới...",
+  message = "MĂ n quáº£n lĂ½ Ä‘Æ¡n hĂ ng cÅ© Ä‘Ă£ Ä‘Æ°á»£c khĂ³a. Äang chuyá»ƒn sang luá»“ng má»›i...",
 }: {
   message?: string;
 }) {
   const router = useRouter();
-  const { user, isLoadingAuth } = useAuthStore();
-  const targetPath = getOrderListPath(user);
+  const { hasPermission } = usePermissions();
+  const { user, isLoadingAuth, warehouseId } = useAuthStore();
+  const targetPath = useMemo(
+    () =>
+      resolveOrderRouteAccess({
+        canViewSystemOrders: hasPermission(P.ORDER_VIEW),
+        canUseBranchOrders: canUseBranchOrderRoutes(user, warehouseId),
+      }).orderListPath,
+    [hasPermission, user, warehouseId],
+  );
 
   useEffect(() => {
     if (isLoadingAuth) {

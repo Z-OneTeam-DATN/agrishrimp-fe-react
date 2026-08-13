@@ -13,6 +13,7 @@ import {
   PrepareOrderResponse,
   ConfirmOrderPayload,
   ConfirmOrderResponse,
+  OrderReplenishmentDocument,
   PaymentMethod,
 } from "@/app/types/order.types";
 
@@ -61,7 +62,19 @@ export interface ReplenishmentRequestResult {
   message: string;
   transferCodes: string[];
   purchaseRequestCodes: string[];
+  planItems?: ReplenishmentPlanItem[];
+  blockedItems?: string[];
 }
+
+export interface ReplenishmentPlanItem extends OrderReplenishmentDocument {}
+
+export type ReplenishmentDocumentLink = OrderReplenishmentDocument & {
+  documentId: number | string;
+  documentType: string;
+  documentCode: string;
+  documentPath: string;
+  documentLabel: string;
+};
 
 export interface AdminOrderSummaryResponse {
   totalOrders: number;
@@ -84,9 +97,109 @@ export const getReplenishmentResultMessage = (
     details.push(`Yêu cầu mua: ${result.purchaseRequestCodes.join(", ")}`);
   }
 
+  if (result.blockedItems?.length) {
+    details.push(`Can cau hinh them: ${result.blockedItems.join("; ")}`);
+  }
+
   return details.length > 0
     ? `Đã xử lý bổ sung cho ${orderCode}. ${details.join(". ")}.`
     : `Đã ghi nhận yêu cầu bổ sung cho ${orderCode}.`;
+};
+
+const resolveReplenishmentDocumentType = (
+  item: OrderReplenishmentDocument,
+) => {
+  if (item.documentType) {
+    return item.documentType;
+  }
+
+  if (item.sourceType === "PURCHASE_REQUEST") {
+    return "PURCHASE_REQUEST";
+  }
+
+  if (
+    item.sourceType === "BRANCH_TRANSFER" ||
+    item.sourceType === "WAREHOUSE_TRANSFER"
+  ) {
+    return "TRANSFER";
+  }
+
+  return null;
+};
+
+const getFallbackReplenishmentDocumentPath = (
+  documentType: string,
+  documentId: number | string,
+) => {
+  if (documentType === "TRANSFER") {
+    return `/admin/transfers/${documentId}`;
+  }
+
+  if (documentType === "PURCHASE_REQUEST") {
+    return `/admin/purchase-requests/${documentId}`;
+  }
+
+  return null;
+};
+
+const getFallbackReplenishmentDocumentLabel = (
+  item: OrderReplenishmentDocument,
+  documentType: string,
+  documentCode: string,
+) => {
+  if (documentType === "TRANSFER") {
+    const route =
+      item.sourceBranchName && item.destinationBranchName
+        ? ` - ${item.sourceBranchName} -> ${item.destinationBranchName}`
+        : "";
+    return `Điều chuyển: ${documentCode}${route}`;
+  }
+
+  if (documentType === "PURCHASE_REQUEST") {
+    const supplier = item.sourceBranchName ? ` - ${item.sourceBranchName}` : "";
+    return `Yêu cầu NCC: ${documentCode}${supplier}`;
+  }
+
+  return item.documentLabel || documentCode;
+};
+
+export const getReplenishmentDocumentLinks = (
+  items?: OrderReplenishmentDocument[] | null,
+): ReplenishmentDocumentLink[] => {
+  const links = new Map<string, ReplenishmentDocumentLink>();
+
+  for (const item of items ?? []) {
+    const documentType = resolveReplenishmentDocumentType(item);
+    if (!documentType || documentType === "BLOCKED" || !item.documentId) {
+      continue;
+    }
+
+    const documentPath =
+      item.documentPath ??
+      getFallbackReplenishmentDocumentPath(documentType, item.documentId);
+    if (!documentPath) {
+      continue;
+    }
+
+    const documentCode = item.documentCode || String(item.documentId);
+    const documentLabel =
+      item.documentLabel ||
+      getFallbackReplenishmentDocumentLabel(item, documentType, documentCode);
+    const key = `${documentType}:${item.documentId}`;
+
+    if (!links.has(key)) {
+      links.set(key, {
+        ...item,
+        documentId: item.documentId,
+        documentType,
+        documentCode,
+        documentPath,
+        documentLabel,
+      });
+    }
+  }
+
+  return Array.from(links.values());
 };
 
 export type AdminOrderListParams = {
