@@ -1,6 +1,19 @@
 import axios from "axios"
 import { repairVietnameseText } from "@/lib/utils"
 
+const TECHNICAL_SERVER_ERROR_PATTERNS = [
+  /jdbc/i,
+  /\bsql\b/i,
+  /unknown column/i,
+  /hikaripool/i,
+  /connection is not available/i,
+  /communications link failure/i,
+  /could not extract/i,
+]
+
+const isTechnicalServerError = (message: string) =>
+  TECHNICAL_SERVER_ERROR_PATTERNS.some((pattern) => pattern.test(message))
+
 /** BE trả về lỗi dạng: { status: 400, message: "..." } */
 export function parseApiError(error: unknown): { code: string; message: string; retryAfterSeconds?: number } {
   if (axios.isAxiosError(error)) {
@@ -54,6 +67,8 @@ export function parseApiError(error: unknown): { code: string; message: string; 
       code = "UNAUTHORIZED"
     } else if (httpStatus === 403) {
       code = "FORBIDDEN"
+    } else if (typeof httpStatus === "number" && httpStatus >= 500) {
+      code = "SERVER_ERROR"
     } else if (!error.response) {
       code = "NETWORK_ERROR"
     } else {
@@ -76,7 +91,15 @@ export const ERROR_MESSAGES: Record<string, string> = {
 }
 
 export function getFriendlyError(error: unknown): string {
+  const technicalServerErrorMessage =
+    "Không thể tính phí giao hàng. Vui lòng thử lại sau hoặc chọn địa chỉ khác."
   const { code, message } = parseApiError(error)
+  if (code === "SERVER_ERROR") {
+    return technicalServerErrorMessage
+  }
+  if (isTechnicalServerError(message)) {
+    return technicalServerErrorMessage
+  }
   // Ưu tiên message từ BE (tiếng Việt), fallback sang map
   if (message !== "Lỗi không xác định") {
     return message

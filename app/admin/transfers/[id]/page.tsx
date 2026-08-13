@@ -35,6 +35,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/dateUtils";
 import { getErrorMessage } from "@/lib/axios";
 import { P } from "@/lib/permissions";
+import { markAdminOrdersRefreshNeeded } from "@/lib/order-refresh";
 import { getTransferStatusLabel } from "@/lib/transfer-status";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
@@ -125,6 +126,7 @@ export default function TransferDetailPage() {
     setIsProcessing(true);
     try {
       await action();
+      markAdminOrdersRefreshNeeded();
       toast.success(successMessage);
       afterSuccess?.();
       await fetchData();

@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import WarehouseWorkflowCards from "@/components/admin/WarehouseWorkflowCards";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
+import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { normalizeRoleSlug } from "@/lib/roles";
@@ -142,36 +143,39 @@ const getTrendColor = (value?: number | null, isNew?: boolean) => {
   return "text-slate-400";
 };
 
-const orderStatusRows = (pending?: PendingOrdersSummary) => [
+const orderStatusRows = (
+  pending: PendingOrdersSummary | undefined,
+  getOrderHref: (status?: string | null) => string,
+) => [
   {
     label: "Chờ duyệt",
     value: pending?.pendingApproval ?? 0,
-    href: "/admin/orders/pending",
+    href: getOrderHref("PENDING"),
   },
   {
     label: "Chờ thanh toán",
     value: pending?.pendingPayment ?? 0,
-    href: "/admin/orders/awaiting-payment",
+    href: getOrderHref("AWAITING_PAYMENT"),
   },
   {
     label: "Chờ đóng gói",
     value: pending?.pendingPacking ?? 0,
-    href: "/admin/orders/processing",
+    href: getOrderHref("PROCESSING"),
   },
   {
     label: "Chờ lấy hàng",
     value: pending?.pendingPickup ?? 0,
-    href: "/admin/orders/ready-for-pickup",
+    href: getOrderHref("READY_FOR_PICKUP"),
   },
   {
     label: "Đang giao",
     value: pending?.shipping ?? 0,
-    href: "/admin/orders/shipping",
+    href: getOrderHref("SHIPPING"),
   },
   {
     label: "Hủy giao chờ nhận",
     value: pending?.cancelPending ?? 0,
-    href: "/admin/orders-all",
+    href: getOrderHref("CANCELLED"),
   },
 ];
 
@@ -212,6 +216,14 @@ export default function AdminDashboard() {
     P.TRANSFER_VIEW,
     P.CHECK_VIEW,
   ]);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const getOrderHref = (status?: string | null) =>
+    getOrderListPath({
+      canViewSystemOrders,
+      canUseBranchOrders,
+      status,
+    });
   const canRunProtectedQueries =
     !isLoadingAuth && !isLoadingPermissions && !!user && !!accessToken && canViewDashboard;
 
@@ -366,8 +378,8 @@ export default function AdminDashboard() {
   );
 
   const orderRows = useMemo(
-    () => orderStatusRows(pendingSummary),
-    [pendingSummary],
+    () => orderStatusRows(pendingSummary, getOrderHref),
+    [getOrderHref, pendingSummary],
   );
   const orderChartRows = orderRows.map((item) => ({
     name: item.label,
@@ -773,7 +785,7 @@ export default function AdminDashboard() {
             label="Xử lý đơn"
             value={orderWorkload}
             description="Duyệt, thanh toán, đóng gói và giao hàng."
-            href="/admin/orders-all"
+            href={getOrderHref()}
           />
           <PriorityCard
             label="Bổ sung hàng"

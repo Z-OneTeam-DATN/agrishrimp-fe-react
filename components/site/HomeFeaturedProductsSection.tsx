@@ -28,6 +28,7 @@ export default function HomeFeaturedProductsSection({
     (initialPage.number ?? 0) + 1 < (initialPage.totalPages ?? 0),
   );
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(Boolean(initialPage.failed));
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const loadMore = useCallback(async () => {
@@ -41,6 +42,13 @@ export default function HomeFeaturedProductsSection({
         size: initialPage.size || 18,
       });
 
+      if (data.failed) {
+        setLoadFailed(true);
+        setHasMore(false);
+        return;
+      }
+
+      setLoadFailed(false);
       setAllProducts((prev) => {
         const seenIds = new Set(prev.map((product) => product.id));
         const newProducts = (data.content ?? []).filter(
@@ -191,6 +199,10 @@ export default function HomeFeaturedProductsSection({
             </div>
           )}
         </>
+      ) : loadFailed ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-5 text-center text-sm font-semibold text-amber-700">
+          Chưa tải được sản phẩm nổi bật. Vui lòng thử lại sau.
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {Array.from({ length: 6 }).map((_, index) => (

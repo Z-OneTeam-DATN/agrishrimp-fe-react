@@ -28,6 +28,9 @@ interface Branch {
   province?: string;
   district?: string;
   ward?: string;
+  provinceName?: string;
+  districtName?: string;
+  wardName?: string;
   status: string;
   managerNames: string[];
   managerIds: number[];
@@ -86,7 +89,11 @@ export function AdminBranchTable({
   };
 
   const formatBranchAddress = (branch: Branch) => {
-    return [branch.addressDetail, branch.ward, branch.district, branch.province]
+    const ward = branch.wardName ?? branch.ward;
+    const district = branch.districtName ?? branch.district;
+    const province = branch.provinceName ?? branch.province;
+
+    return [branch.addressDetail, ward, district, province]
       .filter(Boolean)
       .join(", ");
   };
