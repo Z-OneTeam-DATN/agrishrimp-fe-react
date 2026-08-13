@@ -21,8 +21,13 @@ const getDiagnosisStorageKey = (diagnosisId: string) =>
 
 const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
   if (!canUseStorage()) return;
-  // HEALTHY không có DB record thực — không persist để tránh fetch lại lỗi
-  if (diagnosis.status === "HEALTHY") return;
+  // HEALTHY/IMAGE_OBSERVATION không có DB record thực — không persist để tránh fetch lại lỗi.
+  if (
+    diagnosis.status === "HEALTHY" ||
+    diagnosis.status === "IMAGE_OBSERVATION"
+  ) {
+    return;
+  }
 
   const cachedDiagnosis = getCachedDiagnosis(diagnosis.diagnosisId);
   const mergedDiagnosis: AiDoctorDiagnosisResponse = {

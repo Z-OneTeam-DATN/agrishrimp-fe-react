@@ -70,6 +70,11 @@ type DiagnosePayload = {
   clientPreviewUrl?: string;
 };
 
+type PendingImageObservation = {
+  image: File;
+  clientPreviewUrl?: string;
+};
+
 function StageSelectionBubble({
   message,
   options,
@@ -141,75 +146,6 @@ function StageSelectionBubble({
             </button>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-const getVisibleDiseaseImageUrls = (imageUrls?: string[]) =>
-  (imageUrls ?? [])
-    .map((imageUrl) => imageUrl.trim())
-    .filter(Boolean)
-    .slice(0, 3);
-
-function DiseaseReferenceImageGrid({
-  imageUrls,
-  diseaseName,
-}: {
-  imageUrls?: string[];
-  diseaseName?: string;
-}) {
-  const visibleImageUrls = getVisibleDiseaseImageUrls(imageUrls);
-
-  if (visibleImageUrls.length === 0) return null;
-
-  return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-      {visibleImageUrls.map((imageUrl, index) => (
-        <div
-          key={`${imageUrl}-${index}`}
-          className="relative h-36 overflow-hidden rounded-xl border border-slate-100 bg-slate-50"
-        >
-          <Image
-            src={imageUrl}
-            alt={
-              diseaseName
-                ? `Ảnh minh họa ${diseaseName}`
-                : "Ảnh minh họa bệnh tôm"
-            }
-            fill
-            className="object-cover"
-            unoptimized
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DiseaseReferenceImages({
-  imageUrls,
-  diseaseName,
-  className = "",
-}: {
-  imageUrls?: string[];
-  diseaseName?: string;
-  className?: string;
-}) {
-  if (getVisibleDiseaseImageUrls(imageUrls).length === 0) return null;
-
-  return (
-    <div
-      className={`ml-[42px] w-full max-w-[78%] overflow-hidden rounded-2xl border border-[#c8d7f1] bg-white shadow-sm ${className}`}
-    >
-      <div className="border-b border-[#c8d7f1] bg-[#eaf2fc] px-4 py-2 text-[12px] font-extrabold uppercase text-[#1965A2]">
-        Ảnh minh họa bệnh trong phác đồ
-      </div>
-      <div className="p-3">
-        <DiseaseReferenceImageGrid
-          imageUrls={imageUrls}
-          diseaseName={diseaseName}
-        />
       </div>
     </div>
   );
@@ -387,6 +323,8 @@ export default function AiDoctorChatPage() {
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingImageObservation, setPendingImageObservation] =
+    useState<PendingImageObservation | null>(null);
   const [symptoms, setSymptoms] = useState("");
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [clarifySession, setClarifySession] = useState<ClarifySession | null>(
@@ -539,6 +477,15 @@ export default function AiDoctorChatPage() {
           })
         : data;
 
+      if (data.status === "IMAGE_OBSERVATION") {
+        pushEntry({ kind: "bot-diagnosis", diagnosis: hydratedDiagnosis });
+        setPendingImageObservation({
+          image: variables.image,
+          clientPreviewUrl: variables.clientPreviewUrl,
+        });
+        return;
+      }
+
       if (data.needsClarification) {
         pushEntry({ kind: "bot-diagnosis", diagnosis: hydratedDiagnosis });
         setClarifySession({ diagnosisId: data.diagnosisId });
@@ -555,6 +502,7 @@ export default function AiDoctorChatPage() {
         return;
       }
 
+      setPendingImageObservation(null);
       setClarifySession(null);
 
       // UNRECOGNIZED: YOLO khong nhan ra benh cu the nao tu anh — Bac si Tom da tu van goi y mo +
@@ -667,6 +615,7 @@ export default function AiDoctorChatPage() {
     }
 
     setSelectedImage(file);
+    setPendingImageObservation(null);
     setPreviewUrl(URL.createObjectURL(file));
     event.target.value = "";
   };
@@ -678,6 +627,19 @@ export default function AiDoctorChatPage() {
       toast.error(
         "Bà con hãy nhập dấu hiệu hoặc gửi ảnh tôm để bác sĩ hỗ trợ nhé.",
       );
+      return;
+    }
+
+    if (!selectedImage && pendingImageObservation && currentSymptoms) {
+      const pendingImage = pendingImageObservation;
+      pushEntry({ kind: "user", text: currentSymptoms });
+      setSymptoms("");
+      setPendingImageObservation(null);
+      diagnoseMutation.mutate({
+        image: pendingImage.image,
+        userSymptoms: buildCumulativeSymptoms(entries, currentSymptoms),
+        clientPreviewUrl: pendingImage.clientPreviewUrl,
+      });
       return;
     }
 
@@ -984,13 +946,8 @@ export default function AiDoctorChatPage() {
                     )}
                   </div>
 
-                  <DiseaseReferenceImages
-                    imageUrls={diagnosis.disease?.imageUrls}
-                    diseaseName={diagnosis.disease?.nameVi}
-                  />
-
                   {!diagnosis.needsClarification &&
-                  diagnosis.status !== "UNRECOGNIZED" &&
+                  diagnosis.status === "DISEASE" &&
                   diagnosis.stageSelection?.options?.length ? (
                     <StageSelectionBubble
                       message={diagnosis.stageSelection.message}
@@ -1012,7 +969,7 @@ export default function AiDoctorChatPage() {
                       }
                     />
                   ) : !diagnosis.needsClarification &&
-                    diagnosis.status !== "UNRECOGNIZED" ? (
+                    diagnosis.status === "DISEASE" ? (
                     <button
                       onClick={() => openReport(diagnosis.diagnosisId)}
                       className="ml-[42px] flex h-11 items-center justify-center gap-1 rounded-xl bg-[#1965A2] px-4 text-[13px] font-bold uppercase text-white shadow-sm transition-colors hover:bg-[#15588D]"
@@ -1104,20 +1061,6 @@ export default function AiDoctorChatPage() {
                                 unoptimized
                               />
                             </div>
-                          </div>
-                        )}
-
-                        {getVisibleDiseaseImageUrls(
-                          diagnosis.disease?.imageUrls,
-                        ).length > 0 && (
-                          <div>
-                            <div className="mb-2 text-[11px] font-bold uppercase text-slate-500">
-                              Ảnh minh họa bệnh trong phác đồ
-                            </div>
-                            <DiseaseReferenceImageGrid
-                              imageUrls={diagnosis.disease?.imageUrls}
-                              diseaseName={diagnosis.disease?.nameVi}
-                            />
                           </div>
                         )}
 
@@ -1315,8 +1258,7 @@ export default function AiDoctorChatPage() {
                 <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-400">
                   <span className="inline-flex items-center gap-1">
                     <Sparkles size={12} />
-                    Gửi ảnh để bác sĩ AI xem bệnh kỹ hơn — kết quả chỉ mang tính
-                    tham khảo
+                    Cần đủ ảnh + dấu hiệu để bác sĩ đưa kết quả cuối cùng
                   </span>
                   <span>{symptoms.length}/300</span>
                 </div>

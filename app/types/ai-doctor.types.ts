@@ -53,8 +53,8 @@ export interface AiDoctorTopPrediction {
 
 export interface AiDoctorDiagnosisResponse {
   diagnosisId: string;
-  /** HEALTHY | DISEASE | UNRECOGNIZED — FE dùng để phân nhánh UI */
-  status?: "HEALTHY" | "DISEASE" | "UNRECOGNIZED";
+  /** IMAGE_OBSERVATION | HEALTHY | DISEASE | UNRECOGNIZED — FE dùng để phân nhánh UI */
+  status?: "IMAGE_OBSERVATION" | "HEALTHY" | "DISEASE" | "UNRECOGNIZED";
   imageUrl?: string;
   clientImageUrl?: string;
   disease?: AiDoctorDiseaseInfo;
