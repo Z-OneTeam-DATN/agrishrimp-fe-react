@@ -8,6 +8,7 @@ import { transferService } from "@/app/services/transfer.service";
 import { branchService } from "@/app/services/branchService";
 import { ProductService } from "@/app/services/product.service";
 import { Driver } from "@/app/types/driver.schema";
+import { useAuthStore } from "@/stores/useAuthStore";
 import {
   Plus,
   Trash2,
@@ -43,6 +44,7 @@ import { TransferSchema } from "@/app/types/inventory.schema";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
+import { isAdminRole } from "@/lib/roles";
 
 function normalizeBranchText(value: unknown) {
   return String(value ?? "")
@@ -88,6 +90,8 @@ function getDriverVehicleNumber(driver: Driver | null) {
 export default function NewTransferPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const currentUser = useAuthStore((state) => state.user);
+  const warehouseId = useAuthStore((state) => state.warehouseId);
   const sourceCode = searchParams.get("source");
   const editId = searchParams.get("editId");
   const isEditMode = Boolean(editId);
@@ -155,6 +159,9 @@ export default function NewTransferPage() {
   const currentDestinationBranch = watch("destBranch");
   const watchedItems = watch("items");
   const isInternalSale = transferBusinessType === "INTERNAL_SALE";
+  const currentUserBranchId =
+    currentUser?.branch?.id != null ? String(currentUser.branch.id) : warehouseId != null ? String(warehouseId) : "";
+  const canSelectAnyBranch = isAdminRole(currentUser?.role);
   const totalTransferQuantity = (watchedItems || []).reduce(
     (sum: number, item: any) => sum + (Number(item.quantity) || 0),
     0,
@@ -166,11 +173,25 @@ export default function NewTransferPage() {
         return sum + qty * price;
       }, 0)
     : 0;
-  const availableSourceBranches =
+  const sourceBranchOptions =
     transferBusinessType === "STOCK_TRANSFER"
       ? branches.filter(isWarehouseBranch)
       : branches.filter(isSellingBranch);
-  const availableDestinationBranches = branches.filter(isSellingBranch);
+  const destinationBranchOptions = branches.filter(isSellingBranch);
+  const currentBranchCanBeSource = sourceBranchOptions.some(
+    (branch) => String(branch.id) === currentUserBranchId,
+  );
+  const currentBranchCanBeDestination = destinationBranchOptions.some(
+    (branch) => String(branch.id) === currentUserBranchId,
+  );
+  const availableSourceBranches =
+    canSelectAnyBranch || !currentBranchCanBeSource
+      ? sourceBranchOptions
+      : sourceBranchOptions.filter((branch) => String(branch.id) === currentUserBranchId);
+  const availableDestinationBranches =
+    canSelectAnyBranch || !currentBranchCanBeDestination
+      ? destinationBranchOptions
+      : destinationBranchOptions.filter((branch) => String(branch.id) === currentUserBranchId);
 
   useEffect(() => {
     setValue(
@@ -184,6 +205,45 @@ export default function NewTransferPage() {
     control,
     name: "items",
   });
+
+  useEffect(() => {
+    if (isEditMode || currentSourceBranch || availableSourceBranches.length !== 1) {
+      return;
+    }
+
+    const branch = availableSourceBranches[0];
+    setValue("sourceBranch", String(branch.id), {
+      shouldValidate: true,
+      shouldDirty: false,
+    });
+    setValue(
+      "sourceAddress",
+      branch.addressDetail || "Chua cap nhat dia chi",
+    );
+  }, [availableSourceBranches, currentSourceBranch, isEditMode, setValue]);
+
+  useEffect(() => {
+    if (isEditMode || currentDestinationBranch || availableDestinationBranches.length !== 1) {
+      return;
+    }
+
+    const branch = availableDestinationBranches[0];
+    if (String(branch.id) === currentSourceBranch) {
+      return;
+    }
+
+    setValue("destBranch", String(branch.id), {
+      shouldValidate: true,
+      shouldDirty: false,
+    });
+    setValue("destAddress", branch.addressDetail || "Chua cap nhat dia chi");
+  }, [
+    availableDestinationBranches,
+    currentDestinationBranch,
+    currentSourceBranch,
+    isEditMode,
+    setValue,
+  ]);
 
   useEffect(() => {
     if (!currentSourceBranch) {
