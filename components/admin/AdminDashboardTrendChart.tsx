@@ -164,7 +164,7 @@ export default function AdminDashboardTrendChart({
                       <XAxis
                         dataKey="label"
                         tickLine={false}
-                        axisLine={{ stroke: VIZ_CHROME.baseline }}
+                        axisLine={false}
                         tick={axisTick}
                         interval={0}
                         height={28}
@@ -175,6 +175,7 @@ export default function AdminDashboardTrendChart({
                         axisLine={false}
                         tick={axisTick}
                         tickFormatter={shortMoney}
+                        allowDecimals={false}
                       />
                       <Tooltip
                         cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}

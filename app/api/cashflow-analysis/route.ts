@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       };
     };
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.NEXT_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.error("GEMINI_API_KEY is not configured");
       return NextResponse.json(buildFallbackResponse());

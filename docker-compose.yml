@@ -29,6 +29,7 @@ services:
       - JAVA_API_URL=${JAVA_API_URL:-http://api:8004/api}
       - GHN_TOKEN=${GHN_TOKEN}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEXT_GEMINI_API_KEY=${NEXT_GEMINI_API_KEY}
       - NODE_ENV=production
     restart: unless-stopped
     networks:
