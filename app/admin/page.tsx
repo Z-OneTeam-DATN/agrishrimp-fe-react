@@ -377,7 +377,7 @@ export default function AdminDashboard() {
   >({
     queryKey: ["backorder-report", selectedBranchId],
     queryFn: () => orderService.getBackorderReport(selectedBranchId),
-    enabled: canRunProtectedQueries,
+    enabled: canRunProtectedQueries && canViewSystemOrders,
     refetchInterval: 60000,
   });
 
