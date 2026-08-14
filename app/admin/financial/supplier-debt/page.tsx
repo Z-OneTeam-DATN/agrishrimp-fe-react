@@ -15,6 +15,7 @@ import {
 import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SupplierDebtInsightService } from "@/app/services/supplier-debt-insight";
@@ -109,6 +110,86 @@ function SupplierDebtReportContent() {
   const [staffs, setStaffs] = useState<StaffOption[]>([]);
   const [isExplainOpen, setIsExplainOpen] = useState(false);
   const [debtFilter, setDebtFilter] = useState<string>("not_zero");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierDebtData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [debtDetails, setDebtDetails] = useState<any[]>([]);
+
+  const [payInvoice, setPayInvoice] = useState<any | null>(null);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payMethod, setPayMethod] = useState<string>("BANK_TRANSFER");
+  const [payRefCode, setPayRefCode] = useState<string>("");
+  const [payNote, setPayNote] = useState<string>("");
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+
+  const handleSelectSupplier = async (supplier: SupplierDebtData) => {
+    setSelectedSupplier(supplier);
+    setDetailLoading(true);
+    try {
+      const res = await SupplierDebtService.getDebtDetail(supplier.id, branchId);
+      setDebtDetails(res);
+    } catch (error) {
+      console.error("Lỗi lấy chi tiết công nợ:", error);
+      toast.error("Không thể tải chi tiết công nợ");
+      setDebtDetails([]);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleRefreshDetails = async () => {
+    if (!selectedSupplier) return;
+    setDetailLoading(true);
+    try {
+      const res = await SupplierDebtService.getDebtDetail(selectedSupplier.id, branchId);
+      setDebtDetails(res);
+    } catch (error) {
+      console.error("Lỗi làm mới chi tiết công nợ:", error);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleOpenPay = (invoice: any) => {
+    setPayInvoice(invoice);
+    setPayAmount(invoice.outstandingAmount);
+    setPayMethod("BANK_TRANSFER");
+    setPayRefCode("");
+    setPayNote(`Thanh toan cong no phieu ${invoice.noteCode || ""}`);
+  };
+
+  const handleSubmittingPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payInvoice) return;
+    if (payAmount <= 0) {
+      toast.error("Số tiền thanh toán phải lớn hơn 0");
+      return;
+    }
+    if (payAmount > payInvoice.outstandingAmount) {
+      toast.error("Số tiền thanh toán không được vượt quá số nợ còn lại");
+      return;
+    }
+    setSubmittingPayment(true);
+    try {
+      await SupplierDebtService.payDebt(
+        payInvoice.noteId,
+        payAmount,
+        payMethod,
+        payRefCode,
+        payNote
+      );
+      toast.success("Thanh toán công nợ thành công!");
+      setPayInvoice(null);
+      await handleRefreshDetails();
+      setRefreshTrigger((prev) => prev + 1);
+    } catch (error) {
+      console.error("Lỗi thanh toán:", error);
+      const errMsg = (error as any)?.response?.data?.message || "Không thể thực hiện thanh toán";
+      toast.error(errMsg);
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
 
   const [insightData, setInsightData] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
@@ -243,7 +324,7 @@ function SupplierDebtReportContent() {
     }, 400);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, startDate, endDate, branchId, staffId, debtFilter]);
+  }, [searchTerm, startDate, endDate, branchId, staffId, debtFilter, refreshTrigger]);
 
   const handleExportExcel = () => {
     if (!data || data.length === 0) {
@@ -698,7 +779,8 @@ function SupplierDebtReportContent() {
                   {data.map((row) => (
                     <TableRow
                       key={row.id}
-                      className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
+                      onClick={() => handleSelectSupplier(row)}
+                      className="cursor-pointer border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
                     >
                       <TableCell className="py-3 pl-6 font-mono text-[13px] font-semibold text-blue-600">
                         {row.supplierCode}
@@ -727,6 +809,181 @@ function SupplierDebtReportContent() {
           )}
         </div>
       </div>
+
+      <Dialog open={selectedSupplier !== null} onOpenChange={(open) => { if (!open) setSelectedSupplier(null); }}>
+        <DialogContent className="max-w-4xl border border-slate-200 bg-white shadow-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="uppercase text-slate-900 text-base font-bold">
+              Chi tiết công nợ đối tác: {selectedSupplier?.supplierName}
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs mt-1">
+              Mã: <span className="font-mono font-semibold text-blue-600">{selectedSupplier?.supplierCode}</span> | SĐT: {selectedSupplier?.phone || "---"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {detailLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-2">
+                <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+                <p className="text-xs text-slate-500 font-medium">Đang tải sổ chi tiết công nợ...</p>
+              </div>
+            ) : debtDetails.length > 0 ? (
+              <div className="overflow-x-auto rounded-[4px] border border-slate-200 bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
+                      <TableHead className="py-2.5 pl-4 text-[11px] font-semibold text-slate-700 w-[140px]">Mã chứng từ</TableHead>
+                      <TableHead className="py-2.5 text-[11px] font-semibold text-slate-700 w-[100px]">Loại</TableHead>
+                      <TableHead className="py-2.5 text-[11px] font-semibold text-slate-700 w-[130px]">Ngày tạo</TableHead>
+                      <TableHead className="py-2.5 text-[11px] font-semibold text-slate-700 text-right w-[120px]">Giá trị</TableHead>
+                      <TableHead className="py-2.5 text-[11px] font-semibold text-slate-700 text-right w-[110px]">Đã thanh toán</TableHead>
+                      <TableHead className="py-2.5 text-[11px] font-semibold text-slate-700 text-right w-[120px]">Còn nợ</TableHead>
+                      <TableHead className="py-2.5 text-[11px] font-semibold text-slate-700 text-center w-[120px]">Chi nhánh</TableHead>
+                      <TableHead className="py-2.5 pr-4 text-[11px] font-semibold text-center w-[100px]">Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {debtDetails.map((detail) => (
+                      <TableRow key={detail.noteId} className="border-b border-[#eee] hover:bg-[#f8f9fa] text-xs">
+                        <TableCell className="py-2.5 pl-4 font-mono font-semibold text-slate-800">{detail.noteCode || `ID-${detail.noteId}`}</TableCell>
+                        <TableCell className="py-2.5">
+                          <Badge className={cn(
+                            "border-none text-[10px] font-semibold px-2 py-0.5 rounded",
+                            detail.noteType === "IMPORT" ? "bg-blue-50 text-blue-700 hover:bg-blue-50" : "bg-orange-50 text-orange-700 hover:bg-orange-50"
+                          )}>
+                            {detail.noteType === "IMPORT" ? "Nhập hàng" : "Xuất trả"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-2.5 text-slate-500">{new Date(detail.createdAt).toLocaleDateString("vi-VN")}</TableCell>
+                        <TableCell className="py-2.5 text-right font-semibold text-slate-800">{detail.totalAmount.toLocaleString("vi-VN")} ₫</TableCell>
+                        <TableCell className="py-2.5 text-right text-slate-600">{detail.paidAmount.toLocaleString("vi-VN")} ₫</TableCell>
+                        <TableCell className="py-2.5 text-right font-bold text-rose-600">{detail.outstandingAmount.toLocaleString("vi-VN")} ₫</TableCell>
+                        <TableCell className="py-2.5 text-center text-slate-500">{detail.branchName || "---"}</TableCell>
+                        <TableCell className="py-2.5 pr-4 text-center">
+                          {detail.noteType === "IMPORT" && detail.outstandingAmount > 0 ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 border-blue-200 text-blue-600 bg-white text-[11px] font-semibold px-3 shadow-none hover:bg-blue-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenPay(detail);
+                              }}
+                            >
+                              Trả nợ
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-medium">Đã trả đủ</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-xs text-slate-400">
+                Không ghi nhận phát sinh công nợ với đối tác này trong chi nhánh được chọn.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={payInvoice !== null} onOpenChange={(open) => { if (!open) setPayInvoice(null); }}>
+        <DialogContent className="max-w-md border border-slate-200 bg-white shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="uppercase text-slate-900 text-sm font-bold">
+              Ghi nhận thanh toán công nợ
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs mt-1">
+              Thanh toán cho phiếu nhập: <span className="font-mono font-semibold text-slate-800">{payInvoice?.noteCode}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmittingPayment} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-500">Số tiền nợ còn lại</Label>
+              <Input
+                value={`${payInvoice?.outstandingAmount?.toLocaleString("vi-VN")} ₫`}
+                readOnly
+                className="h-9 rounded-md bg-slate-50 font-semibold text-slate-650"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-500">Số tiền thanh toán *</Label>
+              <Input
+                type="number"
+                required
+                value={payAmount || ""}
+                onChange={(e) => setPayAmount(Number(e.target.value))}
+                placeholder="Nhập số tiền..."
+                className="h-9 rounded-md border-slate-200 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-500">Phương thức thanh toán *</Label>
+              <Select value={payMethod} onValueChange={setPayMethod}>
+                <SelectTrigger className="h-9 rounded-md border-slate-200 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BANK_TRANSFER">Chuyển khoản ngân hàng</SelectItem>
+                  <SelectItem value="CASH">Tiền mặt</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-500">Mã tham chiếu (nếu có)</Label>
+              <Input
+                value={payRefCode}
+                onChange={(e) => setPayRefCode(e.target.value)}
+                placeholder="Mã giao dịch ngân hàng..."
+                className="h-9 rounded-md border-slate-200 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-500">Ghi chú</Label>
+              <Input
+                value={payNote}
+                onChange={(e) => setPayNote(e.target.value)}
+                placeholder="Nội dung chi tiền..."
+                className="h-9 rounded-md border-slate-200 text-sm"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 text-xs font-medium"
+                onClick={() => setPayInvoice(null)}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingPayment}
+                className="h-9 bg-blue-600 text-white hover:bg-blue-700 text-xs font-semibold px-4"
+              >
+                {submittingPayment ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  "Xác nhận thanh toán"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
         <DialogContent className="max-w-2xl border border-slate-200 bg-white shadow-xl">

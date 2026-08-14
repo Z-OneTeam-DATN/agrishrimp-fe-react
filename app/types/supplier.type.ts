@@ -67,6 +67,7 @@ export interface SupplierProductCatalogItem {
   categoryName?: string;
   status: SupplierProductCatalogStatus;
   note?: string;
+  price?: number | null;
   statusChangedAt?: string;
   version: number;
   createdAt?: string;
