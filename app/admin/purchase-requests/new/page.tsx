@@ -113,14 +113,9 @@ function isWarehouseBranchOption(
 
   if (code === "SYSTEM_DEFECT") return false;
   if (code === "MAIN_WH") return true;
-  if (type === "WAREHOUSE") return true;
+  if (type === "WAREHOUSE" || type === "MAIN_WAREHOUSE") return true;
 
-  return (
-    code.includes("WH") ||
-    code.includes("WAREHOUSE") ||
-    name.includes("kho") ||
-    name.includes("warehouse")
-  );
+  return name.includes("kho tong") || name.includes("main warehouse");
 }
 
 function buildSupplierCatalogVariants(
@@ -264,18 +259,16 @@ export default function NewPurchaseRequestPage() {
   const [catalogSearchTerm, setCatalogSearchTerm] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canAccessPurchaseRequests = hasPermission(P.PURCHASE_REQUEST_CREATE);
+  const hasCreatePurchaseRequestPermission = hasPermission(P.PURCHASE_REQUEST_CREATE);
+  const canAccessPurchaseRequests = hasCreatePurchaseRequestPermission;
   const isCurrentWarehouseBranch = useMemo(() => {
     if (isWarehouseBranchOption(currentUserBranchOption)) {
       return true;
     }
 
+    const currentBranchId = currentUserBranch?.id ?? warehouseId;
     return warehouseBranches.some((branch) => {
-      if (currentUserBranch?.id && String(branch.id) === String(currentUserBranch.id)) {
-        return true;
-      }
-
-      if (warehouseId && String(branch.id) === String(warehouseId)) {
+      if (currentBranchId && String(branch.id) === String(currentBranchId)) {
         return true;
       }
 
@@ -283,7 +276,9 @@ export default function NewPurchaseRequestPage() {
       return Boolean(currentName) && normalizeBranchText(branch.name) === currentName;
     });
   }, [currentUserBranch, currentUserBranchOption, warehouseBranches, warehouseId]);
-  const canCreatePurchaseRequests = hasPermission(P.PURCHASE_REQUEST_CREATE);
+  const canCreatePurchaseRequests =
+    hasCreatePurchaseRequestPermission &&
+    (isSuperAdmin || isCurrentWarehouseBranch);
 
   const {
     register,
@@ -338,21 +333,26 @@ export default function NewPurchaseRequestPage() {
         const allBranches = Array.isArray(branchData)
           ? branchData
           : (branchData?.content ?? []);
+        const allWarehouseBranches: BranchDTO[] = allBranches.filter(
+          isWarehouseBranchOption,
+        );
+        const currentBranchId = currentUserBranch?.id ?? warehouseId;
         const selectableBranches: BranchDTO[] = isSuperAdmin
-          ? allBranches.filter((branch: BranchDTO) => {
-              const code = String(branch.branchCode || "").trim().toUpperCase();
-              return code !== "SYSTEM_DEFECT";
-            })
-          : allBranches.filter(isWarehouseBranchOption);
+          ? allWarehouseBranches
+          : allWarehouseBranches.filter(
+              (branch: BranchDTO) =>
+                currentBranchId && String(branch.id) === String(currentBranchId),
+            );
 
         setWarehouseBranches(selectableBranches);
 
         const defaultWarehouse =
           selectableBranches.find(
-            (branch: BranchDTO) => branch.name === currentUserBranch?.name,
+            (branch: BranchDTO) =>
+              currentBranchId && String(branch.id) === String(currentBranchId),
           ) ??
           selectableBranches.find(
-            (branch: BranchDTO) => branch.id === warehouseId,
+            (branch: BranchDTO) => branch.name === currentUserBranch?.name,
           ) ??
           selectableBranches.find(
             (branch: BranchDTO) =>
@@ -616,6 +616,11 @@ export default function NewPurchaseRequestPage() {
       const selectedBranch = warehouseBranches.find(
         (branch) => branch.id === Number(data.branchId),
       );
+      if (!selectedBranch) {
+        toast.error("Vui long chon kho tong nhan hang hop le.");
+        return;
+      }
+
       const catalogSkus = new Set(
         supplierProducts.map((product) => product.sku.trim().toLowerCase()),
       );
@@ -657,7 +662,7 @@ export default function NewPurchaseRequestPage() {
     return null;
   }
 
-  if (!canCreatePurchaseRequests) {
+  if (!hasCreatePurchaseRequestPermission) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
         Bạn không có quyền tạo phiếu yêu cầu nhập NCC.
@@ -665,7 +670,7 @@ export default function NewPurchaseRequestPage() {
     );
   }
 
-  if (!isSuperAdmin && !isCurrentWarehouseBranch) {
+  if (!canCreatePurchaseRequests) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
         Chỉ kho tổng mới được tạo phiếu yêu cầu nhập NCC.
@@ -720,7 +725,7 @@ export default function NewPurchaseRequestPage() {
 
             <div>
               <label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
-                {isSuperAdmin ? "Chi nhánh nhận hàng" : "Kho tổng nhận hàng"} <span className="text-red-500">*</span>
+                Kho tổng nhận hàng <span className="text-red-500">*</span>
               </label>
               <select
                 {...register("branchId", {
@@ -740,7 +745,7 @@ export default function NewPurchaseRequestPage() {
                 )}
                 value={watchedBranchId || ""}
               >
-                <option value="">-- Chọn chi nhánh nhập --</option>
+                <option value="">-- Chọn kho tổng --</option>
                 {warehouseBranches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
