@@ -7,7 +7,11 @@ function getFirstImageUrl(imagePath?: string | null) {
   return String(imagePath ?? "")
     .split(",")
     .map((item) => item.trim())
-    .find(Boolean);
+    .find((item) => {
+      if (!item) return false;
+      const lowered = item.toLowerCase();
+      return lowered !== "null" && lowered !== "undefined";
+    });
 }
 
 export function resolveImageUrl(

@@ -212,6 +212,25 @@ export default function AdminChatPage() {
     load();
   }, [setConversations]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshConversations = async () => {
+      try {
+        const convData = await ChatService.getAllConversations(0, 50);
+        if (!cancelled) {
+          setConversations(convData.content);
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(refreshConversations, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [setConversations]);
+
   // Load messages (clean reload to avoid flashing/stale data)
   useEffect(() => {
     if (!activeConversationId) return;
@@ -224,6 +243,29 @@ export default function AdminChatPage() {
       .finally(() => { if (!cancelled) setIsLoadingMsgs(false); });
 
     return () => { cancelled = true; };
+  }, [activeConversationId, setMessages]);
+
+  useEffect(() => {
+    if (!activeConversationId) return;
+    let cancelled = false;
+
+    const refreshMessages = async () => {
+      const currentMessages = useChatStore.getState().messages[activeConversationId] ?? [];
+      if (currentMessages.some((msg) => msg.status === "sending")) return;
+
+      try {
+        const freshMessages = await ChatService.getMessages(activeConversationId);
+        if (!cancelled) {
+          setMessages(activeConversationId, freshMessages);
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(refreshMessages, 3500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [activeConversationId, setMessages]);
 
   // Auto-scroll

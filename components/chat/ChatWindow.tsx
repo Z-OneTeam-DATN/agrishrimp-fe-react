@@ -12,15 +12,10 @@ import StickerPicker from "./StickerPicker";
 import MessageBubble, { TypingBubble, parseReactionsAndMessages } from "./MessageBubble";
 import { useRouter } from "next/navigation";
 import { PublicProductService } from "@/app/services/publicProduct.service";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
-const getFullImageUrl = (url?: string) => {
-  if (!url) return "/placeholder.svg";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
-    return url;
-  }
-  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
-  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
-};
+const getFullImageUrl = (url?: string) => resolveImageUrl(url, "/placeholder.svg");
+const getChatImageUrl = (url?: string) => resolveImageUrl(url, "");
 export default function ChatWindow() {
   const { user } = useAuthStore();
   const router = useRouter();
@@ -105,6 +100,29 @@ export default function ChatWindow() {
     init();
     return () => { cancelled = true; };
   }, [isOpen, user?.id, setActiveConversation, setMessages]);
+
+  useEffect(() => {
+    if (!isOpen || isMinimized || !activeConversationId) return;
+    let cancelled = false;
+
+    const refreshMessages = async () => {
+      const currentMessages = useChatStore.getState().messages[activeConversationId] ?? [];
+      if (currentMessages.some((msg) => msg.status === "sending")) return;
+
+      try {
+        const freshMessages = await ChatService.getMessages(activeConversationId);
+        if (!cancelled) {
+          setMessages(activeConversationId, freshMessages);
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(refreshMessages, 3500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isOpen, isMinimized, activeConversationId, setMessages]);
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (messagesContainerRef.current) {
@@ -221,7 +239,7 @@ export default function ChatWindow() {
       id: consultProduct.id,
       name: consultProduct.name,
       price: consultProduct.price,
-      imageUrl: consultProduct.imageUrl || "",
+      imageUrl: getChatImageUrl(consultProduct.imageUrl),
       slug: consultProduct.slug,
     });
     const text = `Tôi muốn được tư vấn về sản phẩm này: ${consultProduct.name}\n[CARD_META:${cardMeta}]`;
@@ -473,7 +491,8 @@ export default function ChatWindow() {
                 ) : (
                   pickerProducts.map((p) => {
                     const price = p.variants?.[0]?.price || p.price || 0;
-                    const imageUrl = p.variants?.[0]?.imageUrl || p.imageUrls?.[0] || "";
+                    const imageUrl = p.variants?.find((variant: any) => variant?.imageUrl)?.imageUrl || p.imageUrls?.[0] || "";
+                    const resolvedImageUrl = getChatImageUrl(imageUrl);
                     return (
                       <div 
                         key={p.id}
@@ -482,7 +501,7 @@ export default function ChatWindow() {
                             id: p.id,
                             name: p.name,
                             price: price,
-                            imageUrl: imageUrl,
+                            imageUrl: resolvedImageUrl,
                             slug: p.slug,
                           });
                           setShowProductPicker(false);

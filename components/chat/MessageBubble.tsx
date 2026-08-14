@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatMessage } from "@/app/types/chat.types";
 import PinnedProductCard from "./PinnedProductCard";
 import { formatDate } from "@/lib/dateUtils";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 interface Props {
   message: ChatMessage;
@@ -66,14 +67,7 @@ export function parseReactionsAndMessages(messages: ChatMessage[], customerId?: 
   return { reactionsMap, visibleMessages };
 }
 
-const getFullImageUrl = (url?: string) => {
-  if (!url) return "/placeholder.svg";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
-    return url;
-  }
-  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
-  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
-};
+const getFullImageUrl = (url?: string) => resolveImageUrl(url, "/placeholder.svg");
 
 interface ParsedCardMeta {
   id: number;
@@ -143,6 +137,7 @@ export default function MessageBubble({ message, isOwn, isLast, onRetry, isAdmin
   const sendStatus = message.status;
   const isError = sendStatus === "error";
   const isSending = sendStatus === "sending";
+  const messageMediaUrl = message.imageUrl ? getFullImageUrl(message.imageUrl) : "";
 
   const isSenderAdmin = isAdminWorkspace ? isOwn : !isOwn;
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
@@ -239,14 +234,14 @@ export default function MessageBubble({ message, isOwn, isLast, onRetry, isAdmin
               )}
               <PinnedProductCard product={message.pinnedProduct} />
             </div>
-          ) : message.messageType === "IMAGE" && message.imageUrl ? (
-            isVideoFile(message.imageUrl) ? (
+          ) : message.messageType === "IMAGE" && messageMediaUrl ? (
+            isVideoFile(messageMediaUrl) ? (
               <div className="relative overflow-hidden max-w-[220px] rounded-lg">
-                <video controls src={message.imageUrl} className="w-full max-h-[220px] object-cover bg-black" />
+                <video controls src={messageMediaUrl} className="w-full max-h-[220px] object-cover bg-black" />
               </div>
             ) : (
-              <div className="relative overflow-hidden max-w-[220px] cursor-pointer rounded-lg" onClick={() => window.open(message.imageUrl, "_blank")}>
-                <Image src={message.imageUrl} alt="Ảnh chat" width={220} height={220} className="object-cover hover:opacity-90 transition-opacity" />
+              <div className="relative overflow-hidden max-w-[220px] cursor-pointer rounded-lg" onClick={() => window.open(messageMediaUrl, "_blank")}>
+                <img src={messageMediaUrl} alt="Ảnh chat" className="max-h-[220px] max-w-[220px] object-cover hover:opacity-90 transition-opacity" />
               </div>
             )
           ) : (

@@ -18,8 +18,6 @@ function buildWsUrl(socketUrl: string) {
   return `${base}/ws-native`;
 }
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-
 export function useWebSocket() {
   const clientRef = useRef<Client | null>(null);
   const subscriptionsRef = useRef<StompSubscription[]>([]);
@@ -33,7 +31,7 @@ export function useWebSocket() {
   const disconnect = useCallback(() => {
     subscriptionsRef.current.forEach((s) => { try { s.unsubscribe(); } catch {} });
     subscriptionsRef.current = [];
-    if (clientRef.current?.connected) {
+    if (clientRef.current) {
       clientRef.current.deactivate();
     }
     clientRef.current = null;
@@ -167,15 +165,9 @@ export function useWebSocket() {
       },
       onWebSocketError: () => {
         attemptsRef.current += 1;
-        if (attemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          client.deactivate();
-        }
       },
       onStompError: (frame) => {
         attemptsRef.current += 1;
-        if (attemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          client.deactivate();
-        }
         console.warn("STOMP error", frame.headers?.message);
       },
     });

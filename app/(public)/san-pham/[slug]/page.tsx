@@ -992,11 +992,16 @@ export default function ProductDetailPage({
                                         return;
                                     }
                                     if (product) {
+                                        const chatImageUrl =
+                                            currentVariant?.imageUrl ||
+                                            product.variants?.find((v) => v.imageUrl)?.imageUrl ||
+                                            product.imageUrls?.[0] ||
+                                            "";
                                         useChatStore.getState().setConsultProduct({
                                             id: product.id,
                                             name: product.name,
                                             price: currentVariant?.price || 0,
-                                            imageUrl: currentVariant?.imageUrl || product.variants?.find((v) => v.imageUrl)?.imageUrl || product.imageUrls?.[0] || "",
+                                            imageUrl: resolveImageUrl(chatImageUrl, ""),
                                             slug: slug,
                                         });
                                     }

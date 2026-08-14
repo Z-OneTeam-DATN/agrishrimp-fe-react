@@ -4,22 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { ShoppingBag, Tag } from "lucide-react";
 import { PinnedProductInfo } from "@/app/types/chat.types";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 interface Props {
   product: PinnedProductInfo;
 }
 
-const getFullImageUrl = (url?: string) => {
-  if (!url) return undefined;
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
-    return url;
-  }
-  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
-  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
-};
-
 export default function PinnedProductCard({ product }: Props) {
-  const imageUrl = product.imageUrl || product.thumbnailUrl;
+  const imageUrl = resolveImageUrl(product.imageUrl || product.thumbnailUrl, "");
 
   return (
     <Link
@@ -31,7 +23,7 @@ export default function PinnedProductCard({ product }: Props) {
       <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
         {imageUrl ? (
           <Image
-            src={getFullImageUrl(imageUrl)!}
+            src={imageUrl}
             alt={product.name}
             fill
             className="object-cover"
