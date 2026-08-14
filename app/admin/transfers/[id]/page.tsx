@@ -60,6 +60,477 @@ type AuditLog = {
 const DONE_STATUSES = ["COMPLETED"];
 const CANCELLABLE_STATUSES = ["PENDING", "SOURCE_CONFIRMED", "APPROVED"];
 
+function fmtPrintQty(value: unknown) {
+  return new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
+}
+
+function fmtPrintDateTime(value?: string | null) {
+  if (!value) return "---";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return `${date.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })} ngày ${date.toLocaleDateString("vi-VN")}`;
+}
+
+function getTransferBusinessLabel(value?: string) {
+  return String(value || "").toUpperCase() === "INTERNAL_SALE"
+    ? "Bán nội bộ có hạch toán"
+    : "Điều chuyển kho thuần";
+}
+
+function TransferPrintView({
+  transfer,
+  statusLabel,
+}: {
+  transfer: any;
+  statusLabel: string;
+}) {
+  const items = transfer.items || [];
+  const code = transfer.transferCode || transfer.code || `PDC-${transfer.id || ""}`;
+  const status = String(transfer.status || "").toUpperCase();
+  const hasShipped = Boolean(transfer.shippedAt) || ["SHIPPING", "INSPECTING", "COMPLETED"].includes(status);
+  const hasReceived = Boolean(transfer.receivedAt) || status === "COMPLETED";
+  const totalRequested =
+    Number(transfer.totalQuantity || 0) ||
+    items.reduce(
+      (sum: number, item: any) => sum + Number(item.quantityRequested || 0),
+      0,
+    );
+  const today = new Date();
+  const sourceSigner =
+    transfer.sourceConfirmedByName ||
+    transfer.shippedByName ||
+    transfer.fromBranchName ||
+    "------------";
+  const receiverSigner =
+    transfer.receivedByName || transfer.inspectionStartedByName || "------------";
+  const transferPerson = transfer.transporter || "------------";
+  const approver = transfer.approvedByName || "------------";
+
+  return (
+    <div className="transfer-print">
+      <style jsx global>{`
+        .transfer-print {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .transfer-print,
+          .transfer-print * {
+            visibility: visible !important;
+          }
+
+          .transfer-print {
+            display: block !important;
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            background: #fff;
+            color: #000;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11px;
+            line-height: 1.18;
+          }
+
+          .transfer-print-page {
+            min-height: 277mm;
+            position: relative;
+            padding-bottom: 18mm;
+          }
+
+          .transfer-print-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20mm;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .transfer-print-title {
+            margin-top: 8mm;
+            text-align: center;
+            color: #173f73;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .transfer-print-title h1 {
+            margin: 0;
+            font-size: 18px;
+            line-height: 1.08;
+          }
+
+          .transfer-print-title h2 {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.1;
+          }
+
+          .transfer-print-section-title {
+            margin: 4mm 0 1.5mm;
+            border-bottom: 1px solid #17476f;
+            color: #173f73;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .transfer-print-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .transfer-print-table th {
+            background: #17476f;
+            color: #fff;
+            font-weight: 700;
+            text-align: center;
+          }
+
+          .transfer-print-table th,
+          .transfer-print-table td {
+            border: 1px solid #9aa9b6;
+            padding: 4px 5px;
+            vertical-align: middle;
+          }
+
+          .transfer-print-meta td {
+            color: #183d63;
+            font-weight: 600;
+          }
+
+          .transfer-print-meta span,
+          .transfer-print-note span {
+            color: #000;
+            font-weight: 400;
+          }
+
+          .transfer-print-sku {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+          }
+
+          .transfer-print-total-row td {
+            background: #dbe6f1;
+            color: #173f73;
+            font-weight: 700;
+          }
+
+          .transfer-print-note {
+            margin: 2mm 0;
+          }
+
+          .transfer-print-dotted {
+            border-bottom: 1px dotted #777;
+            display: inline-block;
+            min-width: 48mm;
+            min-height: 12px;
+          }
+
+          .transfer-print-signatures {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6mm;
+            margin-top: 5mm;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .transfer-print-signatures em {
+            display: block;
+            margin-top: 1mm;
+            font-size: 10px;
+            font-weight: 400;
+          }
+
+          .transfer-print-signer {
+            margin-top: 17mm;
+          }
+
+          .transfer-print-approver {
+            margin-top: 5mm;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .transfer-print-footer {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #9aa9b6;
+            padding-top: 2mm;
+            color: #4b5563;
+            font-size: 9px;
+          }
+        }
+      `}</style>
+
+      <div className="transfer-print-page">
+        <div className="transfer-print-header">
+          <div>
+            <div>HỆ THỐNG AGRISHRIMP</div>
+            <div>Số: {code}</div>
+          </div>
+          <div>
+            <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div>Độc lập - Tự do - Hạnh phúc</div>
+            <div>_______________</div>
+          </div>
+        </div>
+
+        <div className="transfer-print-title">
+          <h1>PHIẾU ĐIỀU CHUYỂN HÀNG HÓA</h1>
+          <h2>NỘI BỘ GIỮA CÁC CHI NHÁNH</h2>
+        </div>
+
+        <table className="transfer-print-table transfer-print-meta">
+          <tbody>
+            <tr>
+              <td>
+                Mã phiếu điều chuyển: <span>{code}</span>
+              </td>
+              <td>
+                Trạng thái: <span>{statusLabel}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Loại nghiệp vụ:{" "}
+                <span>{getTransferBusinessLabel(transfer.transferBusinessType)}</span>
+              </td>
+              <td>
+                Thời gian điều chuyển:{" "}
+                <span>{fmtPrintDateTime(transfer.transferDate || transfer.deadline)}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Chi nhánh xuất hàng: <span>{transfer.fromBranchName || "---"}</span>
+              </td>
+              <td>
+                Chi nhánh nhận hàng: <span>{transfer.toBranchName || "---"}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Chứng từ tham chiếu: <span>{transfer.referenceCode || "---"}</span>
+              </td>
+              <td>
+                Người tạo phiếu: <span>{transfer.createdByName || "---"}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="transfer-print-section-title">
+          I. MỤC ĐÍCH VÀ THÔNG TIN VẬN CHUYỂN
+        </div>
+        <div className="transfer-print-note">
+          <strong>Lý do điều chuyển:</strong>{" "}
+          <span>{transfer.description || "---"}</span>
+        </div>
+        <table className="transfer-print-table transfer-print-meta">
+          <tbody>
+            <tr>
+              <td>
+                Người vận chuyển: <span>{transfer.transporter || ""}</span>
+              </td>
+              <td>
+                Phương tiện / Biển số: <span>{transfer.vehicle || ""}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Lệnh điều phối: <span>{transfer.dispatchOrder || ""}</span>
+              </td>
+              <td>
+                Thời gian giao dự kiến:{" "}
+                <span>{fmtPrintDateTime(transfer.deadline || transfer.transferDate)}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="transfer-print-section-title">
+          II. DANH SÁCH VẬT TƯ ĐIỀU CHUYỂN
+        </div>
+        <table className="transfer-print-table">
+          <thead>
+            <tr>
+              <th style={{ width: "6%" }}>STT</th>
+              <th style={{ width: "31%" }}>Sản phẩm / SKU</th>
+              <th style={{ width: "8%" }}>ĐVT</th>
+              <th style={{ width: "9%" }}>Yêu cầu</th>
+              <th style={{ width: "10%" }}>Thực giao</th>
+              <th style={{ width: "10%" }}>Thực nhận</th>
+              <th style={{ width: "8%" }}>Đạt</th>
+              <th style={{ width: "10%" }}>Lỗi/thiếu</th>
+              <th style={{ width: "18%" }}>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length > 0 ? (
+              items.map((item: any, index: number) => {
+                const requested = Number(item.quantityRequested || 0);
+                const received = Number(item.quantityReal || 0);
+                const accepted = Number(item.quantityAccepted || 0);
+                const rejected = Number(item.quantityRejected || 0);
+
+                return (
+                  <tr key={item.variantId || item.sku || index}>
+                    <td style={{ textAlign: "center" }}>{index + 1}</td>
+                    <td>
+                      <div>{item.productName || "---"}</div>
+                      <div className="transfer-print-sku">
+                        SKU: {item.sku || item.variantSku || "---"}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "center" }}>{item.unit || "Cái"}</td>
+                    <td style={{ textAlign: "center", fontWeight: 700 }}>
+                      {fmtPrintQty(requested)}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {hasShipped ? fmtPrintQty(requested) : "---"}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {hasReceived ? fmtPrintQty(received) : "---"}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {hasReceived ? fmtPrintQty(accepted) : "---"}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {hasReceived ? fmtPrintQty(rejected) : "---"}
+                    </td>
+                    <td>{item.itemNote || item.note || transfer.referenceCode || ""}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={9} style={{ textAlign: "center" }}>
+                  Không có vật tư điều chuyển
+                </td>
+              </tr>
+            )}
+            <tr className="transfer-print-total-row">
+              <td colSpan={8} style={{ textAlign: "right" }}>
+                TỔNG SỐ LƯỢNG YÊU CẦU ĐIỀU CHUYỂN
+              </td>
+              <td style={{ textAlign: "right" }}>{fmtPrintQty(totalRequested)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="transfer-print-section-title">
+          III. KẾT QUẢ GIAO NHẬN VÀ XÁC NHẬN
+        </div>
+        <table className="transfer-print-table">
+          <thead>
+            <tr>
+              <th>Nội dung đối chiếu</th>
+              <th>Bên xuất xác nhận</th>
+              <th>Bên nhận xác nhận</th>
+              <th>Kết quả</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ fontWeight: 700 }}>Số lượng / Quy cách</td>
+              <td style={{ textAlign: "center" }}>
+                {hasShipped ? fmtPrintQty(totalRequested) : "------------"}
+              </td>
+              <td style={{ textAlign: "center" }}>
+                {hasReceived
+                  ? fmtPrintQty(
+                      items.reduce(
+                        (sum: number, item: any) =>
+                          sum + Number(item.quantityReal || 0),
+                        0,
+                      ),
+                    )
+                  : "------------"}
+              </td>
+              <td style={{ textAlign: "center" }}>
+                {hasReceived ? statusLabel : "------------"}
+              </td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 700 }}>Tình trạng hàng hóa</td>
+              <td style={{ textAlign: "center" }}>
+                {hasShipped ? "Đã bàn giao" : "------------"}
+              </td>
+              <td style={{ textAlign: "center" }}>
+                {hasReceived ? "Đã kiểm nhận" : "------------"}
+              </td>
+              <td style={{ textAlign: "center" }}>
+                {hasReceived ? "Hoàn tất đối chiếu" : "------------"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="transfer-print-note">
+          <strong>Ghi chú giao nhận:</strong>{" "}
+          <span className="transfer-print-dotted"></span>
+        </div>
+
+        <div style={{ marginTop: "4mm", textAlign: "right", fontStyle: "italic" }}>
+          Cần Thơ, ngày ..... tháng ..... năm {today.getFullYear()}
+        </div>
+        <div className="transfer-print-signatures">
+          <div>
+            NGƯỜI LẬP PHIẾU
+            <em>(Ký, ghi rõ họ tên)</em>
+            <div className="transfer-print-signer">
+              {transfer.createdByName || ""}
+            </div>
+          </div>
+          <div>
+            ĐẠI DIỆN BÊN XUẤT
+            <em>(Ký, ghi rõ họ tên)</em>
+            <div className="transfer-print-signer">{sourceSigner}</div>
+          </div>
+          <div>
+            NGƯỜI VẬN CHUYỂN
+            <em>(Ký, ghi rõ họ tên)</em>
+            <div className="transfer-print-signer">{transferPerson}</div>
+          </div>
+          <div>
+            ĐẠI DIỆN BÊN NHẬN
+            <em>(Ký, ghi rõ họ tên)</em>
+            <div className="transfer-print-signer">{receiverSigner}</div>
+          </div>
+        </div>
+
+        <div className="transfer-print-approver">
+          NGƯỜI PHÊ DUYỆT
+          <em style={{ display: "block", fontWeight: 400 }}>(Ký, ghi rõ họ tên)</em>
+          <div className="transfer-print-signer">{approver}</div>
+        </div>
+
+        <div className="transfer-print-footer">
+          <span>Biểu mẫu: Phiếu điều chuyển hàng hóa nội bộ</span>
+          <span>Trang 1</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TransferDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -485,6 +956,8 @@ export default function TransferDetailPage() {
 
   return (
     <div className="space-y-3 pb-[100px] text-slate-800">
+      <TransferPrintView transfer={transfer} statusLabel={statusLabel} />
+
       <div className="mt-2 mb-8 space-y-4 px-1">
         <div className="flex items-center gap-3">
           <Button
@@ -860,6 +1333,7 @@ export default function TransferDetailPage() {
           <Button
             type="button"
             variant="outline"
+            onClick={() => window.print()}
             className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
           >
             <Printer size={15} className="mr-2" />

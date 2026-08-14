@@ -77,6 +77,8 @@ export interface SupplierProductCatalogItem {
   updatedByName?: string;
   checkingAgeDays?: number;
   checkingTooLong?: boolean;
+  systemStockQuantity?: number;
+  lowStock?: boolean;
 }
 
 export interface PageResponse<T> {

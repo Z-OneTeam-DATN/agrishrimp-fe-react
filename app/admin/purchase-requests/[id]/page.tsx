@@ -12,6 +12,7 @@ import {
   Plus,
   RefreshCcw,
   Mail,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,456 @@ const RECEIPT_STATUS_MAP: Record<string, { label: string; cls: string }> = {
   REJECTED: { label: "Từ chối", cls: "bg-red-100 text-red-600" },
   CANCELLED: { label: "Đã hủy", cls: "bg-gray-100 text-gray-500" },
 };
+
+function fmtMoneyPlain(value: number) {
+  return `${new Intl.NumberFormat("vi-VN").format(Number(value) || 0)} đ`;
+}
+
+function fmtQuantity(value: unknown) {
+  return new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
+}
+
+function fmtPrintDate(value?: string | null) {
+  if (!value) return "---";
+  return new Date(value).toLocaleDateString("vi-VN");
+}
+
+function fmtPrintDateTime(value?: string | null) {
+  if (!value) return "---";
+  const date = new Date(value);
+  return `${date.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })} ngày ${date.toLocaleDateString("vi-VN")}`;
+}
+
+function getReceiptResultLabel(status?: string) {
+  const normalized = String(status || "").toUpperCase();
+  return RECEIPT_STATUS_MAP[normalized]?.label || status || "---";
+}
+
+function PurchaseRequestPrintView({
+  pr,
+  receiptHistoryDetails,
+}: {
+  pr: PurchaseRequestResponse;
+  receiptHistoryDetails: Record<number, any>;
+}) {
+  const totalItemCount = pr.items?.length ?? 0;
+  const totalAmount = Number(pr.totalAmount ?? 0);
+  const today = new Date();
+  const receiptRows =
+    pr.goodsReceipts?.map((receipt, index) => {
+      const detail = receiptHistoryDetails[receipt.id];
+      const firstItem = detail?.items?.[0];
+      const batchSummary = detail?.items?.length
+        ? detail.items
+            .map((item: any) =>
+              [
+                item.lotNumber || item.batchNumber,
+                item.expiryDate ? `HSD ${fmtPrintDate(item.expiryDate)}` : "",
+              ]
+                .filter(Boolean)
+                .join(" - "),
+            )
+            .filter(Boolean)
+            .join("\n")
+        : "---";
+
+      return {
+        index: index + 1,
+        code: receipt.code,
+        createdAt: fmtPrintDateTime(receipt.createdAt),
+        batchSummary,
+        delivered: receipt.totalDelivered ?? 0,
+        defective: receipt.totalDefective ?? 0,
+        result: getReceiptResultLabel(receipt.status),
+        note: detail?.note || firstItem?.note || "Không có ghi chú",
+      };
+    }) ?? [];
+  const deliveredTotal = pr.items.reduce(
+    (sum, item) => sum + Number(item.deliveredQty ?? 0),
+    0,
+  );
+  const acceptedTotal = pr.items.reduce(
+    (sum, item) => sum + Number(item.acceptedQty ?? 0),
+    0,
+  );
+  const defectiveTotal = pr.items.reduce(
+    (sum, item) => sum + Number(item.defectiveQty ?? 0),
+    0,
+  );
+  const remainingTotal = pr.items.reduce(
+    (sum, item) => sum + Number(item.remainingQty ?? 0),
+    0,
+  );
+
+  return (
+    <div className="purchase-request-print">
+      <style jsx global>{`
+        .purchase-request-print {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .purchase-request-print,
+          .purchase-request-print * {
+            visibility: visible !important;
+          }
+
+          .purchase-request-print {
+            display: block !important;
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            background: white;
+            color: #000;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11px;
+            line-height: 1.18;
+          }
+
+          .pr-print-page {
+            min-height: 277mm;
+            position: relative;
+            padding-bottom: 18mm;
+          }
+
+          .pr-print-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20mm;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .pr-print-title {
+            margin-top: 7mm;
+            text-align: center;
+            color: #173f73;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .pr-print-title h1 {
+            margin: 0;
+            font-size: 18px;
+            line-height: 1.1;
+          }
+
+          .pr-print-title h2 {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.1;
+          }
+
+          .pr-print-section-title {
+            margin: 4mm 0 1.5mm;
+            color: #173f73;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .pr-print-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .pr-print-table th {
+            background: #17476f;
+            color: white;
+            font-weight: 700;
+            text-align: center;
+          }
+
+          .pr-print-table th,
+          .pr-print-table td {
+            border: 1px solid #9aa9b6;
+            padding: 4px 5px;
+            vertical-align: middle;
+          }
+
+          .pr-print-meta td {
+            height: 22px;
+          }
+
+          .pr-print-total-row td {
+            background: #eef3f8;
+            font-weight: 700;
+          }
+
+          .pr-print-signatures {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            margin-top: 8mm;
+            text-align: center;
+            gap: 5mm;
+          }
+
+          .pr-print-signature-title {
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .pr-print-signature-note {
+            margin-top: 1mm;
+            font-size: 10px;
+            font-style: italic;
+          }
+
+          .pr-print-signer {
+            margin-top: 19mm;
+            font-weight: 700;
+          }
+
+          .pr-print-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #9aa9b6;
+            padding-top: 2mm;
+            font-size: 9px;
+            color: #555;
+          }
+        }
+      `}</style>
+
+      <div className="pr-print-page">
+        <div className="pr-print-header">
+          <div>
+            <div>HỆ THỐNG AGRISHRIMP</div>
+            <div>Số: {pr.code}</div>
+          </div>
+          <div>
+            <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div>Độc lập - Tự do - Hạnh phúc</div>
+          </div>
+        </div>
+
+        <div className="pr-print-title">
+          <h1>Phiếu Yêu Cầu Nhập Hàng</h1>
+          <h2>Từ Nhà Cung Cấp</h2>
+        </div>
+
+        <table className="pr-print-table pr-print-meta">
+          <tbody>
+            <tr>
+              <td>
+                <strong>Mã phiếu:</strong> {pr.code}
+              </td>
+              <td>
+                <strong>Trạng thái:</strong>{" "}
+                {PR_STATUS_LABEL[pr.status] || pr.status}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Ngày tạo phiếu:</strong> {fmtPrintDateTime(pr.createdAt)}
+              </td>
+              <td>
+                <strong>Người tạo:</strong> {pr.createdByName || "---"}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Nhà cung cấp:</strong> {pr.supplierName || "---"}
+              </td>
+              <td>
+                <strong>Chi nhánh nhận:</strong> {pr.branchName || "---"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="pr-print-section-title">
+          I. Nội Dung Yêu Cầu Nhập Hàng
+        </div>
+        <table className="pr-print-table">
+          <thead>
+            <tr>
+              <th style={{ width: "8%" }}>STT</th>
+              <th style={{ width: "27%" }}>Sản phẩm / SKU</th>
+              <th style={{ width: "9%" }}>Yêu cầu</th>
+              <th style={{ width: "9%" }}>NCC giao</th>
+              <th style={{ width: "9%" }}>Đạt QC</th>
+              <th style={{ width: "8%" }}>Lỗi</th>
+              <th style={{ width: "9%" }}>Còn thiếu</th>
+              <th style={{ width: "10%" }}>Đơn giá</th>
+              <th style={{ width: "11%" }}>Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(pr.items ?? []).map((item, index) => {
+              const amount =
+                Number(item.requestedQty ?? 0) * Number(item.unitPrice ?? 0);
+              return (
+                <tr key={item.id ?? index}>
+                  <td style={{ textAlign: "center" }}>{index + 1}</td>
+                  <td>
+                    <strong>{item.productName}</strong>
+                    <br />
+                    <span>{item.productCode}</span>
+                  </td>
+                  <td style={{ textAlign: "center", fontWeight: 700 }}>
+                    {fmtQuantity(item.requestedQty)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {fmtQuantity(item.deliveredQty)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {fmtQuantity(item.acceptedQty)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {fmtQuantity(item.defectiveQty)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {fmtQuantity(item.remainingQty)}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {fmtMoneyPlain(item.unitPrice ?? 0)}
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>
+                    {fmtMoneyPlain(amount)}
+                  </td>
+                </tr>
+              );
+            })}
+            <tr className="pr-print-total-row">
+              <td colSpan={7} style={{ textAlign: "right" }}>
+                Tổng số mặt hàng
+              </td>
+              <td colSpan={2} style={{ textAlign: "center" }}>
+                {String(totalItemCount).padStart(2, "0")}
+              </td>
+            </tr>
+            <tr className="pr-print-total-row">
+              <td colSpan={7} style={{ textAlign: "right" }}>
+                Tổng giá trị yêu cầu
+              </td>
+              <td colSpan={2} style={{ textAlign: "right", color: "#173f73" }}>
+                {fmtMoneyPlain(totalAmount)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="pr-print-section-title">
+          II. Kết Quả Nhập Hàng Và Kiểm Tra Chất Lượng
+        </div>
+        <table className="pr-print-table">
+          <thead>
+            <tr>
+              <th style={{ width: "12%" }}>Đợt nhập</th>
+              <th style={{ width: "21%" }}>Mã phiếu nhập / Thời gian</th>
+              <th style={{ width: "19%" }}>Số lô / Hạn dùng</th>
+              <th style={{ width: "14%" }}>Nhập đợt này</th>
+              <th style={{ width: "14%" }}>Hàng lỗi</th>
+              <th style={{ width: "20%" }}>Kết quả</th>
+            </tr>
+          </thead>
+          <tbody>
+            {receiptRows.length > 0 ? (
+              receiptRows.map((row) => (
+                <tr key={`${row.code}-${row.index}`}>
+                  <td style={{ textAlign: "center" }}>Đợt {row.index}</td>
+                  <td style={{ textAlign: "center", fontWeight: 700 }}>
+                    {row.code}
+                    <br />
+                    {row.createdAt}
+                  </td>
+                  <td style={{ textAlign: "center", whiteSpace: "pre-line" }}>
+                    {row.batchSummary}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {fmtQuantity(row.delivered)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {fmtQuantity(row.defective)}
+                  </td>
+                  <td style={{ textAlign: "center", fontWeight: 700 }}>
+                    {row.result}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} style={{ textAlign: "center", fontStyle: "italic" }}>
+                  Chưa có đợt nhập hàng.
+                </td>
+              </tr>
+            )}
+            <tr>
+              <td style={{ textAlign: "center", fontWeight: 700 }}>Ghi chú</td>
+              <td colSpan={5} style={{ fontStyle: "italic" }}>
+                {receiptRows[0]?.note || pr.note || "Không có ghi chú"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p style={{ margin: "4mm 0 0" }}>
+          <strong>Diễn giải:</strong> Nhà cung cấp đã giao{" "}
+          {fmtQuantity(deliveredTotal)} đơn vị; {fmtQuantity(acceptedTotal)} đơn vị
+          đạt kiểm tra chất lượng, {fmtQuantity(defectiveTotal)} đơn vị lỗi.
+          Phiếu hiện còn thiếu {fmtQuantity(remainingTotal)} đơn vị đạt yêu cầu
+          so với số lượng đề nghị.
+        </p>
+
+        <div className="pr-print-section-title">III. Xác Nhận Và Phê Duyệt</div>
+        <p style={{ margin: 0 }}>
+          Đề nghị các bộ phận liên quan đối chiếu chứng từ, số lượng thực nhận,
+          kết quả QC và thực hiện các bước nhập kho, xử lý hàng lỗi/còn thiếu
+          theo quy định của đơn vị.
+        </p>
+
+        <div style={{ marginTop: "3mm", textAlign: "right", fontStyle: "italic" }}>
+          Cần Thơ, ngày {String(today.getDate()).padStart(2, "0")} tháng{" "}
+          {String(today.getMonth() + 1).padStart(2, "0")} năm{" "}
+          {today.getFullYear()}
+        </div>
+
+        <div className="pr-print-signatures">
+          <div>
+            <div className="pr-print-signature-title">Người lập phiếu</div>
+            <div className="pr-print-signature-note">(Ký, ghi rõ họ tên)</div>
+            <div className="pr-print-signer">{pr.createdByName || ""}</div>
+          </div>
+          <div>
+            <div className="pr-print-signature-title">Bộ phận QC</div>
+            <div className="pr-print-signature-note">(Ký, ghi rõ họ tên)</div>
+          </div>
+          <div>
+            <div className="pr-print-signature-title">Thủ kho</div>
+            <div className="pr-print-signature-note">(Ký, ghi rõ họ tên)</div>
+          </div>
+          <div>
+            <div className="pr-print-signature-title">Người phê duyệt</div>
+            <div className="pr-print-signature-note">(Ký, ghi rõ họ tên)</div>
+          </div>
+        </div>
+
+        <div className="pr-print-footer">
+          <span>Biểu mẫu: Phiếu yêu cầu nhập hàng từ nhà cung cấp</span>
+          <span>Trang 1</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -259,6 +710,11 @@ export default function PurchaseRequestDetailPage() {
 
   return (
     <div className="space-y-5 px-1 pb-8 pt-2 text-slate-900">
+      <PurchaseRequestPrintView
+        pr={pr}
+        receiptHistoryDetails={receiptHistoryDetails}
+      />
+
       {/* ── Page Header ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -289,6 +745,15 @@ export default function PurchaseRequestDetailPage() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={load} disabled={isLoading}>
             <RefreshCcw size={14} className={cn(isLoading && "animate-spin")} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-[4px] border-slate-200 text-[12px] font-medium text-slate-700"
+            onClick={() => window.print()}
+          >
+            <Printer size={13} className="mr-1.5" />
+            In phiếu
           </Button>
 
           {pr.status === "DRAFT" && (

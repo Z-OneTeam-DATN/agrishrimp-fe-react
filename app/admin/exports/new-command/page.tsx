@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Trash2, Save, Search, Loader2, Package } from "lucide-react";
+import { Trash2, Save, Search, Loader2, Package, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,6 +74,444 @@ const ExportCommandSchema = z.object({
 });
 
 type ExportCommandFormValues = z.infer<typeof ExportCommandSchema>;
+
+function fmtPrintMoney(value: unknown) {
+  return `${new Intl.NumberFormat("vi-VN").format(Number(value) || 0)} đ`;
+}
+
+function fmtPrintQty(value: unknown) {
+  return new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
+}
+
+function fmtPrintDate(value?: string | null) {
+  if (!value) return "---";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleDateString("vi-VN");
+}
+
+function extractReceiptCodeFromText(value?: string | null) {
+  const match = String(value || "").match(/\bPNK[\w-]*/i);
+  return match?.[0]?.toUpperCase() || "";
+}
+
+function getDisplayName(entity: any, fallback = "---") {
+  return (
+    entity?.name ||
+    entity?.branchName ||
+    entity?.supplierName ||
+    entity?.fullName ||
+    fallback
+  );
+}
+
+function ExportReturnPrintView({
+  formData,
+  branches,
+  suppliers,
+  returnSourceBranchName,
+  currentUserName,
+}: {
+  formData: ExportCommandFormValues;
+  branches: any[];
+  suppliers: any[];
+  returnSourceBranchName?: string;
+  currentUserName?: string;
+}) {
+  const items = formData.items || [];
+  const branch = branches.find(
+    (item: any) => String(item.id) === String(formData.branchId),
+  );
+  const supplier = suppliers.find(
+    (item: any) => String(item.id) === String(formData.targetId),
+  );
+  const branchName = returnSourceBranchName || getDisplayName(branch, "---");
+  const supplierName = getDisplayName(supplier, "---");
+  const receiptCodes = Array.from(
+    new Set(
+      items
+        .map((item) => item.receiptCode)
+        .filter((code): code is string => Boolean(code)),
+    ),
+  );
+  const referenceText =
+    formData.referenceCode ||
+    receiptCodes.join(", ") ||
+    extractReceiptCodeFromText(formData.note) ||
+    "---";
+  const totalQuantity = items.reduce(
+    (sum, item) => sum + (Number(item.quantity) || 0),
+    0,
+  );
+  const totalAmount = items.reduce(
+    (sum, item) =>
+      sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
+    0,
+  );
+  const today = new Date();
+  const creatorName =
+    formData.creatorName || currentUserName || "";
+
+  return (
+    <div className="export-return-print">
+      <style jsx global>{`
+        .export-return-print {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .export-return-print,
+          .export-return-print * {
+            visibility: visible !important;
+          }
+
+          .export-return-print {
+            display: block !important;
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            background: #fff;
+            color: #000;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11px;
+            line-height: 1.18;
+          }
+
+          .export-print-page {
+            min-height: 277mm;
+            position: relative;
+            padding-bottom: 18mm;
+          }
+
+          .export-print-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20mm;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .export-print-title {
+            margin-top: 8mm;
+            text-align: center;
+            color: #173f73;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .export-print-title h1 {
+            margin: 0;
+            font-size: 20px;
+            line-height: 1.08;
+          }
+
+          .export-print-title h2 {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.1;
+          }
+
+          .export-print-section-title {
+            margin: 4mm 0 1.5mm;
+            border-bottom: 1px solid #17476f;
+            color: #173f73;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .export-print-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .export-print-table th {
+            background: #17476f;
+            color: #fff;
+            font-weight: 700;
+            text-align: center;
+          }
+
+          .export-print-table th,
+          .export-print-table td {
+            border: 1px solid #9aa9b6;
+            padding: 4px 5px;
+            vertical-align: middle;
+          }
+
+          .export-print-meta td {
+            color: #183d63;
+            font-weight: 600;
+          }
+
+          .export-print-meta span,
+          .export-print-note span {
+            color: #000;
+            font-weight: 400;
+          }
+
+          .export-print-sku {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+          }
+
+          .export-print-total-label {
+            text-align: right;
+            font-weight: 700;
+          }
+
+          .export-print-total-row td {
+            background: #dbe6f1;
+            color: #173f73;
+            font-weight: 700;
+          }
+
+          .export-print-note {
+            margin: 2mm 0;
+          }
+
+          .export-print-signatures {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8mm;
+            margin-top: 5mm;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .export-print-signatures em {
+            display: block;
+            margin-top: 1mm;
+            font-size: 10px;
+            font-weight: 400;
+          }
+
+          .export-print-signer {
+            margin-top: 18mm;
+          }
+
+          .export-print-footer {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #9aa9b6;
+            padding-top: 2mm;
+            color: #4b5563;
+            font-size: 9px;
+          }
+        }
+      `}</style>
+
+      <div className="export-print-page">
+        <div className="export-print-header">
+          <div>
+            <div>HỆ THỐNG AGRISHRIMP</div>
+            <div>Số: {formData.noteCode || "---"}</div>
+          </div>
+          <div>
+            <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div>Độc lập - Tự do - Hạnh phúc</div>
+            <div>_______________</div>
+          </div>
+        </div>
+
+        <div className="export-print-title">
+          <h1>PHIẾU XUẤT KHO</h1>
+          <h2>TRẢ HÀNG NHÀ CUNG CẤP</h2>
+        </div>
+
+        <table className="export-print-table export-print-meta">
+          <tbody>
+            <tr>
+              <td>
+                Mã lệnh xuất: <span>{formData.noteCode || "---"}</span>
+              </td>
+              <td>
+                Loại xuất: <span>Xuất trả nhà cung cấp</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Phiếu nhập liên quan: <span>{referenceText}</span>
+              </td>
+              <td>
+                Ngày hẹn xuất: <span>{fmtPrintDate(formData.expectedDate)}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Kho xuất hàng: <span>{branchName}</span>
+              </td>
+              <td>
+                Người nhận: <span>{formData.specificReceiver || "---"}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Nhà cung cấp: <span>{supplierName}</span>
+              </td>
+              <td>
+                Địa chỉ giao hàng:{" "}
+                <span>{formData.shippingAddress || "---"}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="export-print-section-title">
+          I. CĂN CỨ VÀ LÝ DO XUẤT KHO
+        </div>
+        <div className="export-print-note">
+          <strong>Căn cứ:</strong>{" "}
+          <span>
+            {referenceText !== "---"
+              ? `Phiếu nhập ${referenceText} và kết quả kiểm tra chất lượng hàng hóa.`
+              : "Kết quả kiểm tra chất lượng hàng hóa."}
+          </span>
+        </div>
+        <div className="export-print-note">
+          <strong>Lý do xuất:</strong>{" "}
+          <span>{formData.note || items[0]?.returnReason || "---"}</span>
+        </div>
+
+        <div className="export-print-section-title">
+          II. DANH SÁCH HÀNG HÓA XUẤT TRẢ
+        </div>
+        <table className="export-print-table">
+          <thead>
+            <tr>
+              <th style={{ width: "7%" }}>STT</th>
+              <th style={{ width: "32%" }}>Mã SKU / Tên sản phẩm</th>
+              <th style={{ width: "14%" }}>Lô lỗi</th>
+              <th style={{ width: "8%" }}>ĐVT</th>
+              <th style={{ width: "9%" }}>SL xuất</th>
+              <th style={{ width: "13%" }}>Đơn giá</th>
+              <th style={{ width: "13%" }}>Thành tiền</th>
+              <th style={{ width: "14%" }}>Lý do trả hàng</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length > 0 ? (
+              items.map((item, index) => {
+                const quantity = Number(item.quantity) || 0;
+                const price = Number(item.price) || 0;
+
+                return (
+                  <tr key={`${item.productVariantId}-${item.lotNumber}-${index}`}>
+                    <td style={{ textAlign: "center" }}>{index + 1}</td>
+                    <td>
+                      <div className="export-print-sku">{item.sku || "---"}</div>
+                      <div>{item.name || "---"}</div>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {item.lotNumber || "---"}
+                    </td>
+                    <td style={{ textAlign: "center" }}>{item.unit || "Cái"}</td>
+                    <td style={{ textAlign: "center" }}>
+                      {fmtPrintQty(quantity)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {fmtPrintMoney(price)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 700 }}>
+                      {fmtPrintMoney(quantity * price)}
+                    </td>
+                    <td>{item.returnReason || formData.note || "---"}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={8} style={{ textAlign: "center" }}>
+                  Chưa có hàng hóa xuất trả
+                </td>
+              </tr>
+            )}
+            <tr>
+              <td colSpan={6} className="export-print-total-label">
+                Tổng số lượng xuất trả
+              </td>
+              <td colSpan={2} style={{ textAlign: "right", fontWeight: 700 }}>
+                {fmtPrintQty(totalQuantity)}
+              </td>
+            </tr>
+            <tr className="export-print-total-row">
+              <td colSpan={6} className="export-print-total-label">
+                TỔNG GIÁ TRỊ XUẤT TRẢ
+              </td>
+              <td colSpan={2} style={{ textAlign: "right" }}>
+                {fmtPrintMoney(totalAmount)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="export-print-section-title">
+          III. BÀN GIAO VÀ XÁC NHẬN
+        </div>
+        <div className="export-print-note">
+          <strong>Tình trạng hàng khi bàn giao:</strong>{" "}
+          <span>
+            Hàng lỗi, xuất trả theo đúng lô và số lượng ghi trên phiếu.
+          </span>
+        </div>
+        <div className="export-print-note">
+          <strong>Chứng từ kèm theo:</strong>{" "}
+          <span>
+            {referenceText !== "---"
+              ? `Phiếu nhập ${referenceText}, biên bản/phiếu kiểm tra chất lượng (nếu có).`
+              : "Biên bản/phiếu kiểm tra chất lượng (nếu có)."}
+          </span>
+        </div>
+
+        <div style={{ marginTop: "5mm", textAlign: "right", fontStyle: "italic" }}>
+          Cần Thơ, ngày ..... tháng ..... năm {today.getFullYear()}
+        </div>
+        <div className="export-print-signatures">
+          <div>
+            NGƯỜI LẬP PHIẾU
+            <em>(Ký, ghi rõ họ tên)</em>
+            <div className="export-print-signer">{creatorName}</div>
+          </div>
+          <div>
+            THỦ KHO
+            <em>(Ký, ghi rõ họ tên)</em>
+          </div>
+          <div>
+            NGƯỜI NHẬN HÀNG
+            <em>(Ký, ghi rõ họ tên)</em>
+            <div className="export-print-signer">
+              {formData.specificReceiver || ""}
+            </div>
+          </div>
+          <div>
+            KẾ TOÁN / PHÊ DUYỆT
+            <em>(Ký, ghi rõ họ tên)</em>
+          </div>
+        </div>
+
+        <div className="export-print-footer">
+          <span>Biểu mẫu: Phiếu xuất kho trả nhà cung cấp</span>
+          <span>Trang 1</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // =================================================================
 // 2. MAIN COMPONENT
@@ -278,6 +716,7 @@ function AdminExportFormContent() {
   const watchBranchId = watch("branchId");
   const watchTargetId = watch("targetId");
   const watchItems = watch("items");
+  const formValues = watch();
   const autoLoadReturnItems =
     watchExportType === "RETURN" && !fromReceiptId && !isEditMode;
 
@@ -292,6 +731,9 @@ function AdminExportFormContent() {
       InventoryExportApiService.getExportCommandDetail(exportId)
         .then((data) => {
           if (data.status && data.status !== "PENDING") setIsReadOnly(true);
+          const linkedReceiptCode =
+            data.referenceCode ||
+            extractReceiptCodeFromText(`${data.reason || ""} ${data.note || ""}`);
           reset({
             exportType: "RETURN",
             noteCode: data.code,
@@ -302,7 +744,7 @@ function AdminExportFormContent() {
             targetId: data.supplierId?.toString() || "",
             specificReceiver: data.deliverer || "",
             shippingAddress: data.shippingAddress || "",
-            referenceCode: data.referenceCode || "",
+            referenceCode: linkedReceiptCode,
             creatorName: data.creatorName || "",
             items: (data.details || []).map((item: any) => ({
               productVariantId: item.productVariantId,
@@ -314,6 +756,7 @@ function AdminExportFormContent() {
               price: item.price || 0,
               returnReason: extractDefectiveReason(item),
               lotNumber: item.batchNumber || "",
+              receiptCode: item.receiptCode || linkedReceiptCode,
             })),
           });
           setIsInitialLoading(false);
@@ -530,6 +973,7 @@ function AdminExportFormContent() {
             price: Number(item.importPrice || item.price || 0),
             returnReason: extractDefectiveReason(item),
             lotNumber: item.lotNumber || item.batchNumber || "",
+            receiptCode: receipt.receiptCode || receipt.code || "",
           }));
 
         if (rejectedItems.length === 0) {
@@ -577,6 +1021,10 @@ function AdminExportFormContent() {
           "note",
           `Xuất trả NCC từ phiếu nhập ${receipt.receiptCode || receipt.code || fromReceiptId}`,
         );
+        setValue("referenceCode", receipt.receiptCode || receipt.code || "", {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
         replace(rejectedItems);
         setReturnSourceLocked(true);
       } catch {
@@ -774,9 +1222,20 @@ function AdminExportFormContent() {
     }
 
     const currentUserId = currentUser?.id;
+    const linkedReferenceCode =
+      data.referenceCode ||
+      Array.from(
+        new Set(
+          submissionItems
+            .map((item) => item.receiptCode)
+            .filter((code): code is string => Boolean(code)),
+        ),
+      ).join(", ") ||
+      extractReceiptCodeFromText(data.note);
     const payload = {
       code: data.noteCode,
       exportType: data.exportType,
+      referenceCode: linkedReferenceCode,
       note: data.note,
       expectedDate: data.expectedDate,
       branchId: parseInt(resolvedBranchId),
@@ -843,6 +1302,14 @@ function AdminExportFormContent() {
       onSubmit={handleSubmit(onSubmit)}
       className={`space-y-3 pb-[100px] text-slate-800 ${isReadOnly ? "select-none opacity-95" : ""}`}
     >
+      <ExportReturnPrintView
+        formData={formValues}
+        branches={branches}
+        suppliers={suppliers}
+        returnSourceBranchName={returnSourceBranchName}
+        currentUserName={currentUser?.fullName || currentUser?.displayName || ""}
+      />
+
       <div className="mt-2 mb-8 space-y-4 px-1">
         <div className="flex items-center gap-3">
           <h1 className="text-[20px] font-semibold uppercase tracking-tight text-slate-900">
@@ -1508,6 +1975,15 @@ function AdminExportFormContent() {
             </span>
           </div>
           <div className="flex flex-wrap justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 min-w-[120px] rounded-md border-blue-200 bg-white px-5 font-semibold text-blue-700 hover:bg-blue-50"
+              onClick={() => window.print()}
+            >
+              <Printer size={16} className="mr-2" />
+              In phiếu
+            </Button>
             <Button
               type="button"
               variant="outline"
