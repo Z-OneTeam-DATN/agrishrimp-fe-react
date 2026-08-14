@@ -203,7 +203,7 @@ export const aiDoctorService = {
         imageBase64: image?.base64,
         imageMimeType: image?.mimeType,
       },
-      { timeout: image ? 60000 : undefined },
+      { timeout: image ? 60000 : 70000 },
     );
     return response.data;
   },
