@@ -29,10 +29,7 @@ export const RETURN_ISSUE_OPTIONS: Array<{
 export const RETURN_REFUND_OPTIONS: Array<{
   label: string;
   value: ReturnRefundMethod;
-}> = [
-  { label: "Chuyển khoản", value: "BANK_TRANSFER" },
-  { label: "Tiền mặt", value: "CASH" },
-];
+}> = [{ label: "Chuyển khoản", value: "BANK_TRANSFER" }];
 
 export function getReturnStatusMeta(status: ReturnRequestStatus) {
   switch (status) {
@@ -77,8 +74,12 @@ export function getReturnIssueLabel(issueType: ReturnIssueType) {
 }
 
 export function getReturnRefundLabel(refundMethod: ReturnRefundMethod) {
-  return (
-    RETURN_REFUND_OPTIONS.find((item) => item.value === refundMethod)?.label ??
-    refundMethod
-  );
+  switch (refundMethod) {
+    case "BANK_TRANSFER":
+      return "Chuyển khoản";
+    case "CASH":
+      return "Tiền mặt";
+    default:
+      return refundMethod;
+  }
 }

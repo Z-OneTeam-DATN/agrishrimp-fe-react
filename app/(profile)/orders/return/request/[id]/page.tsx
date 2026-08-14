@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
-  CheckCircle2,
   ImagePlus,
   Loader2,
   Trash2,
@@ -33,13 +32,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { RETURN_ISSUE_OPTIONS, RETURN_REFUND_OPTIONS } from "@/lib/return-request";
+import { RETURN_ISSUE_OPTIONS } from "@/lib/return-request";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
 
@@ -56,6 +61,13 @@ type SelectedItemMap = Record<string, { quantity: number }>;
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
+const DEFAULT_OPEN_SECTIONS = [
+  "summary",
+  "products",
+  "customer",
+  "reason",
+  "evidence",
+];
 
 function getDraftItemKey(item: Pick<ReturnDraftItem, "sourceType" | "sourceItemId">) {
   return `${item.sourceType}:${item.sourceItemId}`;
@@ -122,7 +134,7 @@ export default function ReturnRequestPage({
         setError(
           extractErrorMessage(
             err,
-            "Khong the tai thong tin tra hang. Vui long thu lai sau.",
+            "Không thể tải thông tin trả hàng. Vui lòng thử lại sau.",
           ),
         );
       } finally {
@@ -206,6 +218,10 @@ export default function ReturnRequestPage({
     (total, item) => total + item.selectedQuantity,
     0,
   );
+  const issueLabel =
+    RETURN_ISSUE_OPTIONS.find((option) => option.value === form.issueType)?.label ??
+    form.issueType;
+  const totalEvidenceCount = imageEvidences.length + videoEvidences.length;
 
   const handleToggleItem = (item: ReturnDraftItem, checked: boolean) => {
     const itemKey = getDraftItemKey(item);
@@ -218,7 +234,7 @@ export default function ReturnRequestPage({
         item.branchId !== null &&
         item.branchId !== activeBranchId
       ) {
-        toast.error("Moi yeu cau chi duoc chon san pham thuoc cung mot chi nhanh.");
+        toast.error("Mỗi yêu cầu chỉ được chọn sản phẩm thuộc cùng một chi nhánh.");
         return;
       }
 
@@ -266,8 +282,8 @@ export default function ReturnRequestPage({
       if (file.size > maxSize) {
         toast.error(
           mediaType === "IMAGE"
-            ? "Anh vuot qua gioi han 10MB."
-            : "Video vuot qua gioi han 50MB.",
+            ? "Ảnh vượt quá giới hạn 10MB."
+            : "Video vượt quá giới hạn 50MB.",
         );
         return;
       }
@@ -301,12 +317,12 @@ export default function ReturnRequestPage({
 
       toast.success(
         mediaType === "IMAGE"
-          ? "Da tai len hinh anh loi."
-          : "Da tai len video loi.",
+          ? "Đã tải lên hình ảnh lỗi."
+          : "Đã tải lên video lỗi.",
       );
     } catch (err: any) {
       toast.error(
-        extractErrorMessage(err, "Khong the tai len tep dinh kem luc nay."),
+        extractErrorMessage(err, "Không thể tải lên tệp đính kèm lúc này."),
       );
     } finally {
       setUploadingType(null);
@@ -327,20 +343,23 @@ export default function ReturnRequestPage({
   };
 
   const validateBeforeSubmit = () => {
-    if (!draft) return "Khong co du lieu don hang de tao yeu cau.";
-    if (!selectedDraftItems.length) return "Vui long chon it nhat mot san pham can tra hang.";
+    if (!draft) return "Không có dữ liệu đơn hàng để tạo yêu cầu.";
+    if (!selectedDraftItems.length) return "Vui lòng chọn ít nhất một sản phẩm cần trả hàng.";
     if (branchConflict || selectedBranchIds.length !== 1) {
-      return "Moi yeu cau tra hang chi duoc xu ly cho mot chi nhanh phuc vu.";
+      return "Mỗi yêu cầu trả hàng chỉ được xử lý cho một chi nhánh phục vụ.";
     }
-    if (!form.fullName.trim()) return "Vui long nhap ho ten nguoi nhan hoan tien.";
-    if (!form.phoneNumber.trim()) return "Vui long nhap so dien thoai lien he.";
-    if (!form.bankAccountName.trim()) return "Vui long nhap ten chu tai khoan.";
-    if (!form.bankAccountNumber.trim()) return "Vui long nhap so tai khoan.";
-    if (!form.bankName.trim()) return "Vui long nhap ten ngan hang.";
-    if (!form.reason.trim()) return "Vui long nhap ly do tra hang.";
-    if (!form.description.trim()) return "Vui long mo ta chi tiet loi cua don hang.";
-    if (imageEvidences.length === 0) return "Can co it nhat 1 hinh anh loi.";
-    if (videoEvidences.length === 0) return "Can co it nhat 1 video loi.";
+    if (form.refundMethod !== "BANK_TRANSFER") {
+      return "Luồng trả hàng chỉ hỗ trợ hoàn tiền qua chuyển khoản ngân hàng.";
+    }
+    if (!form.fullName.trim()) return "Vui lòng nhập họ tên người nhận hoàn tiền.";
+    if (!form.phoneNumber.trim()) return "Vui lòng nhập số điện thoại liên hệ.";
+    if (!form.bankAccountName.trim()) return "Vui lòng nhập tên chủ tài khoản.";
+    if (!form.bankAccountNumber.trim()) return "Vui lòng nhập số tài khoản.";
+    if (!form.bankName.trim()) return "Vui lòng nhập tên ngân hàng.";
+    if (!form.reason.trim()) return "Vui lòng nhập lý do trả hàng.";
+    if (!form.description.trim()) return "Vui lòng mô tả chi tiết lỗi của đơn hàng.";
+    if (imageEvidences.length === 0) return "Cần có ít nhất 1 hình ảnh lỗi.";
+    if (videoEvidences.length === 0) return "Cần có ít nhất 1 video lỗi.";
     return null;
   };
 
@@ -367,7 +386,7 @@ export default function ReturnRequestPage({
         bankName: form.bankName.trim(),
         bankBranch: form.bankBranch.trim() || null,
         issueType: form.issueType,
-        refundMethod: form.refundMethod,
+        refundMethod: "BANK_TRANSFER",
         reason: form.reason.trim(),
         description: form.description.trim(),
         items: selectedDraftItems.map((item) => ({
@@ -385,13 +404,13 @@ export default function ReturnRequestPage({
 
       const createdRequest = await returnService.createReturnRequest(payload);
       toast.success(
-        `Da gui yeu cau tra hang ${createdRequest.code}. Chi nhanh phuc vu se xu ly tiep theo.`,
+        `Đã gửi yêu cầu trả hàng ${createdRequest.code}. Chi nhánh phục vụ sẽ xử lý tiếp theo.`,
       );
       setConfirmOpen(false);
       router.push("/orders/return/list");
     } catch (err: any) {
       toast.error(
-        extractErrorMessage(err, "Khong the gui yeu cau tra hang luc nay."),
+        extractErrorMessage(err, "Không thể gửi yêu cầu trả hàng lúc này."),
       );
     } finally {
       setSubmitting(false);
@@ -401,32 +420,32 @@ export default function ReturnRequestPage({
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-28 w-full" />
-        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-10 w-48 rounded-none" />
+        <Skeleton className="h-24 w-full rounded-none" />
+        <Skeleton className="h-80 w-full rounded-none" />
       </div>
     );
   }
 
   if (error || !draft) {
     return (
-      <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
+      <div className="border border-blue-200 bg-white p-6">
         <div className="flex items-start gap-3">
-          <AlertCircle className="mt-0.5 text-rose-500" size={20} />
+          <AlertCircle className="mt-0.5 text-blue-700" size={20} />
           <div className="space-y-3">
             <div>
-              <h1 className="text-lg font-semibold text-slate-900">
-                Khong the tao yeu cau tra hang
+              <h1 className="text-lg font-semibold text-blue-950">
+                Không thể tạo yêu cầu trả hàng
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {error ?? "Don hang nay chua san sang cho luong tra hang thu cong."}
+              <p className="mt-1 text-sm text-slate-600">
+                {error ?? "Đơn hàng này chưa sẵn sàng cho luồng trả hàng thủ công."}
               </p>
             </div>
             <Link
               href="/orders/list?status=COMPLETED"
-              className="inline-flex h-10 items-center rounded-md bg-[#1965a2] px-4 text-sm font-semibold text-white hover:bg-[#145486]"
+              className="inline-flex h-10 items-center bg-blue-800 px-4 text-sm font-semibold text-white hover:bg-blue-900"
             >
-              Quay lai don da giao
+              Quay lại đơn đã giao
             </Link>
           </div>
         </div>
@@ -436,70 +455,112 @@ export default function ReturnRequestPage({
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-2">
-              <Link
-                href="/orders/list?status=COMPLETED"
-                className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#1965a2]"
-              >
-                <ArrowLeft size={16} />
-                Quay lai don da giao
-              </Link>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  Tao yeu cau tra hang
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Don hang <span className="font-semibold text-slate-700">{draft.orderCode}</span> se
-                  duoc chuyen den chi nhanh phuc vu de xu ly thu cong.
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              <div>
-                <span className="font-semibold text-slate-900">So san pham da chon:</span>{" "}
-                {selectedDraftItems.length}
-              </div>
-              <div>
-                <span className="font-semibold text-slate-900">So luong tra:</span>{" "}
-                {totalSelectedQuantity}
-              </div>
-              <div>
-                <span className="font-semibold text-slate-900">Tam tinh hoan:</span>{" "}
-                {formatCurrency(refundPreview)}
-              </div>
-            </div>
-          </div>
+      <div className="space-y-4 text-blue-950">
+        <div className="border border-blue-200 bg-white p-4">
+          <Link
+            href="/orders/list?status=COMPLETED"
+            className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
+          >
+            <ArrowLeft size={16} />
+            Quay lại đơn đã giao
+          </Link>
+          <h1 className="mt-3 text-2xl font-semibold text-blue-950">
+            Tạo yêu cầu trả hàng
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Đơn hàng <span className="font-semibold text-blue-950">{draft.orderCode}</span> sẽ
+            được chuyển đến chi nhánh phục vụ để xử lý thủ công.
+          </p>
         </div>
 
-        {!draft.singleBranchOnly && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            Don hang nay co san pham do nhieu chi nhanh phuc vu. Moi lan gui yeu cau,
-            ban chi nen chon san pham thuoc cung mot chi nhanh de chi nhanh do xu ly.
+        {draft.message ? (
+          <div className="border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+            {draft.message}
           </div>
-        )}
+        ) : null}
 
-        {form.issueType === "MISSING_ITEM" && (
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800">
-            Truong hop thieu hang se do chi nhanh phuc vu xu ly hoan tien truc tiep. Khach
-            hang khong can gui tra lai hang vat ly, nhung van bat buoc dinh kem hinh anh va
-            video mo ta loi don hang.
+        {form.issueType === "MISSING_ITEM" ? (
+          <div className="border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+            Trường hợp thiếu hàng sẽ do chi nhánh phục vụ xác minh và hoàn tiền trực tiếp. Khách hàng không cần gửi trả lại hàng vật lý nhưng vẫn phải cung cấp ảnh và video bằng chứng.
           </div>
-        )}
+        ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <CheckCircle2 className="text-[#1965a2]" size={18} />
-                <h2 className="text-lg font-semibold text-slate-900">
-                  1. Chon san pham can tra
-                </h2>
+        <Accordion
+          type="multiple"
+          defaultValue={DEFAULT_OPEN_SECTIONS}
+          className="border border-blue-200 bg-white"
+        >
+          <AccordionItem value="summary" className="border-b border-blue-200">
+            <AccordionTrigger className="px-4 py-4 hover:no-underline">
+              <div className="grid w-full gap-3 text-left md:grid-cols-[1.5fr_0.9fr_0.9fr] md:items-center">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Phiếu tổng
+                  </p>
+                  <p className="text-lg font-semibold text-blue-950">
+                    Yêu cầu trả hàng {draft.orderCode}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Nhấn để xem nhanh toàn bộ thông tin đơn trả
+                  </p>
+                </div>
+                <SummaryBlock
+                  label="Sản phẩm đã chọn"
+                  value={`${selectedDraftItems.length} / ${draft.items.length}`}
+                />
+                <SummaryBlock
+                  label="Tạm tính hoàn"
+                  value={formatCurrency(refundPreview)}
+                />
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="border-t border-blue-200 bg-blue-50/40 px-4 pb-4 pt-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <InfoTile label="Mã đơn hàng" value={draft.orderCode} />
+                <InfoTile
+                  label="Chi nhánh xử lý"
+                  value={selectedBranchName || "Sẽ xác định theo sản phẩm đã chọn"}
+                />
+                <InfoTile label="Loại sự cố" value={issueLabel} />
+                <InfoTile
+                  label="Phương thức hoàn"
+                  value="Chuyển khoản ngân hàng"
+                />
+                <InfoTile label="Số lượng trả" value={`${totalSelectedQuantity}`} />
+                <InfoTile label="Bằng chứng đã tải" value={`${totalEvidenceCount}`} />
+                <InfoTile
+                  label="Hình ảnh"
+                  value={`${imageEvidences.length} tệp`}
+                />
+                <InfoTile
+                  label="Video"
+                  value={`${videoEvidences.length} tệp`}
+                />
               </div>
 
+              <div className="mt-4 border border-blue-200 bg-white p-3 text-sm text-slate-600">
+                <p className="font-semibold text-blue-900">Thông tin cần có trước khi gửi</p>
+                <p className="mt-2">- Chọn sản phẩm cần trả thuộc cùng một chi nhánh phục vụ.</p>
+                <p>- Điền đầy đủ thông tin nhận hoàn tiền qua ngân hàng.</p>
+                <p>- Cung cấp lý do, mô tả và ít nhất 1 ảnh cùng 1 video lỗi.</p>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="products" className="border-b border-blue-200">
+            <AccordionTrigger className="px-4 py-4 hover:no-underline">
+              <div className="space-y-1 text-left">
+                <p className="text-base font-semibold text-blue-950">
+                  Sản phẩm cần trả
+                </p>
+                <p className="text-sm text-slate-600">
+                  {selectedDraftItems.length > 0
+                    ? `Đã chọn ${selectedDraftItems.length} sản phẩm • ${totalSelectedQuantity} đơn vị`
+                    : "Chưa chọn sản phẩm trả hàng"}
+                </p>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="border-t border-blue-200 bg-blue-50/40 px-4 pb-4 pt-4">
               <div className="space-y-3">
                 {draft.items.map((item) => {
                   const itemKey = getDraftItemKey(item);
@@ -515,11 +576,11 @@ export default function ReturnRequestPage({
                   return (
                     <div
                       key={itemKey}
-                      className={`rounded-2xl border p-4 transition-colors ${
+                      className={`border p-4 ${
                         isSelected
-                          ? "border-[#1965a2] bg-[#1965a2]/5"
-                          : "border-slate-200 bg-white"
-                      } ${disabledByBranch ? "opacity-60" : ""}`}
+                          ? "border-blue-700 bg-white"
+                          : "border-blue-200 bg-white"
+                      } ${disabledByBranch ? "opacity-50" : ""}`}
                     >
                       <div className="flex flex-col gap-4 md:flex-row md:items-start">
                         <div className="flex items-start gap-3">
@@ -529,44 +590,44 @@ export default function ReturnRequestPage({
                               handleToggleItem(item, checked === true)
                             }
                             disabled={disabledByBranch}
-                            className="mt-1"
+                            className="mt-1 rounded-none border-blue-300"
                           />
 
                           <img
                             src={resolveImageUrl(item.image, "/placeholder.png")}
                             alt={item.productName}
-                            className="h-20 w-20 rounded-xl border border-slate-200 object-cover"
+                            className="h-20 w-20 border border-blue-200 object-cover"
                           />
 
                           <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-slate-900">
+                            <h3 className="text-sm font-semibold text-blue-950">
                               {item.productName}
                             </h3>
-                            <div className="text-sm text-slate-500">
-                              {item.variantName || item.sku || "San pham thuoc don hang"}
+                            <div className="text-sm text-slate-600">
+                              {item.variantName || item.sku || "Sản phẩm thuộc đơn hàng"}
                             </div>
-                            <div className="flex flex-wrap gap-2 pt-1 text-xs">
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-                                Da mua: {item.orderedQuantity}
+                            <div className="flex flex-wrap gap-2 pt-1 text-xs text-slate-600">
+                              <span className="border border-blue-200 bg-blue-50 px-2 py-1">
+                                Đã mua: {item.orderedQuantity}
                               </span>
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-                                Toi da tra: {item.maxReturnQuantity}
+                              <span className="border border-blue-200 bg-blue-50 px-2 py-1">
+                                Tối đa trả: {item.maxReturnQuantity}
                               </span>
-                              {item.branchName && (
-                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
-                                  Chi nhanh: {item.branchName}
+                              {item.branchName ? (
+                                <span className="border border-blue-200 bg-blue-50 px-2 py-1">
+                                  Chi nhánh: {item.branchName}
                                 </span>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>
 
-                        <div className="ml-auto flex w-full flex-col gap-3 md:w-[210px]">
-                          <div className="text-right text-sm font-semibold text-slate-900">
+                        <div className="ml-auto flex w-full flex-col gap-3 md:w-[220px]">
+                          <div className="text-right text-sm font-semibold text-blue-950">
                             {formatCurrency(item.unitPrice)}
                           </div>
-                          <label className="space-y-1 text-sm text-slate-500">
-                            <span>So luong tra</span>
+                          <label className="space-y-1 text-sm text-slate-600">
+                            <span>Số lượng trả</span>
                             <Input
                               type="number"
                               min={1}
@@ -576,88 +637,86 @@ export default function ReturnRequestPage({
                               onChange={(event) =>
                                 handleQuantityChange(item, event.target.value)
                               }
+                              className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                             />
                           </label>
-                          {disabledByBranch && (
-                            <p className="text-xs text-amber-600">
-                              Ban dang chon san pham cua chi nhanh khac. Hay gui yeu cau rieng.
+                          {disabledByBranch ? (
+                            <p className="text-xs text-blue-800">
+                              Bạn đang chọn sản phẩm của chi nhánh khác. Hãy gửi một phiếu riêng cho chi nhánh này.
                             </p>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </section>
+            </AccordionContent>
+          </AccordionItem>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  2. Thong tin khach hang va hoan tien
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Ho ten, so dien thoai, thong tin ngan hang va ly do deu bat buoc de chi
-                  nhanh xu ly thu cong nhanh hon.
+          <AccordionItem value="customer" className="border-b border-blue-200">
+            <AccordionTrigger className="px-4 py-4 hover:no-underline">
+              <div className="space-y-1 text-left">
+                <p className="text-base font-semibold text-blue-950">
+                  Thông tin hoàn tiền
+                </p>
+                <p className="text-sm text-slate-600">
+                  {form.fullName
+                    ? `${form.fullName} • ${form.bankName || "Chưa nhập ngân hàng"}`
+                    : "Chưa điền thông tin người nhận hoàn tiền"}
                 </p>
               </div>
-
+            </AccordionTrigger>
+            <AccordionContent className="border-t border-blue-200 bg-blue-50/40 px-4 pb-4 pt-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ho ten nguoi nhan hoan tien</span>
+                  <span className="font-medium text-blue-900">Họ tên người nhận hoàn tiền</span>
                   <Input
                     value={form.fullName}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, fullName: event.target.value }))
                     }
-                    placeholder="Nguyen Van A"
+                    placeholder="Nguyễn Văn A"
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">So dien thoai</span>
+                  <span className="font-medium text-blue-900">Số điện thoại</span>
                   <Input
                     value={form.phoneNumber}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, phoneNumber: event.target.value }))
                     }
                     placeholder="09xxxxxxxx"
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Email</span>
+                  <span className="font-medium text-blue-900">Email</span>
                   <Input
                     value={form.email}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, email: event.target.value }))
                     }
                     placeholder="email@example.com"
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Phuong thuc hoan tien</span>
-                  <select
-                    value={form.refundMethod}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        refundMethod: event.target.value as CreateReturnRequestPayload["refundMethod"],
-                      }))
-                    }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    {RETURN_REFUND_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="font-medium text-blue-900">Phương thức hoàn tiền</span>
+                  <Input
+                    value="Chuyển khoản ngân hàng"
+                    readOnly
+                    disabled
+                    className="rounded-none border-blue-200 bg-blue-50 text-blue-950"
+                  />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ten chu tai khoan</span>
+                  <span className="font-medium text-blue-900">Tên chủ tài khoản</span>
                   <Input
                     value={form.bankAccountName}
                     onChange={(event) =>
@@ -667,11 +726,12 @@ export default function ReturnRequestPage({
                       }))
                     }
                     placeholder="NGUYEN VAN A"
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">So tai khoan</span>
+                  <span className="font-medium text-blue-900">Số tài khoản</span>
                   <Input
                     value={form.bankAccountNumber}
                     onChange={(event) =>
@@ -681,52 +741,52 @@ export default function ReturnRequestPage({
                       }))
                     }
                     placeholder="0123456789"
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ten ngan hang</span>
+                  <span className="font-medium text-blue-900">Tên ngân hàng</span>
                   <Input
                     value={form.bankName}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, bankName: event.target.value }))
                     }
                     placeholder="Vietcombank"
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Chi nhanh ngan hang</span>
+                  <span className="font-medium text-blue-900">Chi nhánh ngân hàng</span>
                   <Input
                     value={form.bankBranch}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, bankBranch: event.target.value }))
                     }
-                    placeholder="Chi nhanh TP.HCM"
+                    placeholder="Chi nhánh TP.HCM"
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
               </div>
+            </AccordionContent>
+          </AccordionItem>
 
-              <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                Luu y: thong tin ngan hang van bat buoc ngay ca khi ban chon hoan tien mat,
-                de admin va chi nhanh doi soat trong buoi demo va luu vet xu ly.
-              </p>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  3. Ly do va mo ta loi
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Mo ta ro tinh trang loi, thieu hang hoac giao sai de chi nhanh phuc vu
-                  xac minh nhanh hon.
+          <AccordionItem value="reason" className="border-b border-blue-200">
+            <AccordionTrigger className="px-4 py-4 hover:no-underline">
+              <div className="space-y-1 text-left">
+                <p className="text-base font-semibold text-blue-950">
+                  Lý do và mô tả lỗi
+                </p>
+                <p className="text-sm text-slate-600">
+                  {form.reason || "Chưa nhập lý do trả hàng"}
                 </p>
               </div>
-
+            </AccordionTrigger>
+            <AccordionContent className="border-t border-blue-200 bg-blue-50/40 px-4 pb-4 pt-4">
               <div className="space-y-4">
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Loai su co</span>
+                  <span className="font-medium text-blue-900">Loại sự cố</span>
                   <select
                     value={form.issueType}
                     onChange={(event) =>
@@ -735,7 +795,7 @@ export default function ReturnRequestPage({
                         issueType: event.target.value as ReturnIssueType,
                       }))
                     }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-10 w-full rounded-none border border-blue-200 bg-white px-3 py-2 text-sm text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {RETURN_ISSUE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -746,18 +806,19 @@ export default function ReturnRequestPage({
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ly do ngan gon</span>
+                  <span className="font-medium text-blue-900">Lý do ngắn gọn</span>
                   <Input
                     value={form.reason}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, reason: event.target.value }))
                     }
-                    placeholder="Vi du: Don giao thieu 1 san pham, vo bao bi bi rach..."
+                    placeholder="Ví dụ: Đơn giao thiếu 1 sản phẩm, vỏ bao bì bị rách..."
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Mo ta chi tiet</span>
+                  <span className="font-medium text-blue-900">Mô tả chi tiết</span>
                   <Textarea
                     value={form.description}
                     onChange={(event) =>
@@ -767,36 +828,39 @@ export default function ReturnRequestPage({
                       }))
                     }
                     rows={5}
-                    placeholder="Mo ta ro van de, thoi diem nhan hang, tinh trang loi, so luong bi anh huong..."
+                    placeholder="Mô tả rõ vấn đề, thời điểm nhận hàng, tình trạng lỗi, số lượng bị ảnh hưởng..."
+                    className="rounded-none border-blue-200 focus-visible:ring-blue-500"
                   />
                 </label>
               </div>
-            </section>
+            </AccordionContent>
+          </AccordionItem>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  4. Hinh anh va video bang chung
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Bat buoc co it nhat 1 hinh anh va 1 video loi. Anh va video giup chi nhanh
-                  phuc vu quyet dinh thu cong nhanh va de demo ro hon.
+          <AccordionItem value="evidence" className="border-b-0">
+            <AccordionTrigger className="px-4 py-4 hover:no-underline">
+              <div className="space-y-1 text-left">
+                <p className="text-base font-semibold text-blue-950">
+                  Ảnh và video bằng chứng
+                </p>
+                <p className="text-sm text-slate-600">
+                  {imageEvidences.length} ảnh • {videoEvidences.length} video
                 </p>
               </div>
-
+            </AccordionTrigger>
+            <AccordionContent className="border-t border-blue-200 bg-blue-50/40 px-4 pb-4 pt-4">
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-dashed border-slate-300 p-4">
+                <div className="border border-blue-200 bg-white p-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <ImagePlus size={18} className="text-[#1965a2]" />
-                    <span className="font-medium text-slate-800">Hinh anh loi</span>
+                    <ImagePlus size={18} className="text-blue-700" />
+                    <span className="font-medium text-blue-950">Hình ảnh lỗi</span>
                   </div>
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-8 text-center hover:bg-slate-100">
-                    <Upload size={20} className="mb-2 text-slate-500" />
-                    <span className="text-sm font-medium text-slate-700">
-                      Tai anh bang chung
+                  <label className="flex cursor-pointer flex-col items-center justify-center border border-blue-200 bg-blue-50 px-4 py-8 text-center">
+                    <Upload size={20} className="mb-2 text-blue-700" />
+                    <span className="text-sm font-medium text-blue-950">
+                      Tải ảnh bằng chứng
                     </span>
-                    <span className="mt-1 text-xs text-slate-500">
-                      JPG, PNG, WEBP. Toi da 10MB moi tep.
+                    <span className="mt-1 text-xs text-slate-600">
+                      JPG, PNG, WEBP. Tối đa 10MB mỗi tệp.
                     </span>
                     <input
                       type="file"
@@ -810,18 +874,18 @@ export default function ReturnRequestPage({
                     />
                   </label>
 
-                  {uploadingType === "IMAGE" && (
-                    <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
+                  {uploadingType === "IMAGE" ? (
+                    <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-600">
                       <Loader2 size={16} className="animate-spin" />
-                      Dang tai hinh anh...
+                      Đang tải hình ảnh...
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     {imageEvidences.map((item) => (
                       <div
                         key={item.id}
-                        className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                        className="overflow-hidden border border-blue-200 bg-white"
                       >
                         <img
                           src={item.previewUrl}
@@ -829,13 +893,13 @@ export default function ReturnRequestPage({
                           className="h-32 w-full object-cover"
                         />
                         <div className="flex items-center justify-between gap-2 p-2">
-                          <p className="truncate text-xs text-slate-500">
-                            {item.fileName ?? "Hinh anh"}
+                          <p className="truncate text-xs text-slate-600">
+                            {item.fileName ?? "Hình ảnh"}
                           </p>
                           <button
                             type="button"
                             onClick={() => removeEvidence(item)}
-                            className="rounded-md p-1 text-rose-500 hover:bg-rose-50"
+                            className="p-1 text-blue-700 hover:bg-blue-50"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -845,18 +909,18 @@ export default function ReturnRequestPage({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-dashed border-slate-300 p-4">
+                <div className="border border-blue-200 bg-white p-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <Video size={18} className="text-[#1965a2]" />
-                    <span className="font-medium text-slate-800">Video loi</span>
+                    <Video size={18} className="text-blue-700" />
+                    <span className="font-medium text-blue-950">Video lỗi</span>
                   </div>
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-8 text-center hover:bg-slate-100">
-                    <Upload size={20} className="mb-2 text-slate-500" />
-                    <span className="text-sm font-medium text-slate-700">
-                      Tai video bang chung
+                  <label className="flex cursor-pointer flex-col items-center justify-center border border-blue-200 bg-blue-50 px-4 py-8 text-center">
+                    <Upload size={20} className="mb-2 text-blue-700" />
+                    <span className="text-sm font-medium text-blue-950">
+                      Tải video bằng chứng
                     </span>
-                    <span className="mt-1 text-xs text-slate-500">
-                      MP4, MOV, WEBM. Toi da 50MB moi tep.
+                    <span className="mt-1 text-xs text-slate-600">
+                      MP4, MOV, WEBM. Tối đa 50MB mỗi tệp.
                     </span>
                     <input
                       type="file"
@@ -870,18 +934,18 @@ export default function ReturnRequestPage({
                     />
                   </label>
 
-                  {uploadingType === "VIDEO" && (
-                    <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
+                  {uploadingType === "VIDEO" ? (
+                    <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-600">
                       <Loader2 size={16} className="animate-spin" />
-                      Dang tai video...
+                      Đang tải video...
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="mt-4 space-y-3">
                     {videoEvidences.map((item) => (
                       <div
                         key={item.id}
-                        className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                        className="overflow-hidden border border-blue-200 bg-white"
                       >
                         <video
                           src={item.previewUrl}
@@ -889,13 +953,13 @@ export default function ReturnRequestPage({
                           className="h-40 w-full bg-slate-950 object-cover"
                         />
                         <div className="flex items-center justify-between gap-2 p-2">
-                          <p className="truncate text-xs text-slate-500">
-                            {item.fileName ?? "Video loi"}
+                          <p className="truncate text-xs text-slate-600">
+                            {item.fileName ?? "Video lỗi"}
                           </p>
                           <button
                             type="button"
                             onClick={() => removeEvidence(item)}
-                            className="rounded-md p-1 text-rose-500 hover:bg-rose-50"
+                            className="p-1 text-blue-700 hover:bg-blue-50"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -905,137 +969,103 @@ export default function ReturnRequestPage({
                   </div>
                 </div>
               </div>
-            </section>
-          </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
-          <aside className="space-y-4">
-            <div className="sticky top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Xac nhan truoc khi gui
-              </h2>
-
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Ma don</span>
-                  <span className="text-right font-semibold text-slate-900">
-                    {draft.orderCode}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Chi nhanh xu ly</span>
-                  <span className="text-right font-semibold text-slate-900">
-                    {selectedBranchName || "Se xac dinh theo san pham da chon"}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Loai su co</span>
-                  <span className="text-right font-semibold text-slate-900">
-                    {
-                      RETURN_ISSUE_OPTIONS.find(
-                        (option) => option.value === form.issueType,
-                      )?.label
-                    }
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Tam tinh hoan</span>
-                  <span className="text-right text-lg font-semibold text-rose-600">
-                    {formatCurrency(refundPreview)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-                Bat buoc:
-                <br />
-                - Ho ten, so dien thoai, tai khoan, ten ngan hang
-                <br />
-                - Ma don, ly do, mo ta chi tiet
-                <br />
-                - It nhat 1 hinh anh va 1 video loi
-              </div>
-
-              <Button
-                type="button"
-                onClick={() => {
-                  const validationMessage = validateBeforeSubmit();
-                  if (validationMessage) {
-                    toast.error(validationMessage);
-                    return;
-                  }
-                  setConfirmOpen(true);
-                }}
-                className="mt-5 h-11 w-full bg-[#1965a2] text-white hover:bg-[#145486]"
-                disabled={submitting}
-              >
-                {submitting ? "Dang gui..." : "Gui yeu cau tra hang"}
-              </Button>
-
-              <p className="mt-3 text-xs text-slate-500">
-                Sau khi gui, yeu cau se hien thi tai trang{" "}
-                <Link
-                  href="/admin/orders/return"
-                  className="font-medium text-[#1965a2] hover:underline"
-                >
-                  /admin/orders/return
-                </Link>{" "}
-                de admin va nguoi quan ly chi nhanh xu ly thu cong.
-              </p>
-            </div>
-          </aside>
+        <div className="border border-blue-200 bg-white p-4">
+          <p className="text-sm text-slate-600">
+            Sau khi gửi, phiếu trả hàng sẽ xuất hiện trong danh sách trả hàng của bạn để theo dõi tiến trình xử lý.
+          </p>
+          <Button
+            type="button"
+            onClick={() => {
+              const validationMessage = validateBeforeSubmit();
+              if (validationMessage) {
+                toast.error(validationMessage);
+                return;
+              }
+              setConfirmOpen(true);
+            }}
+            className="mt-4 h-11 w-full rounded-none bg-blue-800 text-white hover:bg-blue-900"
+            disabled={submitting}
+          >
+            {submitting ? "Đang gửi..." : "Gửi yêu cầu trả hàng"}
+          </Button>
         </div>
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xac nhan gui yeu cau tra hang</AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận gửi yêu cầu trả hàng</AlertDialogTitle>
             <AlertDialogDescription>
-              Yeu cau se duoc chuyen den chi nhanh phuc vu cua don hang nay. Hay chac
-              rang thong tin khach hang, ngan hang, ly do va bang chung da day du.
+              Yêu cầu sẽ được chuyển đến chi nhánh phục vụ của đơn hàng này. Hãy chắc rằng thông tin hoàn tiền và bằng chứng đã đầy đủ trước khi gửi.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="border border-blue-200 bg-blue-50/40 p-4 text-sm text-slate-700">
             <div className="flex justify-between gap-4">
-              <span>Don hang</span>
-              <span className="font-semibold text-slate-900">{draft.orderCode}</span>
+              <span>Đơn hàng</span>
+              <span className="font-semibold text-blue-950">{draft.orderCode}</span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>Chi nhanh</span>
-              <span className="text-right font-semibold text-slate-900">
-                {selectedBranchName}
+              <span>Chi nhánh</span>
+              <span className="text-right font-semibold text-blue-950">
+                {selectedBranchName || "Sẽ xác định khi chọn đủ sản phẩm"}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>San pham da chon</span>
-              <span className="font-semibold text-slate-900">
+              <span>Sản phẩm đã chọn</span>
+              <span className="font-semibold text-blue-950">
                 {selectedDraftItems.length}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>Tam tinh hoan</span>
-              <span className="font-semibold text-rose-600">
+              <span>Tạm tính hoàn</span>
+              <span className="font-semibold text-blue-950">
                 {formatCurrency(refundPreview)}
               </span>
             </div>
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting}>Huy</AlertDialogCancel>
+            <AlertDialogCancel disabled={submitting}>Hủy</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
                 void handleSubmit();
               }}
-              className="bg-[#1965a2] text-white hover:bg-[#145486]"
+              className="bg-blue-800 text-white hover:bg-blue-900"
               disabled={submitting}
             >
-              {submitting ? "Dang gui..." : "Dong y gui yeu cau"}
+              {submitting ? "Đang gửi..." : "Đồng ý gửi yêu cầu"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function SummaryBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-blue-200 bg-blue-50 px-3 py-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+        {label}
+      </p>
+      <p className="mt-1 text-base font-semibold text-blue-950">{value}</p>
+    </div>
+  );
+}
+
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-blue-200 bg-white p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+        {label}
+      </p>
+      <p className="mt-2 text-sm text-blue-950">{value}</p>
+    </div>
   );
 }
