@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { FileUp, Plus, Search, Trash2, Loader2 } from "lucide-react";
+import { AlertTriangle, FileUp, Plus, Search, Trash2, Loader2 } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -35,12 +35,15 @@ type SupplierCatalogVariant = {
   productName: string;
   imageUrl?: string;
   quantity?: number;
+  systemStockQuantity?: number;
+  lowStock?: boolean;
   customSpecs?: string;
   specs?: string;
   unit?: string;
 };
 
 const AVAILABLE_CATALOG_STATUS = "AVAILABLE";
+const LOW_STOCK_THRESHOLD = 10;
 const BACKEND_ORIGIN =
   process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
 
@@ -157,6 +160,10 @@ function buildSupplierCatalogVariants(
       const resolvedImageUrl = resolveProductImageSrc(
         getFirstImageUrl(item.imageUrl, variant?.imageUrl, product?.imageUrls),
       );
+      const systemStockQuantity = Number(
+        item.systemStockQuantity ?? variant?.quantity ?? 0,
+      );
+      const lowStock = item.lowStock ?? systemStockQuantity < LOW_STOCK_THRESHOLD;
 
       if (
         process.env.NODE_ENV === "development" &&
@@ -179,6 +186,8 @@ function buildSupplierCatalogVariants(
         productName: product?.name || item.productName || "",
         imageUrl: resolvedImageUrl,
         quantity: variant?.quantity,
+        systemStockQuantity,
+        lowStock,
         customSpecs: specs,
         specs,
         unit: "Cái",
@@ -187,6 +196,10 @@ function buildSupplierCatalogVariants(
     .filter((variant) => Boolean(variant.id) && Boolean(variant.sku))
     .sort(
       (a, b) =>
+        Number(Boolean(b.lowStock)) - Number(Boolean(a.lowStock)) ||
+        (a.lowStock && b.lowStock
+          ? (a.systemStockQuantity ?? 0) - (b.systemStockQuantity ?? 0)
+          : 0) ||
         a.productName.localeCompare(b.productName) ||
         a.sku.localeCompare(b.sku),
     );
@@ -319,6 +332,10 @@ export default function NewPurchaseRequestPage() {
         .some((value) => String(value).toLowerCase().includes(keyword)),
     );
   }, [catalogSearchTerm, supplierProducts]);
+  const lowStockSupplierProductCount = useMemo(
+    () => supplierProducts.filter((product) => product.lowStock).length,
+    [supplierProducts],
+  );
 
   useEffect(() => {
     if (!canAccessPurchaseRequests) {
@@ -1033,6 +1050,12 @@ export default function NewPurchaseRequestPage() {
                 className="h-9 w-full border border-slate-200 pl-9 pr-3 text-[12px] outline-none focus:border-emerald-300"
               />
             </div>
+            {lowStockSupplierProductCount > 0 && (
+              <div className="mt-3 inline-flex items-center gap-2 rounded-[4px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-700">
+                <AlertTriangle size={13} />
+                {lowStockSupplierProductCount} mặt hàng tồn hệ thống dưới {LOW_STOCK_THRESHOLD} sp
+              </div>
+            )}
           </div>
 
           <div className="max-h-[60vh] overflow-y-auto p-5">
@@ -1059,7 +1082,9 @@ export default function NewPurchaseRequestPage() {
                       key={product.sku}
                       className={cn(
                         "flex cursor-pointer items-center gap-3 rounded-[4px] border px-3 py-3 transition-colors",
-                        checked
+                        product.lowStock
+                          ? "border-red-200 bg-red-50/80 hover:bg-red-50"
+                          : checked
                           ? "border-blue-200 bg-blue-50"
                           : "border-slate-200 hover:bg-slate-50",
                       )}
@@ -1096,6 +1121,24 @@ export default function NewPurchaseRequestPage() {
                           {product.customSpecs
                             ? ` • ${product.customSpecs}`
                             : ""}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex h-5 items-center gap-1 rounded-[3px] px-2 text-[10.5px] font-semibold",
+                              product.lowStock
+                                ? "bg-red-100 text-red-700"
+                                : "bg-emerald-50 text-emerald-700",
+                            )}
+                          >
+                            {product.lowStock && <AlertTriangle size={12} />}
+                            Tồn hệ thống: {product.systemStockQuantity ?? 0} sp
+                          </span>
+                          {product.lowStock && (
+                            <span className="text-[10.5px] font-medium text-red-600">
+                              Cần nhập thêm
+                            </span>
+                          )}
                         </div>
                       </div>
                     </label>

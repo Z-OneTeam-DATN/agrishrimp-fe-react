@@ -591,6 +591,7 @@ export default function InventoryUpsert({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSearchPickerOpen, setIsSearchPickerOpen] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [resultFilter, setResultFilter] = useState("ALL");
   const stockFilter = "ALL";
@@ -801,6 +802,7 @@ export default function InventoryUpsert({
       setItems(productList.map(mapItem));
       setSelectedProductIds([]);
       setSearchResults([]);
+      setIsSearchPickerOpen(false);
       setWorkflowStatus("DRAFT");
     } catch (error) {
       console.error(error);
@@ -828,6 +830,7 @@ export default function InventoryUpsert({
     setSearchTerm("");
     setSelectedProductIds([]);
     setSearchResults([]);
+    setIsSearchPickerOpen(false);
 
     if (!canEditDraftContent || mode === "create") return;
 
@@ -846,6 +849,7 @@ export default function InventoryUpsert({
     setSearchTerm("");
     setSelectedProductIds([]);
     setSearchResults([]);
+    setIsSearchPickerOpen(false);
 
     if (!canEditDraftContent) return;
 
@@ -860,18 +864,15 @@ export default function InventoryUpsert({
   };
 
   const handleSearchProduct = async (term: string) => {
-    if (!term.trim()) {
-      setSearchResults([]);
-      return;
-    }
     if (!formData.branchId) {
+      setSearchResults([]);
       toast.warning("Vui lòng chọn kho trước khi tìm sản phẩm");
       return;
     }
     setIsSearching(true);
     try {
       const data = await InventoryCheckApiService.searchProducts(
-        term,
+        term.trim(),
         formData.branchId,
       );
       const productList = Array.isArray(data) ? data : data?.content || [];
@@ -885,15 +886,25 @@ export default function InventoryUpsert({
   };
 
   useEffect(() => {
+    if (!isSearchPickerOpen) return;
+
     const timer = setTimeout(() => {
-      if (searchTerm.trim()) {
-        handleSearchProduct(searchTerm);
-      } else {
-        setSearchResults([]);
-      }
+      handleSearchProduct(searchTerm);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchTerm, formData.branchId]);
+  }, [searchTerm, formData.branchId, isSearchPickerOpen]);
+
+  const openSearchPicker = () => {
+    if (!formData.branchId) {
+      toast.warning("Vui lòng chọn kho trước khi tìm sản phẩm");
+      return;
+    }
+
+    setIsSearchPickerOpen(true);
+    if (searchResults.length === 0) {
+      setIsSearching(true);
+    }
+  };
 
   const addItems = (variants: any[]) => {
     if (variants.length === 0) return;
@@ -959,6 +970,7 @@ export default function InventoryUpsert({
     addItems(variants);
     setSearchTerm("");
     setSearchResults([]);
+    setIsSearchPickerOpen(false);
     setSelectedProductIds([]);
   };
 
@@ -973,6 +985,7 @@ export default function InventoryUpsert({
     selectedGroups.forEach((group) => addItems(group.products));
     setSearchTerm("");
     setSearchResults([]);
+    setIsSearchPickerOpen(false);
     setSelectedProductIds([]);
   };
 
@@ -1986,7 +1999,14 @@ export default function InventoryUpsert({
             </div>
 
             {canEditDraftContent && isSelectedScope && (
-              <div className="relative w-full xl:max-w-[420px] xl:flex-1">
+              <div
+                className="relative w-full xl:max-w-[420px] xl:flex-1"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setIsSearchPickerOpen(false);
+                  }
+                }}
+              >
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                   size={16}
@@ -1996,6 +2016,8 @@ export default function InventoryUpsert({
                   placeholder="Tìm SKU hoặc tên sản phẩm để thêm..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onClick={openSearchPicker}
+                  onFocus={openSearchPicker}
                 />
                 {isSearching && (
                   <Loader2
@@ -2004,8 +2026,11 @@ export default function InventoryUpsert({
                   />
                 )}
 
-                {searchResultGroups.length > 0 && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+                {isSearchPickerOpen && (isSearching || searchResultGroups.length > 0 || searchTerm.trim()) && (
+                  <div
+                    className="absolute right-0 top-[calc(100%+6px)] z-50 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg xl:w-[720px]"
+                    onMouseDown={(event) => event.preventDefault()}
+                  >
                     <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
                       <span className="text-slate-500">
                         Đã chọn{" "}
@@ -2023,13 +2048,22 @@ export default function InventoryUpsert({
                         Thêm đã chọn
                       </Button>
                     </div>
-                    <div className="max-h-[320px] overflow-y-auto">
-                      {searchResultGroups.map((group) => (
+                    <div className="max-h-[460px] overflow-y-auto">
+                      {isSearching && searchResultGroups.length === 0 ? (
+                        <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-slate-500">
+                          <Loader2 size={15} className="animate-spin text-blue-600" />
+                          Đang tải danh sách sản phẩm...
+                        </div>
+                      ) : searchResultGroups.length === 0 ? (
+                        <div className="px-3 py-8 text-center text-sm text-slate-500">
+                          Không tìm thấy sản phẩm phù hợp.
+                        </div>
+                      ) : searchResultGroups.map((group) => (
                         <div
                           key={group.key}
                           role="button"
                           tabIndex={0}
-                          className="flex cursor-pointer items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
+                          className="flex min-h-[88px] cursor-pointer items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
                           onClick={() => handleAddSearchGroup(group.products)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -2038,7 +2072,7 @@ export default function InventoryUpsert({
                             }
                           }}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
                             <div
                               onClick={(e) => e.stopPropagation()}
                               className="flex items-center"
@@ -2050,8 +2084,8 @@ export default function InventoryUpsert({
                                 }
                               />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium leading-5 text-slate-900" title={group.name}>
                                 {group.name}
                               </p>
                               <p className="mt-1 text-xs text-slate-500">
@@ -2064,16 +2098,23 @@ export default function InventoryUpsert({
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex shrink-0 items-center gap-2">
                             {group.hasZeroStockLot && (
                               <Badge className="rounded-md border border-amber-100 bg-amber-50 text-[10px] font-medium text-amber-700">
                                 Có lô hết hàng
                               </Badge>
                             )}
-                            <Badge className="rounded-md border border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-700">
-                              Thêm toàn bộ lô
-                            </Badge>
-                            <Plus size={16} className="text-blue-600" />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-md border-blue-100 bg-blue-50 px-3 text-[11px] font-semibold text-blue-600 hover:bg-blue-100"
+                              title="Thêm toàn bộ lô"
+                              aria-label="Thêm toàn bộ lô"
+                            >
+                              <Plus size={13} className="mr-1" />
+                              Thêm
+                            </Button>
                           </div>
                         </div>
                       ))}

@@ -10,12 +10,8 @@ import { ProductService } from "@/app/services/product.service";
 import { Driver } from "@/app/types/driver.schema";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
-  Plus,
   Trash2,
   Search,
-  Truck,
-  CheckCircle2,
-  AlertCircle,
   Save,
   DollarSign,
   Loader2,
@@ -402,12 +398,6 @@ export default function NewTransferPage() {
     }
   };
 
-  const steps = [
-    { label: "Khởi tạo", status: "completed", icon: Plus },
-    { label: "Chờ xuất kho", status: "active", icon: AlertCircle },
-    { label: "Đang vận chuyển", status: "upcoming", icon: Truck },
-    { label: "Đã nhận hàng", status: "upcoming", icon: CheckCircle2 },
-  ];
   const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
   const fieldControlClass =
     "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
@@ -528,51 +518,6 @@ export default function NewTransferPage() {
               ? "Chỉnh sửa phiếu điều chuyển hàng hóa"
               : "Lập phiếu điều chuyển hàng hóa"}
           </h1>
-        </div>
-      </div>
-
-      <div className="border border-slate-200 bg-white px-4 py-4 shadow-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
-          {steps.map((step, idx) => (
-            <React.Fragment key={idx}>
-              <div className="relative z-10 flex min-w-0 flex-col items-center gap-2">
-                <div
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full border text-[10px] transition-colors",
-                    step.status === "completed"
-                      ? "border-blue-200 bg-blue-50 text-blue-600"
-                      : step.status === "active"
-                        ? "border-sky-200 bg-sky-50 text-sky-600"
-                        : "border-slate-200 bg-slate-50 text-slate-300",
-                  )}
-                >
-                  <step.icon size={15} />
-                </div>
-                <span
-                  className={cn(
-                    "text-center text-[10px] font-medium",
-                    step.status === "active"
-                      ? "text-sky-600"
-                      : "text-slate-500",
-                  )}
-                >
-                  {step.label}
-                </span>
-              </div>
-              {idx < steps.length - 1 && (
-                <div className="relative -mt-5 h-px flex-1 bg-slate-200">
-                  <div
-                    className={cn(
-                      "absolute inset-y-0 left-0 transition-all duration-500",
-                      steps[idx].status === "completed"
-                        ? "w-full bg-blue-300"
-                        : "w-0 bg-transparent",
-                    )}
-                  />
-                </div>
-              )}
-            </React.Fragment>
-          ))}
         </div>
       </div>
 

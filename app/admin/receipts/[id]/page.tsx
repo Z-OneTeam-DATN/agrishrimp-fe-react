@@ -38,6 +38,470 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const RECEIPT_STATUS_LABEL: Record<string, string> = {
+  PLANNING: "Đang lập",
+  PENDING: "Chờ duyệt",
+  APPROVED: "Chờ kiểm hàng",
+  COMPLETED: "Đã hoàn tất",
+  IMPORTED: "Đã nhập kho",
+  REJECTED: "Đã từ chối",
+  CANCELLED: "Đã hủy",
+};
+
+function fmtPrintMoney(value: unknown) {
+  return `${new Intl.NumberFormat("vi-VN").format(Number(value) || 0)} đ`;
+}
+
+function fmtPrintQty(value: unknown) {
+  return new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
+}
+
+function fmtPrintDate(value?: string | null) {
+  if (!value) return "---";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleDateString("vi-VN");
+}
+
+function getReceiptItemDelivered(item: any) {
+  return Number(
+    item?.quantityReal ??
+      item?.quantityDelivered ??
+      item?.deliveredQuantity ??
+      item?.plannedQuantity ??
+      item?.quantity ??
+      0,
+  );
+}
+
+function getReceiptItemPlanned(item: any) {
+  return Number(item?.plannedQuantity ?? item?.quantity ?? 0);
+}
+
+function getReceiptItemAccepted(item: any) {
+  const delivered = getReceiptItemDelivered(item);
+  const rejected = Number(item?.quantityRejected ?? 0);
+  return Number(item?.quantityAccepted ?? Math.max(delivered - rejected, 0));
+}
+
+function ReceiptPrintView({
+  receipt,
+  paymentHistory,
+}: {
+  receipt: any;
+  paymentHistory: any[];
+}) {
+  const code = receipt?.receiptCode || receipt?.code || `PNK-${receipt?.id || ""}`;
+  const items = receipt?.items || [];
+  const totalDelivered = items.reduce(
+    (sum: number, item: any) => sum + getReceiptItemDelivered(item),
+    0,
+  );
+  const totalAccepted = items.reduce(
+    (sum: number, item: any) => sum + getReceiptItemAccepted(item),
+    0,
+  );
+  const totalRejected = items.reduce(
+    (sum: number, item: any) => sum + Number(item.quantityRejected || 0),
+    0,
+  );
+  const totalRequired = items.reduce(
+    (sum: number, item: any) => sum + getReceiptItemPlanned(item),
+    0,
+  );
+  const totalAmount = Number(receipt?.totalAmount || 0);
+  const paidAmount =
+    Number(receipt?.paymentAmount ?? 0) ||
+    paymentHistory.reduce((sum, payment) => sum + Number(payment?.amount || 0), 0);
+  const debtAmount = Number(
+    receipt?.debtAmount ?? Math.max(totalAmount - paidAmount, 0),
+  );
+  const firstPayment = paymentHistory[0];
+  const today = new Date();
+
+  return (
+    <div className="receipt-print">
+      <style jsx global>{`
+        .receipt-print {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .receipt-print,
+          .receipt-print * {
+            visibility: visible !important;
+          }
+
+          .receipt-print {
+            display: block !important;
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            background: #fff;
+            color: #000;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11px;
+            line-height: 1.18;
+          }
+
+          .receipt-print-page {
+            min-height: 277mm;
+            position: relative;
+            padding-bottom: 18mm;
+          }
+
+          .receipt-print-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20mm;
+            text-align: center;
+            font-weight: 700;
+          }
+
+          .receipt-print-title {
+            margin-top: 7mm;
+            text-align: center;
+            color: #173f73;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .receipt-print-title h1 {
+            margin: 0;
+            font-size: 19px;
+            line-height: 1.08;
+          }
+
+          .receipt-print-title h2 {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.1;
+          }
+
+          .receipt-print-section-title {
+            margin: 4mm 0 1.5mm;
+            border-bottom: 1px solid #17476f;
+            color: #173f73;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .receipt-print-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .receipt-print-table th {
+            background: #17476f;
+            color: #fff;
+            font-weight: 700;
+            text-align: center;
+          }
+
+          .receipt-print-table th,
+          .receipt-print-table td {
+            border: 1px solid #9aa9b6;
+            padding: 4px 5px;
+            vertical-align: middle;
+          }
+
+          .receipt-print-meta td {
+            height: 22px;
+          }
+
+          .receipt-print-total-row td {
+            background: #eef3f8;
+            font-weight: 700;
+          }
+
+          .receipt-print-payment td:last-child {
+            background: #fff2cc;
+          }
+
+          .receipt-print-signatures {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            margin-top: 8mm;
+            text-align: center;
+            gap: 5mm;
+          }
+
+          .receipt-print-signature-title {
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .receipt-print-signature-note {
+            margin-top: 1mm;
+            font-size: 10px;
+            font-style: italic;
+          }
+
+          .receipt-print-signer {
+            margin-top: 19mm;
+            font-weight: 700;
+          }
+
+          .receipt-print-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #9aa9b6;
+            padding-top: 2mm;
+            font-size: 9px;
+            color: #555;
+          }
+        }
+      `}</style>
+
+      <div className="receipt-print-page">
+        <div className="receipt-print-header">
+          <div>
+            <div>HỆ THỐNG AGRISHRIMP</div>
+            <div>Số: {code}</div>
+          </div>
+          <div>
+            <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div>Độc lập - Tự do - Hạnh phúc</div>
+          </div>
+        </div>
+
+        <div className="receipt-print-title">
+          <h1>Phiếu Nhập Kho</h1>
+          <h2>Hàng Hóa Nhập Từ Nhà Cung Cấp</h2>
+        </div>
+
+        <table className="receipt-print-table receipt-print-meta">
+          <tbody>
+            <tr>
+              <td>
+                <strong>Mã phiếu nhập:</strong> {code}
+              </td>
+              <td>
+                <strong>Trạng thái:</strong>{" "}
+                {RECEIPT_STATUS_LABEL[receipt?.status] || receipt?.status || "---"}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Phiếu yêu cầu:</strong>{" "}
+                {receipt?.purchaseRequestCode || "Chưa liên kết"}
+              </td>
+              <td>
+                <strong>Kho nhập:</strong> {receipt?.branchName || "---"}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Nhà cung cấp:</strong> {receipt?.supplierName || "---"}
+              </td>
+              <td>
+                <strong>Mã nhà cung cấp:</strong> {receipt?.supplierCode || "---"}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Ngày nhập:</strong>{" "}
+                {fmtPrintDate(receipt?.entryDate || receipt?.createdAt)}
+              </td>
+              <td>
+                <strong>Người giao hàng:</strong> {receipt?.deliverer || "---"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="receipt-print-section-title">I. Hàng Hóa Nhập Kho</div>
+        <table className="receipt-print-table">
+          <thead>
+            <tr>
+              <th style={{ width: "5%" }}>STT</th>
+              <th style={{ width: "28%" }}>Sản phẩm / SKU / ĐVT</th>
+              <th style={{ width: "17%" }}>Số lô / Hạn dùng</th>
+              <th style={{ width: "8%" }}>Dự kiến</th>
+              <th style={{ width: "8%" }}>Đã giao</th>
+              <th style={{ width: "8%" }}>Đạt QC</th>
+              <th style={{ width: "7%" }}>Lỗi</th>
+              <th style={{ width: "9%" }}>Giá nhập</th>
+              <th style={{ width: "10%" }}>Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item: any, index: number) => {
+              const planned = getReceiptItemPlanned(item);
+              const delivered = getReceiptItemDelivered(item);
+              const accepted = getReceiptItemAccepted(item);
+              const rejected = Number(item.quantityRejected || 0);
+              const price = Number(item.importPrice ?? item.price ?? 0);
+              const amount = accepted * price;
+              return (
+                <tr key={item.id ?? `${item.productCode}-${index}`}>
+                  <td style={{ textAlign: "center" }}>{index + 1}</td>
+                  <td>
+                    <strong>{item.productName}</strong>
+                    <br />
+                    <span>
+                      {item.productCode || item.sku} - {item.unit || "Cái"}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {item.lotNumber || item.batchNumber || "---"}
+                    <br />
+                    HSD: {fmtPrintDate(item.expiryDate)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>{fmtPrintQty(planned)}</td>
+                  <td style={{ textAlign: "center" }}>{fmtPrintQty(delivered)}</td>
+                  <td style={{ textAlign: "center", fontWeight: 700 }}>
+                    {fmtPrintQty(accepted)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>{fmtPrintQty(rejected)}</td>
+                  <td style={{ textAlign: "right" }}>{fmtPrintMoney(price)}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>
+                    {fmtPrintMoney(amount)}
+                  </td>
+                </tr>
+              );
+            })}
+            <tr className="receipt-print-total-row">
+              <td colSpan={8} style={{ textAlign: "right" }}>
+                Tổng số lượng đã giao
+              </td>
+              <td style={{ textAlign: "right" }}>{fmtPrintQty(totalDelivered)}</td>
+            </tr>
+            <tr className="receipt-print-total-row">
+              <td colSpan={8} style={{ textAlign: "right" }}>
+                Tổng số lượng đạt QC
+              </td>
+              <td style={{ textAlign: "right" }}>{fmtPrintQty(totalAccepted)}</td>
+            </tr>
+            <tr className="receipt-print-total-row">
+              <td colSpan={8} style={{ textAlign: "right" }}>
+                Tổng giá trị nhập kho
+              </td>
+              <td style={{ textAlign: "right", color: "#173f73" }}>
+                {fmtPrintMoney(totalAmount)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="receipt-print-section-title">
+          II. Kiểm Tra Chất Lượng Và Xử Lý Chênh Lệch
+        </div>
+        <table className="receipt-print-table">
+          <thead>
+            <tr>
+              <th>Chỉ tiêu</th>
+              <th>Số lượng yêu cầu</th>
+              <th>Số lượng đạt</th>
+              <th>Số lượng lỗi</th>
+              <th>Kết quả</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: "center" }}>Kết quả kiểm nhận</td>
+              <td style={{ textAlign: "center" }}>{fmtPrintQty(totalRequired)}</td>
+              <td style={{ textAlign: "center" }}>{fmtPrintQty(totalAccepted)}</td>
+              <td style={{ textAlign: "center" }}>{fmtPrintQty(totalRejected)}</td>
+              <td style={{ textAlign: "center", fontWeight: 700 }}>
+                Chấp nhận nhập {fmtPrintQty(totalAccepted)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ margin: "2mm 0 0" }}>
+          <strong>Ghi chú:</strong> {receipt?.note || "Không có ghi chú."} Hàng lỗi
+          thực hiện xử lý theo quy định và chứng từ xuất trả nhà cung cấp nếu có.
+        </p>
+
+        <div className="receipt-print-section-title">III. Thanh Toán Nhà Cung Cấp</div>
+        <table className="receipt-print-table receipt-print-payment">
+          <thead>
+            <tr>
+              <th>Giá trị phải trả</th>
+              <th>Đã thanh toán</th>
+              <th>Còn nợ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: "center", fontWeight: 700 }}>
+                {fmtPrintMoney(totalAmount)}
+              </td>
+              <td style={{ textAlign: "center", fontWeight: 700 }}>
+                {fmtPrintMoney(paidAmount)}
+              </td>
+              <td style={{ textAlign: "center", fontWeight: 700, color: "#173f73" }}>
+                {fmtPrintMoney(debtAmount)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ margin: "2mm 0 0" }}>
+          <strong>Lịch sử thanh toán:</strong>{" "}
+          {firstPayment
+            ? `${fmtPrintMoney(firstPayment.amount)} - ${fmtPrintDate(
+                firstPayment.paymentDate,
+              )} - ${firstPayment.paymentMethod || ""}`
+            : "Chưa có thanh toán nào được ghi nhận."}
+        </p>
+
+        <div className="receipt-print-section-title">IV. Xác Nhận Nhập Kho</div>
+        <p style={{ margin: 0 }}>
+          Các bên xác nhận hàng hóa, số lô, hạn dùng, số lượng và giá trị trên phiếu
+          phù hợp với kết quả kiểm nhận thực tế.
+        </p>
+
+        <div style={{ marginTop: "3mm", textAlign: "right", fontStyle: "italic" }}>
+          Cần Thơ, ngày {String(today.getDate()).padStart(2, "0")} tháng{" "}
+          {String(today.getMonth() + 1).padStart(2, "0")} năm {today.getFullYear()}
+        </div>
+
+        <div className="receipt-print-signatures">
+          <div>
+            <div className="receipt-print-signature-title">Người giao hàng</div>
+            <div className="receipt-print-signature-note">(Ký, ghi rõ họ tên)</div>
+            <div className="receipt-print-signer">{receipt?.deliverer || ""}</div>
+          </div>
+          <div>
+            <div className="receipt-print-signature-title">Bộ phận QC</div>
+            <div className="receipt-print-signature-note">(Ký, ghi rõ họ tên)</div>
+          </div>
+          <div>
+            <div className="receipt-print-signature-title">Thủ kho</div>
+            <div className="receipt-print-signature-note">(Ký, ghi rõ họ tên)</div>
+          </div>
+          <div>
+            <div className="receipt-print-signature-title">Kế toán / Phê duyệt</div>
+            <div className="receipt-print-signature-note">(Ký, ghi rõ họ tên)</div>
+          </div>
+        </div>
+
+        <div className="receipt-print-footer">
+          <span>Biểu mẫu: Phiếu nhập kho từ nhà cung cấp</span>
+          <span>Trang 1</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ReceiptDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -418,6 +882,8 @@ export default function ReceiptDetailPage() {
 
   return (
     <div className="min-h-screen space-y-5 px-1 pb-[104px] text-slate-900">
+      <ReceiptPrintView receipt={receipt} paymentHistory={paymentHistory} />
+
       <div className="flex flex-col gap-4 pt-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <Button
