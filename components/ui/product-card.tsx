@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   ShoppingBag,
   Loader2,
@@ -95,6 +96,7 @@ interface ProductCardProps {
   product: PublicProductListItem;
   onNavigate?: () => void;
   className?: string;
+  badgeSlot?: ReactNode;
 }
 
 export function ProductCardSkeleton() {
@@ -117,7 +119,7 @@ export function ProductCardSkeleton() {
   );
 }
 
-export default function ProductCard({ product, onNavigate, className }: ProductCardProps) {
+export default function ProductCard({ product, onNavigate, className, badgeSlot }: ProductCardProps) {
   const router = useRouter();
   const { fetchCartCount } = useCartStore();
   const [isAdding, setIsAdding] = useState(false);
@@ -240,7 +242,13 @@ export default function ProductCard({ product, onNavigate, className }: ProductC
         )}
       </div>
 
-      <div className="mt-4 flex flex-1 flex-col items-center text-center">
+      {badgeSlot ? (
+        <div className="mt-3 flex h-7 items-center justify-center">
+          {badgeSlot}
+        </div>
+      ) : null}
+
+      <div className={cn("flex flex-1 flex-col items-center text-center", badgeSlot ? "mt-2" : "mt-4")}>
         {brandLabel ? (
           <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#a5a5a5]">
             {brandLabel}

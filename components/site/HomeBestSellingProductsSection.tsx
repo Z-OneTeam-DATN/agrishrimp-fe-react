@@ -46,15 +46,6 @@ export default function HomeBestSellingProductsSection({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:gap-5">
               {visibleProducts.map((product) => (
                 <div key={product.id} className="relative min-w-0">
-                  <div className="absolute left-2 top-2 z-20 h-6 w-16 overflow-hidden rounded-[5px] bg-white/95 shadow-sm">
-                    <Image
-                      src={BEST_SELLING_BADGE_IMAGE}
-                      alt="Bán chạy"
-                      fill
-                      sizes="64px"
-                      className="scale-[1.28] object-cover object-[73%_66%] mix-blend-multiply"
-                    />
-                  </div>
                   {Number(product.soldCount ?? 0) > 0 && (
                     <div className="absolute right-2 top-2 z-20 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-[#2f5796] shadow-sm">
                       Đã bán {formatNumber(Number(product.soldCount))}
@@ -63,6 +54,17 @@ export default function HomeBestSellingProductsSection({
                   <ProductCard
                     product={product}
                     className="overflow-hidden rounded-[8px] border-0 shadow-[0_10px_22px_rgba(25,63,117,0.16)]"
+                    badgeSlot={
+                      <div className="relative h-6 w-16 overflow-hidden rounded-[5px] bg-white/95 shadow-sm">
+                        <Image
+                          src={BEST_SELLING_BADGE_IMAGE}
+                          alt="Bán chạy"
+                          fill
+                          sizes="64px"
+                          className="scale-[1.28] object-cover object-[73%_66%] mix-blend-multiply"
+                        />
+                      </div>
+                    }
                   />
                 </div>
               ))}
