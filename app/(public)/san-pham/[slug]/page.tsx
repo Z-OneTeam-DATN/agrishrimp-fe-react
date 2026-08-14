@@ -762,21 +762,17 @@ export default function ProductDetailPage({
                                     ))}
                                 </div>
 
-                                <div className="relative order-1 aspect-square overflow-hidden border border-blue-200 bg-sky-50 sm:order-2">
+                                <div className="relative order-1 flex aspect-square items-center justify-center overflow-hidden border border-blue-200 bg-sky-50 p-4 sm:order-2 sm:p-6">
                                     {isCompletelyOutOfStock && (
                                         <span className="absolute left-4 top-4 z-10 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-black text-white">
                                             Tạm hết hàng
                                         </span>
                                     )}
-                                    <Image
+                                    <img
                                         key={`active-detail-img-${activeImage}`}
                                         src={activeImage}
                                         alt={product.name}
-                                        fill
-                                        priority
-                                        unoptimized
-                                        sizes="(max-width: 768px) 100vw, (max-width: 1536px) 420px, 520px"
-                                        className={`object-contain p-6 transition-all duration-300 sm:p-8 ${
+                                        className={`max-h-full max-w-full object-contain transition-all duration-300 ${
                                             isCompletelyOutOfStock ? "opacity-50 grayscale" : ""
                                         }`}
                                         onError={(event) => {
