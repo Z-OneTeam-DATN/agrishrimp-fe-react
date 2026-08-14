@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, Waves } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 
 import { PublicProductListItem } from "@/app/types/product.schema";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
@@ -7,6 +8,8 @@ import { formatNumber } from "@/lib/utils";
 
 const HOME_CONTENT_CONTAINER_CLASS =
   "mx-auto w-full max-w-[1440px] px-3 sm:px-4 md:px-6 xl:px-8";
+const BEST_SELLING_HEADER_IMAGE = "/images/best-selling-header.jpg";
+const BEST_SELLING_BADGE_IMAGE = "/images/best-selling-badge.png";
 
 interface HomeBestSellingProductsSectionProps {
   products: PublicProductListItem[];
@@ -26,24 +29,15 @@ export default function HomeBestSellingProductsSection({
   return (
     <section className={`${HOME_CONTENT_CONTAINER_CLASS} mt-5`}>
       <div className="overflow-hidden rounded-[8px] bg-[#3f67a6] shadow-[0_18px_38px_rgba(31,82,145,0.22)]">
-        <div className="relative min-h-[128px] overflow-hidden bg-gradient-to-b from-[#f7d963] via-[#8fc4ff] to-[#65a7ef] px-4 pt-4 sm:min-h-[150px] sm:px-6 md:px-8">
-          <div className="absolute inset-x-0 bottom-0 h-[48%] bg-[#5f9dec]" />
-          <div className="absolute -left-8 top-6 h-20 w-36 rounded-full border-[10px] border-white/45" />
-          <div className="absolute right-6 top-5 h-16 w-16 rounded-full border-[9px] border-white/50 bg-sky-200/60" />
-          <div className="absolute bottom-3 left-1/2 h-12 w-[62%] -translate-x-1/2 rounded-[999px] bg-white/20 blur-sm" />
-
-          <div className="relative z-10 flex min-h-[104px] items-center justify-center sm:min-h-[126px]">
-            <h2 className="text-center text-[32px] font-black uppercase leading-none tracking-normal text-white drop-shadow-[0_6px_0_rgba(42,92,177,0.78)] sm:text-[48px] md:text-[62px] lg:text-[76px]">
-              Sản phẩm bán chạy
-            </h2>
-          </div>
-
-          <div className="absolute left-5 top-4 flex items-center gap-2 rounded-full bg-white/35 px-3 py-1 text-[#2c5b9e] backdrop-blur-sm">
-            <Waves size={16} strokeWidth={2.4} />
-            <span className="text-[11px] font-extrabold uppercase leading-none">
-              Hot
-            </span>
-          </div>
+        <div className="relative aspect-[28/5] min-h-[92px] overflow-hidden bg-[#69aaf0] sm:min-h-[128px] lg:max-h-[220px]">
+          <Image
+            src={BEST_SELLING_HEADER_IMAGE}
+            alt="Sản phẩm bán chạy"
+            fill
+            priority
+            sizes="(min-width: 1440px) 1440px, 100vw"
+            className="object-cover object-center"
+          />
         </div>
 
         <div className="px-3 pb-5 pt-4 sm:px-5 md:px-6">
@@ -51,7 +45,16 @@ export default function HomeBestSellingProductsSection({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:gap-5">
               {visibleProducts.map((product, index) => (
                 <div key={product.id} className="relative min-w-0">
-                  <div className="absolute left-2 top-2 z-20 rounded-r-full rounded-tl-[8px] bg-[#de4c38] px-2.5 py-1 text-xs font-extrabold text-white shadow-md">
+                  <div className="absolute left-2 top-2 z-20 h-11 w-28 overflow-hidden rounded-[8px] bg-white/95 shadow-md">
+                    <Image
+                      src={BEST_SELLING_BADGE_IMAGE}
+                      alt="Bán chạy"
+                      fill
+                      sizes="112px"
+                      className="scale-[2.35] object-cover object-[72%_63%] mix-blend-multiply"
+                    />
+                  </div>
+                  <div className="absolute left-2 top-[50px] z-20 rounded-r-full rounded-tl-[8px] bg-[#de4c38] px-2.5 py-1 text-xs font-extrabold text-white shadow-md">
                     #{index + 1}
                   </div>
                   {Number(product.soldCount ?? 0) > 0 && (
