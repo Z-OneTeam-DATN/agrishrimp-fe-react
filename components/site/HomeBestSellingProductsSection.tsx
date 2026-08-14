@@ -44,7 +44,7 @@ export default function HomeBestSellingProductsSection({
         <div className="px-3 pb-5 pt-4 sm:px-5 md:px-6">
           {visibleProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:gap-5">
-              {visibleProducts.map((product, index) => (
+              {visibleProducts.map((product) => (
                 <div key={product.id} className="relative min-w-0">
                   <div className="absolute left-2 top-2 z-20 h-6 w-16 overflow-hidden rounded-[5px] bg-white/95 shadow-sm">
                     <Image
@@ -54,9 +54,6 @@ export default function HomeBestSellingProductsSection({
                       sizes="64px"
                       className="scale-[1.28] object-cover object-[73%_66%] mix-blend-multiply"
                     />
-                  </div>
-                  <div className="absolute left-2 top-[32px] z-20 rounded-r-full rounded-tl-[6px] bg-[#de4c38] px-3 py-1 text-[14px] font-extrabold leading-none text-white shadow-sm">
-                    #{index + 1}
                   </div>
                   {Number(product.soldCount ?? 0) > 0 && (
                     <div className="absolute right-2 top-2 z-20 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-[#2f5796] shadow-sm">
