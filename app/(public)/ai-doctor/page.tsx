@@ -403,10 +403,11 @@ export default function AiDoctorChatPage() {
     onSuccess: (data) => {
       pushEntry({ kind: "bot-html", html: data.reply });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("[AiDoctorChat] Chat request failed", error);
       pushEntry({
         kind: "bot-html",
-        html: "Bác sĩ đang bận, bà con vui lòng thử lại sau hoặc gửi ảnh tôm để được hỗ trợ nhanh hơn nhé.",
+        html: "Xin lỗi, bác sĩ AI chưa xử lý được câu này ngay lúc này. Bà con vui lòng gửi thêm ảnh tôm kèm dấu hiệu đang thấy để mình kiểm tra kỹ hơn.",
       });
     },
   });
