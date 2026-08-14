@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import {
   ShoppingBag,
   Loader2,
@@ -15,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useCartStore } from "@/stores/useCartStore";
 import { cartService } from "@/app/services/cart.service";
 import { toast } from "sonner";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 // ✅ HÀM TẠO HIỆU ỨNG BAY VÀO GIỎ HÀNG (Dùng chung)
 const animateFlyToCart = (e: React.MouseEvent) => {
@@ -53,6 +53,43 @@ const animateFlyToCart = (e: React.MouseEvent) => {
     setTimeout(() => cartTarget.classList.remove("scale-125", "text-blue-500"), 200);
   }, 800);
 };
+
+function getSharpProductCardImageUrl(imagePath?: string | null): string {
+  const resolved = resolveImageUrl(imagePath, "/placeholder.svg");
+
+  try {
+    const url = new URL(resolved);
+    if (url.hostname !== "res.cloudinary.com") return resolved;
+
+    const parts = url.pathname.split("/");
+    const uploadIndex = parts.findIndex((part) => part === "upload");
+    if (uploadIndex < 0) return resolved;
+
+    const afterUpload = parts.slice(uploadIndex + 1);
+    const versionIndex = afterUpload.findIndex((part) => /^v\d+$/.test(part));
+    if (versionIndex > 0) {
+      url.pathname = [
+        ...parts.slice(0, uploadIndex + 1),
+        ...afterUpload.slice(versionIndex),
+      ].join("/");
+      return url.toString();
+    }
+
+    const firstSegment = afterUpload[0] ?? "";
+    const looksLikeTransformation = /(^|,)(a_|ar_|b_|c_|co_|dpr_|e_|f_|fl_|g_|h_|q_|r_|w_|x_|y_)/.test(firstSegment);
+    if (looksLikeTransformation && afterUpload.length > 1) {
+      url.pathname = [
+        ...parts.slice(0, uploadIndex + 1),
+        ...afterUpload.slice(1),
+      ].join("/");
+      return url.toString();
+    }
+  } catch {
+    return resolved;
+  }
+
+  return resolved;
+}
 
 interface ProductCardProps {
   product: PublicProductListItem;
@@ -96,6 +133,7 @@ export default function ProductCard({ product, onNavigate }: ProductCardProps) {
         .concat(product.imageUrls || [])
         .map((s) => s.trim())
         .filter((s) => s.length > 0 && s !== "/placeholder.svg")
+        .map(getSharpProductCardImageUrl)
     )
   );
   if (allImages.length === 0) allImages.push("/placeholder.svg");
@@ -163,23 +201,28 @@ export default function ProductCard({ product, onNavigate }: ProductCardProps) {
       onMouseLeave={() => setIsHovered(false)}
       className="group relative flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#d9e4d9] hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
     >
-      <div className="relative mx-auto w-full max-w-[220px] overflow-hidden bg-white pt-[84%]">
-        {allImages.map((imgUrl, idx) => (
-          <Image
-            key={`card-img-${idx}`}
-            src={imgUrl || "/placeholder.svg"}
-            alt={product.name}
-            fill
-            unoptimized
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
-            className={`object-contain p-0 transition-opacity duration-700 ease-in-out group-hover:scale-[1.04] ${
-              idx === currentImageIndex ? "opacity-100 z-10" : "opacity-0 z-0"
-            } ${product.isOutOfStock ? "opacity-50 grayscale" : ""}`}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "/placeholder.svg";
-            }}
-          />
-        ))}
+      <div className="relative mx-auto flex aspect-[25/21] w-full max-w-[220px] items-center justify-center overflow-hidden bg-white">
+        {allImages.map((imgUrl, idx) => {
+          const isActiveImage = idx === currentImageIndex;
+
+          return (
+            <img
+              key={`card-img-${idx}`}
+              src={imgUrl || "/placeholder.svg"}
+              alt={product.name}
+              className={`absolute left-1/2 top-1/2 max-h-full max-w-full -translate-x-1/2 -translate-y-1/2 object-contain transition-opacity duration-700 ease-in-out ${
+                isActiveImage
+                  ? product.isOutOfStock
+                    ? "z-10 opacity-50 grayscale"
+                    : "z-10 opacity-100"
+                  : "z-0 opacity-0"
+              }`}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/placeholder.svg";
+              }}
+            />
+          );
+        })}
 
         {allImages.length > 1 && isHovered && (
           <div className="absolute bottom-1 left-0 right-0 z-10 flex justify-center gap-1 transition-opacity duration-300">
