@@ -7,7 +7,7 @@ import {
   Star,
 } from "lucide-react";
 
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { PublicProductListItem } from "@/app/types/product.schema";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -94,6 +94,7 @@ function getSharpProductCardImageUrl(imagePath?: string | null): string {
 interface ProductCardProps {
   product: PublicProductListItem;
   onNavigate?: () => void;
+  className?: string;
 }
 
 export function ProductCardSkeleton() {
@@ -116,12 +117,10 @@ export function ProductCardSkeleton() {
   );
 }
 
-export default function ProductCard({ product, onNavigate }: ProductCardProps) {
+export default function ProductCard({ product, onNavigate, className }: ProductCardProps) {
   const router = useRouter();
   const { fetchCartCount } = useCartStore();
   const [isAdding, setIsAdding] = useState(false);
-
-  if (!product) return null;
 
   const firstVariant = product.variants?.[0];
   
@@ -199,7 +198,10 @@ export default function ProductCard({ product, onNavigate }: ProductCardProps) {
       onClick={() => onNavigate?.()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#d9e4d9] hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
+      className={cn(
+        "group relative flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#d9e4d9] hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]",
+        className,
+      )}
     >
       <div className="relative mx-auto flex aspect-[25/21] w-full max-w-[220px] items-center justify-center overflow-hidden bg-white">
         {allImages.map((imgUrl, idx) => {

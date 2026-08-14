@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Tag } from "lucide-react";
 
 import Banner from "@/components/site/SiteBanner";
+import HomeBestSellingProductsSection from "@/components/site/HomeBestSellingProductsSection";
 import HomeFeaturedProductsSection from "@/components/site/HomeFeaturedProductsSection";
 import HomeRecommendedProductsSection from "@/components/site/HomeRecommendedProductsSection";
 import HomeLatestBlogSection from "@/components/site/HomeLatestBlogSection";
@@ -53,9 +54,10 @@ function CategoryShowcaseImage({
 }
 
 export default async function Home() {
-  const [firstPage, allCategories, brands, banners, latestPosts] =
+  const [firstPage, bestSellerPage, allCategories, brands, banners, latestPosts] =
     await Promise.all([
       PublicProductService.getList({ page: 0, size: 18 }),
+      PublicProductService.getList({ page: 0, size: 5, sort: "best-selling" }),
       getPublicCategories(),
       getPublicBrands(),
       getPublicBanners(),
@@ -183,6 +185,11 @@ export default async function Home() {
       )}
 
       <HomeRecommendedProductsSection />
+
+      <HomeBestSellingProductsSection
+        products={bestSellerPage.content ?? []}
+        failed={bestSellerPage.failed}
+      />
 
       <HomeFeaturedProductsSection initialPage={firstPage} />
 
