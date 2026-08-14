@@ -47,9 +47,9 @@ import {
 } from "@/lib/return-request";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 type ActionType = "approve" | "reject" | "receive" | "refund" | null;
+const BANK_TRANSFER_REFUND_METHOD: ReturnRefundMethod = "BANK_TRANSFER";
 
 function extractErrorMessage(error: any, fallback: string) {
   return (
@@ -66,7 +66,6 @@ export default function ReturnOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const user = useAuthStore((state) => state.user);
   const { hasPermission } = usePermissions();
   const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
 
@@ -80,7 +79,7 @@ export default function ReturnOrderDetailPage({
     internalNote: "",
     rejectReason: "",
     refundAmount: "",
-    refundMethod: "BANK_TRANSFER" as ReturnRefundMethod,
+    refundMethod: BANK_TRANSFER_REFUND_METHOD,
   });
 
   const fetchDetail = async (showRefreshing = false) => {
@@ -102,7 +101,7 @@ export default function ReturnOrderDetailPage({
         refundAmount:
           prev.refundAmount ||
           String(Math.round(Number(data.totalRefundAmount ?? 0))),
-        refundMethod: data.refundMethod,
+        refundMethod: BANK_TRANSFER_REFUND_METHOD,
       }));
     } catch (err: any) {
       setError(
@@ -150,6 +149,10 @@ export default function ReturnOrderDetailPage({
         toast.error("Vui long nhap so tien hoan hop le.");
         return;
       }
+      if (form.refundMethod !== BANK_TRANSFER_REFUND_METHOD) {
+        toast.error("Luong tra hang chi ho tro hoan tien qua chuyen khoan ngan hang.");
+        return;
+      }
     }
 
     try {
@@ -187,12 +190,12 @@ export default function ReturnOrderDetailPage({
         updatedRequest = canViewSystemOrders
           ? await returnService.refundAdminReturnRequest(request.id, {
               refundAmount: Number(form.refundAmount),
-              refundMethod: form.refundMethod,
+              refundMethod: BANK_TRANSFER_REFUND_METHOD,
               internalNote: form.internalNote.trim() || undefined,
             })
           : await returnService.refundBranchReturnRequest(request.id, {
               refundAmount: Number(form.refundAmount),
-              refundMethod: form.refundMethod,
+              refundMethod: BANK_TRANSFER_REFUND_METHOD,
               internalNote: form.internalNote.trim() || undefined,
             });
       }
@@ -204,7 +207,7 @@ export default function ReturnOrderDetailPage({
         internalNote: "",
         rejectReason: "",
         refundAmount: String(Math.round(Number(updatedRequest.totalRefundAmount ?? 0))),
-        refundMethod: updatedRequest.refundMethod,
+        refundMethod: BANK_TRANSFER_REFUND_METHOD,
       }));
 
       toast.success(
@@ -722,21 +725,13 @@ export default function ReturnOrderDetailPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-slate-700">Phuong thuc hoan</span>
-                  <select
-                    value={form.refundMethod}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        refundMethod: event.target.value as ReturnRefundMethod,
-                      }))
-                    }
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="BANK_TRANSFER">Chuyen khoan</option>
-                    <option value="CASH">Tien mat</option>
-                  </select>
+                  <Input value="Chuyen khoan ngan hang" readOnly disabled />
                 </label>
               </div>
+
+              <p className="text-xs text-slate-500">
+                Luong tra hang chi ho tro hoan tien qua chuyen khoan ngan hang.
+              </p>
             </div>
           </div>
 
@@ -801,7 +796,7 @@ export default function ReturnOrderDetailPage({
                   ? "Khach hang se nhin thay ly do tu choi trong danh sach yeu cau cua ho."
                   : actionOpen === "receive"
                     ? "Chi ap dung cho truong hop can nhan lai hang vat ly truoc khi hoan tien."
-                    : "So tien va phuong thuc hoan se duoc ghi nhan trong luong demo."}
+                    : "So tien hoan se duoc ghi nhan voi phuong thuc chuyen khoan ngan hang."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

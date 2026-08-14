@@ -29,7 +29,6 @@ interface OrderCardProps {
 
 const cancellableStatuses = new Set<OrderStatus>([
   "PENDING_PAYMENT",
-  "PENDING_AUTO_APPROVAL",
   "PENDING_SHORTAGE_REVIEW",
   "AWAITING_PAYMENT",
   "PENDING",
