@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -11,7 +11,6 @@ import {
   Loader2,
   Package,
   Phone,
-  RefreshCcw,
   RotateCcw,
   UserRound,
   Video,
@@ -47,9 +46,12 @@ import {
 } from "@/lib/return-request";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 type ActionType = "approve" | "reject" | "receive" | "refund" | null;
+type FetchDetailOptions = {
+  background?: boolean;
+  showError?: boolean;
+};
 
 function extractErrorMessage(error: any, fallback: string) {
   return (
@@ -60,19 +62,24 @@ function extractErrorMessage(error: any, fallback: string) {
   );
 }
 
+const MONO_STATUS_BADGE_CLASS =
+  "inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700";
+const MONO_OUTLINE_BUTTON_CLASS =
+  "border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-700";
+const MONO_INFO_PANEL_CLASS =
+  "rounded-[4px] border border-blue-100 bg-blue-50 p-4 text-[13px] leading-6 text-blue-800";
+
 export default function ReturnOrderDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const user = useAuthStore((state) => state.user);
   const { hasPermission } = usePermissions();
   const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
 
   const [request, setRequest] = useState<ReturnRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [actionOpen, setActionOpen] = useState<ActionType>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,43 +90,81 @@ export default function ReturnOrderDetailPage({
     refundMethod: "BANK_TRANSFER" as ReturnRefundMethod,
   });
 
-  const fetchDetail = async (showRefreshing = false) => {
-    try {
-      if (showRefreshing) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
+  const fetchDetail = useCallback(
+    async ({ background = false, showError = false }: FetchDetailOptions = {}) => {
+      try {
+        if (!background) {
+          setError(null);
+          setLoading(true);
+        }
 
-      const data = canViewSystemOrders
-        ? await returnService.getAdminReturnRequestDetail(id)
-        : await returnService.getBranchReturnRequestDetail(id);
+        const data = canViewSystemOrders
+          ? await returnService.getAdminReturnRequestDetail(id)
+          : await returnService.getBranchReturnRequestDetail(id);
 
-      setRequest(data);
-      setForm((prev) => ({
-        ...prev,
-        refundAmount:
-          prev.refundAmount ||
-          String(Math.round(Number(data.totalRefundAmount ?? 0))),
-        refundMethod: data.refundMethod,
-      }));
-    } catch (err: any) {
-      setError(
-        extractErrorMessage(
+        setRequest(data);
+        setError(null);
+        setForm((prev) => ({
+          ...prev,
+          refundAmount:
+            prev.refundAmount ||
+            String(Math.round(Number(data.totalRefundAmount ?? 0))),
+          refundMethod: data.refundMethod,
+        }));
+      } catch (err: any) {
+        const message = extractErrorMessage(
           err,
-          "Khong the tai chi tiet yeu cau tra hang luc nay.",
-        ),
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+          "Không thể tải chi tiết yêu cầu trả hàng lúc này.",
+        );
+
+        if (!background) {
+          setError(message);
+        }
+
+        if (showError) {
+          toast.error(message);
+        }
+      } finally {
+        if (!background) {
+          setLoading(false);
+        }
+      }
+    },
+    [canViewSystemOrders, id],
+  );
 
   useEffect(() => {
     void fetchDetail();
-  }, [canViewSystemOrders, id]);
+  }, [fetchDetail]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        void fetchDetail({ background: true });
+      }
+    };
+
+    const refreshNow = () => {
+      void fetchDetail({ background: true });
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void fetchDetail({ background: true });
+      }
+    }, 15000);
+
+    window.addEventListener("focus", refreshNow);
+    window.addEventListener("pageshow", refreshNow);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshNow);
+      window.removeEventListener("pageshow", refreshNow);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [fetchDetail]);
 
   const statusMeta = useMemo(
     () => (request ? getReturnStatusMeta(request.status) : null),
@@ -140,14 +185,14 @@ export default function ReturnOrderDetailPage({
     if (!request || !actionOpen) return;
 
     if (actionOpen === "reject" && !form.rejectReason.trim()) {
-      toast.error("Vui long nhap ly do tu choi.");
+      toast.error("Vui lòng nhập lý do từ chối.");
       return;
     }
 
     if (actionOpen === "refund") {
       const refundAmount = Number(form.refundAmount);
       if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
-        toast.error("Vui long nhap so tien hoan hop le.");
+        toast.error("Vui lòng nhập số tiền hoàn hợp lệ.");
         return;
       }
     }
@@ -209,18 +254,18 @@ export default function ReturnOrderDetailPage({
 
       toast.success(
         actionOpen === "approve"
-          ? "Da duyet yeu cau tra hang."
+          ? "Đã duyệt yêu cầu trả hàng."
           : actionOpen === "reject"
-            ? "Da tu choi yeu cau tra hang."
+            ? "Đã từ chối yêu cầu trả hàng."
             : actionOpen === "receive"
-              ? "Da xac nhan nhan lai hang tra."
-              : "Da cap nhat hoan tien cho yeu cau.",
+              ? "Đã xác nhận nhận lại hàng trả."
+              : "Đã cập nhật hoàn tiền cho yêu cầu.",
       );
     } catch (err: any) {
       toast.error(
         extractErrorMessage(
           err,
-          "Khong the cap nhat yeu cau tra hang luc nay.",
+          "Không thể cập nhật yêu cầu trả hàng lúc này.",
         ),
       );
     } finally {
@@ -240,23 +285,23 @@ export default function ReturnOrderDetailPage({
 
   if (error || !request || !statusMeta) {
     return (
-      <div className="rounded-[4px] border border-rose-100 bg-white p-6 shadow-sm">
+      <div className="rounded-[4px] border border-blue-100 bg-white p-6 shadow-sm">
         <div className="flex items-start gap-3">
-          <AlertCircle size={20} className="mt-0.5 text-rose-500" />
+          <AlertCircle size={20} className="mt-0.5 text-blue-600" />
           <div className="space-y-3">
             <div>
               <h1 className="text-lg font-semibold text-slate-900">
-                Khong the tai chi tiet yeu cau
+                Không thể tải chi tiết yêu cầu
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                {error ?? "Yeu cau tra hang nay khong ton tai hoac da bi thay doi."}
+                {error ?? "Yêu cầu trả hàng này không tồn tại hoặc đã bị thay đổi."}
               </p>
             </div>
             <Link
               href="/admin/orders/return"
               className="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
             >
-              Quay lai danh sach
+              Quay lại danh sách
             </Link>
           </div>
         </div>
@@ -275,7 +320,7 @@ export default function ReturnOrderDetailPage({
                 className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
               >
                 <ArrowLeft size={16} />
-                Quay lai danh sach tra hang
+                Quay lại danh sách trả hàng
               </Link>
 
               <div className="space-y-2">
@@ -284,48 +329,34 @@ export default function ReturnOrderDetailPage({
                     {request.code}
                   </h1>
                   <span
-                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}
+                    className={MONO_STATUS_BADGE_CLASS}
                   >
                     {statusMeta.label}
                   </span>
                   {!request.requiresPhysicalReturn ? (
-                    <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
-                      Thieu hang, chi nhanh xu ly truc tiep
+                    <span className={MONO_STATUS_BADGE_CLASS}>
+                      Thiếu hàng, chi nhánh xử lý trực tiếp
                     </span>
                   ) : null}
                 </div>
                 <p className="text-[13px] text-slate-500">
-                  Don hang {request.orderCode} duoc gui den{" "}
+                  Đơn hàng {request.orderCode} được gửi đến{" "}
                   <span className="font-semibold text-slate-700">
-                    {request.branchName || "chi nhanh phuc vu"}
+                    {request.branchName || "chi nhánh phục vụ"}
                   </span>{" "}
-                  de xu ly thu cong.
+                  để xử lý thủ công.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-slate-200"
-                onClick={() => void fetchDetail(true)}
-                disabled={refreshing}
-              >
-                <RefreshCcw
-                  size={15}
-                  className={refreshing ? "mr-2 animate-spin" : "mr-2"}
-                />
-                Lam moi
-              </Button>
-
               {canApprove ? (
                 <Button
                   type="button"
                   className="bg-blue-600 text-white hover:bg-blue-700"
                   onClick={() => setActionOpen("approve")}
                 >
-                  Duyet
+                  Duyệt
                 </Button>
               ) : null}
 
@@ -333,30 +364,30 @@ export default function ReturnOrderDetailPage({
                 <Button
                   type="button"
                   variant="outline"
-                  className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  className={MONO_OUTLINE_BUTTON_CLASS}
                   onClick={() => setActionOpen("reject")}
                 >
-                  Tu choi
+                  Từ chối
                 </Button>
               ) : null}
 
               {canReceive ? (
                 <Button
                   type="button"
-                  className="bg-indigo-600 text-white hover:bg-indigo-700"
+                  className="bg-blue-600 text-white hover:bg-blue-700"
                   onClick={() => setActionOpen("receive")}
                 >
-                  Da nhan hang
+                  Đã nhận hàng
                 </Button>
               ) : null}
 
               {canRefund ? (
                 <Button
                   type="button"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="bg-blue-600 text-white hover:bg-blue-700"
                   onClick={() => setActionOpen("refund")}
                 >
-                  Hoan tien
+                  Hoàn tiền
                 </Button>
               ) : null}
             </div>
@@ -364,137 +395,138 @@ export default function ReturnOrderDetailPage({
         </div>
 
         {!request.requiresPhysicalReturn && (
-          <div className="rounded-[4px] border border-sky-200 bg-sky-50 p-4 text-[13px] leading-6 text-sky-800">
-            Yeu cau nay thuoc truong hop thieu hang. Chi nhanh phuc vu se xac minh bang chung,
-            duyet va hoan tien truc tiep cho khach hang, khong can buoc nhan lai hang.
+          <div className={MONO_INFO_PANEL_CLASS}>
+            Yêu cầu này thuộc trường hợp thiếu hàng. Chi nhánh phục vụ sẽ xác minh
+            bằng chứng, duyệt và hoàn tiền trực tiếp cho khách hàng, không cần bước
+            nhận lại hàng.
           </div>
         )}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            label="Tam tinh hoan"
+            label="Tạm tính hoàn"
             value={formatCurrency(request.totalRefundAmount)}
-            note="Gia tri goi y cho buoc hoan tien thu cong"
+            note="Giá trị gợi ý cho bước hoàn tiền thủ công"
             tone="rose"
           />
           <MetricCard
-            label="So san pham"
+            label="Số sản phẩm"
             value={`${request.items.length}`}
-            note="Tong dong san pham trong yeu cau"
+            note="Tổng dòng sản phẩm trong yêu cầu"
             tone="slate"
           />
           <MetricCard
-            label="Bang chung"
+            label="Bằng chứng"
             value={`${request.evidences.length}`}
-            note={`${imageEvidences.length} anh, ${videoEvidences.length} video`}
+            note={`${imageEvidences.length} ảnh, ${videoEvidences.length} video`}
             tone="sky"
           />
           <MetricCard
-            label="Ngay gui"
+            label="Ngày gửi"
             value={formatDate(request.createdAt)}
-            note="Thoi diem khach tao yeu cau"
+            note="Thời điểm khách tạo yêu cầu"
             tone="emerald"
           />
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-          <Panel title="Thong tin khach hang">
+          <Panel title="Thông tin khách hàng">
             <div className="grid gap-4 md:grid-cols-2">
               <InfoLine
                 icon={<UserRound size={15} className="text-slate-400" />}
-                label="Ho ten"
+                label="Họ tên"
                 value={request.customerName}
               />
               <InfoLine
                 icon={<Phone size={15} className="text-slate-400" />}
-                label="So dien thoai"
+                label="Số điện thoại"
                 value={request.customerPhone}
               />
               <InfoLine
                 icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Phuong thuc hoan"
+                label="Phương thức hoàn"
                 value={getReturnRefundLabel(request.refundMethod)}
               />
               <InfoLine
                 icon={<Package size={15} className="text-slate-400" />}
-                label="Loai su co"
+                label="Loại sự cố"
                 value={getReturnIssueLabel(request.issueType)}
               />
               <InfoLine
                 icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Ten chu tai khoan"
+                label="Tên chủ tài khoản"
                 value={request.bankAccountName}
               />
               <InfoLine
                 icon={<CreditCard size={15} className="text-slate-400" />}
-                label="So tai khoan"
+                label="Số tài khoản"
                 value={request.bankAccountNumber}
               />
               <InfoLine
                 icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Ngan hang"
+                label="Ngân hàng"
                 value={request.bankName}
               />
               <InfoLine
                 icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Chi nhanh ngan hang"
-                value={request.bankBranch || "Khach hang khong cung cap"}
+                label="Chi nhánh ngân hàng"
+                value={request.bankBranch || "Khách hàng không cung cấp"}
               />
             </div>
           </Panel>
 
-          <Panel title="Thong tin phieu tra hang">
+          <Panel title="Thông tin phiếu trả hàng">
             <div className="grid gap-4 md:grid-cols-2">
               <InfoLine
                 icon={<RotateCcw size={15} className="text-slate-400" />}
-                label="Ma yeu cau"
+                label="Mã yêu cầu"
                 value={request.code}
               />
               <InfoLine
                 icon={<Package size={15} className="text-slate-400" />}
-                label="Ma don hang"
+                label="Mã đơn hàng"
                 value={request.orderCode}
               />
               <InfoLine
                 icon={<Package size={15} className="text-slate-400" />}
-                label="Chi nhanh phuc vu"
-                value={request.branchName || "Dang cap nhat"}
+                label="Chi nhánh phục vụ"
+                value={request.branchName || "Đang cập nhật"}
               />
               <InfoLine
                 icon={<Clock3 size={15} className="text-slate-400" />}
-                label="Ngay tao"
+                label="Ngày tạo"
                 value={formatDate(request.createdAt)}
               />
               <InfoLine
                 icon={<CheckCircle2 size={15} className="text-slate-400" />}
-                label="Ngay duyet"
-                value={request.approvedAt ? formatDate(request.approvedAt) : "Chua duyet"}
+                label="Ngày duyệt"
+                value={request.approvedAt ? formatDate(request.approvedAt) : "Chưa duyệt"}
               />
               <InfoLine
                 icon={<Package size={15} className="text-slate-400" />}
-                label="Ngay nhan hang"
-                value={request.receivedAt ? formatDate(request.receivedAt) : "Chua nhan hang"}
+                label="Ngày nhận hàng"
+                value={request.receivedAt ? formatDate(request.receivedAt) : "Chưa nhận hàng"}
               />
               <InfoLine
                 icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Ngay hoan tien"
-                value={request.refundedAt ? formatDate(request.refundedAt) : "Chua hoan tien"}
+                label="Ngày hoàn tiền"
+                value={request.refundedAt ? formatDate(request.refundedAt) : "Chưa hoàn tiền"}
               />
               <InfoLine
                 icon={<XCircle size={15} className="text-slate-400" />}
-                label="Ngay tu choi"
-                value={request.rejectedAt ? formatDate(request.rejectedAt) : "Chua tu choi"}
+                label="Ngày từ chối"
+                value={request.rejectedAt ? formatDate(request.rejectedAt) : "Chưa từ chối"}
               />
             </div>
           </Panel>
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-          <Panel title="Ly do va mo ta">
+          <Panel title="Lý do và mô tả">
             <div className="space-y-4">
               <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-4">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-                  Ly do ngan gon
+                  Lý do ngắn gọn
                 </p>
                 <p className="mt-2 text-[14px] font-medium text-slate-900">
                   {request.reason}
@@ -503,7 +535,7 @@ export default function ReturnOrderDetailPage({
 
               <div className="rounded-[4px] border border-slate-200 bg-white p-4">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-                  Mo ta chi tiet
+                  Mô tả chi tiết
                 </p>
                 <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-slate-600">
                   {request.description}
@@ -511,22 +543,22 @@ export default function ReturnOrderDetailPage({
               </div>
 
               {request.rejectReason ? (
-                <div className="rounded-[4px] border border-rose-200 bg-rose-50 p-4">
-                  <p className="text-[12px] font-semibold uppercase tracking-wide text-rose-700">
-                    Ly do tu choi
+                <div className="rounded-[4px] border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-blue-700">
+                    Lý do từ chối
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-rose-700">
+                  <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-blue-800">
                     {request.rejectReason}
                   </p>
                 </div>
               ) : null}
 
               {request.internalNote ? (
-                <div className="rounded-[4px] border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-[12px] font-semibold uppercase tracking-wide text-amber-700">
-                    Ghi chu noi bo
+                <div className="rounded-[4px] border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-blue-700">
+                    Ghi chú nội bộ
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-amber-800">
+                  <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-blue-800">
                     {request.internalNote}
                   </p>
                 </div>
@@ -534,57 +566,57 @@ export default function ReturnOrderDetailPage({
             </div>
           </Panel>
 
-          <Panel title="Tien trinh xu ly">
+          <Panel title="Tiến trình xử lý">
             <div className="space-y-3">
               <TimelineItem
                 done
-                label="Khach tao yeu cau"
+                label="Khách tạo yêu cầu"
                 value={formatDate(request.createdAt)}
               />
               <TimelineItem
                 done={Boolean(request.approvedAt)}
-                label="Duyet yeu cau"
-                value={request.approvedAt ? formatDate(request.approvedAt) : "Dang cho"}
+                label="Duyệt yêu cầu"
+                value={request.approvedAt ? formatDate(request.approvedAt) : "Đang chờ"}
               />
               {request.requiresPhysicalReturn ? (
                 <TimelineItem
                   done={Boolean(request.receivedAt)}
-                  label="Nhan lai hang tra"
-                  value={request.receivedAt ? formatDate(request.receivedAt) : "Dang cho"}
+                  label="Nhận lại hàng trả"
+                  value={request.receivedAt ? formatDate(request.receivedAt) : "Đang chờ"}
                 />
               ) : (
                 <TimelineItem
                   done
-                  label="Bo qua buoc nhan hang"
-                  value="Truong hop thieu hang do chi nhanh xu ly truc tiep"
+                  label="Bỏ qua bước nhận hàng"
+                  value="Trường hợp thiếu hàng do chi nhánh xử lý trực tiếp"
                 />
               )}
               <TimelineItem
                 done={Boolean(request.refundedAt)}
-                label="Hoan tien"
-                value={request.refundedAt ? formatDate(request.refundedAt) : "Dang cho"}
+                label="Hoàn tiền"
+                value={request.refundedAt ? formatDate(request.refundedAt) : "Đang chờ"}
               />
               <TimelineItem
                 done={Boolean(request.rejectedAt)}
-                label="Tu choi"
-                value={request.rejectedAt ? formatDate(request.rejectedAt) : "Chua tu choi"}
+                label="Từ chối"
+                value={request.rejectedAt ? formatDate(request.rejectedAt) : "Chưa từ chối"}
                 tone={request.rejectedAt ? "rose" : "slate"}
               />
             </div>
           </Panel>
         </div>
 
-        <Panel title="San pham trong yeu cau">
+        <Panel title="Sản phẩm trong yêu cầu">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left">
               <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">San pham</th>
+                  <th className="px-3 py-2 font-semibold">Sản phẩm</th>
                   <th className="px-3 py-2 font-semibold">SKU</th>
                   <th className="px-3 py-2 font-semibold text-center">SL tra</th>
-                  <th className="px-3 py-2 font-semibold text-center">Da mua</th>
-                  <th className="px-3 py-2 font-semibold text-right">Don gia</th>
-                  <th className="px-3 py-2 font-semibold text-right">Tam tinh hoan</th>
+                  <th className="px-3 py-2 font-semibold text-center">Đã mua</th>
+                  <th className="px-3 py-2 font-semibold text-right">Đơn giá</th>
+                  <th className="px-3 py-2 font-semibold text-right">Tạm tính hoàn</th>
                 </tr>
               </thead>
               <tbody>
@@ -600,7 +632,7 @@ export default function ReturnOrderDetailPage({
                         <div>
                           <p className="font-semibold text-slate-800">{item.productName}</p>
                           <p className="text-[12px] text-slate-500">
-                            {item.variantName || "San pham trong don"}
+                            {item.variantName || "Sản phẩm trong đơn"}
                           </p>
                         </div>
                       </div>
@@ -613,7 +645,7 @@ export default function ReturnOrderDetailPage({
                     <td className="px-3 py-3 text-right text-slate-700">
                       {formatCurrency(item.unitPrice)}
                     </td>
-                    <td className="px-3 py-3 text-right font-semibold text-rose-600">
+                    <td className="px-3 py-3 text-right font-semibold text-blue-700">
                       {formatCurrency(item.refundAmount)}
                     </td>
                   </tr>
@@ -624,9 +656,9 @@ export default function ReturnOrderDetailPage({
         </Panel>
 
         <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-          <Panel title="Hinh anh bang chung">
+          <Panel title="Hình ảnh bằng chứng">
             {imageEvidences.length === 0 ? (
-              <EmptyEvidence message="Khach hang chua tai len hinh anh." />
+              <EmptyEvidence message="Khách hàng chưa tải lên hình ảnh." />
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {imageEvidences.map((item) => (
@@ -643,7 +675,7 @@ export default function ReturnOrderDetailPage({
                       className="h-52 w-full object-cover"
                     />
                     <div className="border-t border-slate-100 p-3 text-[12px] text-slate-500">
-                      {item.fileName || "Mo tep goc"}
+                      {item.fileName || "Mở tệp gốc"}
                     </div>
                   </a>
                 ))}
@@ -651,9 +683,9 @@ export default function ReturnOrderDetailPage({
             )}
           </Panel>
 
-          <Panel title="Video bang chung">
+          <Panel title="Video bằng chứng">
             {videoEvidences.length === 0 ? (
-              <EmptyEvidence message="Khach hang chua tai len video." />
+              <EmptyEvidence message="Khách hàng chưa tải lên video." />
             ) : (
               <div className="space-y-4">
                 {videoEvidences.map((item) => (
@@ -668,7 +700,7 @@ export default function ReturnOrderDetailPage({
                     />
                     <div className="flex items-center gap-2 border-t border-slate-100 p-3 text-[12px] text-slate-500">
                       <Video size={14} />
-                      <span>{item.fileName || "Video loi"}</span>
+                      <span>{item.fileName || "Video lỗi"}</span>
                     </div>
                   </div>
                 ))}
@@ -677,36 +709,36 @@ export default function ReturnOrderDetailPage({
           </Panel>
         </div>
 
-        <Panel title="Xu ly thu cong">
+        <Panel title="Xử lý thủ công">
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="space-y-2 text-sm">
-              <span className="font-medium text-slate-700">Ghi chu noi bo</span>
+              <span className="font-medium text-slate-700">Ghi chú nội bộ</span>
               <Textarea
                 rows={4}
                 value={form.internalNote}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, internalNote: event.target.value }))
                 }
-                placeholder="Ghi lai cach xu ly, thong tin doi soat, ghi chu demo..."
+                placeholder="Ghi lại cách xử lý, thông tin đối soát, ghi chú demo..."
               />
             </label>
 
             <div className="space-y-4">
               <label className="space-y-2 text-sm">
-                <span className="font-medium text-slate-700">Ly do tu choi</span>
+                <span className="font-medium text-slate-700">Lý do từ chối</span>
                 <Textarea
                   rows={3}
                   value={form.rejectReason}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, rejectReason: event.target.value }))
                   }
-                  placeholder="Nhap khi can tu choi yeu cau..."
+                  placeholder="Nhập khi cần từ chối yêu cầu..."
                 />
               </label>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">So tien hoan</span>
+                  <span className="font-medium text-slate-700">Số tiền hoàn</span>
                   <Input
                     type="number"
                     min={0}
@@ -721,7 +753,7 @@ export default function ReturnOrderDetailPage({
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Phuong thuc hoan</span>
+                  <span className="font-medium text-slate-700">Phương thức hoàn</span>
                   <select
                     value={form.refundMethod}
                     onChange={(event) =>
@@ -732,8 +764,8 @@ export default function ReturnOrderDetailPage({
                     }
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   >
-                    <option value="BANK_TRANSFER">Chuyen khoan</option>
-                    <option value="CASH">Tien mat</option>
+                    <option value="BANK_TRANSFER">Chuyển khoản</option>
+                    <option value="CASH">Tiền mặt</option>
                   </select>
                 </label>
               </div>
@@ -747,35 +779,35 @@ export default function ReturnOrderDetailPage({
                 className="bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => setActionOpen("approve")}
               >
-                Duyet yeu cau
+                Duyệt yêu cầu
               </Button>
             ) : null}
             {canReject ? (
               <Button
                 type="button"
                 variant="outline"
-                className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  className={MONO_OUTLINE_BUTTON_CLASS}
                 onClick={() => setActionOpen("reject")}
               >
-                Tu choi
+                Từ chối
               </Button>
             ) : null}
             {canReceive ? (
               <Button
                 type="button"
-                className="bg-indigo-600 text-white hover:bg-indigo-700"
+                  className="bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => setActionOpen("receive")}
               >
-                Xac nhan da nhan hang
+                Xác nhận đã nhận hàng
               </Button>
             ) : null}
             {canRefund ? (
               <Button
                 type="button"
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => setActionOpen("refund")}
               >
-                Xac nhan hoan tien
+                Xác nhận hoàn tiền
               </Button>
             ) : null}
           </div>
@@ -787,42 +819,42 @@ export default function ReturnOrderDetailPage({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {actionOpen === "approve"
-                ? "Duyet yeu cau tra hang"
+                ? "Duyệt yêu cầu trả hàng"
                 : actionOpen === "reject"
-                  ? "Tu choi yeu cau tra hang"
+                  ? "Từ chối yêu cầu trả hàng"
                   : actionOpen === "receive"
-                    ? "Xac nhan da nhan lai hang"
-                    : "Xac nhan hoan tien"}
+                    ? "Xác nhận đã nhận lại hàng"
+                    : "Xác nhận hoàn tiền"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {actionOpen === "approve"
-                ? "Yeu cau se chuyen sang buoc tiep theo de chi nhanh hoac admin xu ly thu cong."
+                ? "Yêu cầu sẽ chuyển sang bước tiếp theo để chi nhánh hoặc admin xử lý thủ công."
                 : actionOpen === "reject"
-                  ? "Khach hang se nhin thay ly do tu choi trong danh sach yeu cau cua ho."
+                  ? "Khách hàng sẽ nhìn thấy lý do từ chối trong danh sách yêu cầu của họ."
                   : actionOpen === "receive"
-                    ? "Chi ap dung cho truong hop can nhan lai hang vat ly truoc khi hoan tien."
-                    : "So tien va phuong thuc hoan se duoc ghi nhan trong luong demo."}
+                    ? "Chỉ áp dụng cho trường hợp cần nhận lại hàng vật lý trước khi hoàn tiền."
+                    : "Số tiền và phương thức hoàn sẽ được ghi nhận trong luồng demo."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           {actionOpen === "reject" ? (
-            <div className="rounded-[6px] border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700">
-              Ly do tu choi hien tai:
+            <div className="rounded-[6px] border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">
+              Lý do từ chối hiện tại:
               <br />
-              {form.rejectReason.trim() || "Ban chua nhap ly do tu choi."}
+              {form.rejectReason.trim() || "Bạn chưa nhập lý do từ chối."}
             </div>
           ) : null}
 
           {actionOpen === "refund" ? (
-            <div className="rounded-[6px] border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-700">
-              So tien hoan: {formatCurrency(form.refundAmount || 0)}
+            <div className="rounded-[6px] border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">
+              Số tiền hoàn: {formatCurrency(form.refundAmount || 0)}
               <br />
-              Phuong thuc: {getReturnRefundLabel(form.refundMethod)}
+              Phương thức: {getReturnRefundLabel(form.refundMethod)}
             </div>
           ) : null}
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting}>Huy</AlertDialogCancel>
+            <AlertDialogCancel disabled={submitting}>Hủy</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -834,10 +866,10 @@ export default function ReturnOrderDetailPage({
               {submitting ? (
                 <>
                   <Loader2 size={14} className="mr-2 animate-spin" />
-                  Dang xu ly...
+                  Đang xử lý...
                 </>
               ) : (
-                "Xac nhan"
+                "Xác nhận"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -874,13 +906,9 @@ function MetricCard({
   tone: "slate" | "sky" | "emerald" | "rose";
 }) {
   const className =
-    tone === "sky"
-      ? "border-sky-200 bg-sky-50"
-      : tone === "emerald"
-        ? "border-emerald-200 bg-emerald-50"
-        : tone === "rose"
-          ? "border-rose-200 bg-rose-50"
-          : "border-slate-200 bg-white";
+    tone === "slate"
+      ? "border-blue-100 bg-white"
+      : "border-blue-100 bg-blue-50";
 
   return (
     <div className={`rounded-[4px] border p-4 shadow-sm ${className}`}>
@@ -924,16 +952,10 @@ function TimelineItem({
   value: string;
   tone?: "emerald" | "rose" | "slate";
 }) {
-  const dotClass = done
-    ? tone === "rose"
-      ? "bg-rose-500"
-      : tone === "slate"
-        ? "bg-slate-500"
-        : "bg-emerald-500"
-    : "bg-slate-200";
+  const dotClass = done ? "bg-blue-500" : "bg-slate-200";
 
   return (
-    <div className="flex items-start gap-3 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+    <div className="flex items-start gap-3 rounded-[4px] border border-blue-100 bg-blue-50 p-3">
       <div className={`mt-1 h-3 w-3 rounded-full ${dotClass}`} />
       <div>
         <p className="text-[13px] font-semibold text-slate-800">{label}</p>
@@ -945,7 +967,7 @@ function TimelineItem({
 
 function EmptyEvidence({ message }: { message: string }) {
   return (
-    <div className="rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-[13px] text-slate-500">
+    <div className="rounded-[4px] border border-dashed border-blue-200 bg-blue-50 p-10 text-center text-[13px] text-slate-500">
       {message}
     </div>
   );

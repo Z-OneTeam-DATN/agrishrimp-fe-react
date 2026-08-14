@@ -31,6 +31,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { formatDate } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { orderService } from "@/app/services/order.service";
 import { toast } from "sonner";
@@ -188,7 +189,7 @@ export default function HandoverPage() {
                                                     <span className="text-[13px] font-bold text-blue-600">{item.code}</span>
                                                 </TableCell>
                                                 <TableCell className="text-[12px] text-slate-600">
-                                                    {new Date(item.createdAt).toLocaleString("vi-VN")}
+                                                    {formatDate(item.createdAt, "dd/MM/yyyy HH:mm")}
                                                 </TableCell>
                                                 <TableCell className="text-[13px] font-semibold text-slate-700">
                                                     {item.carrier}

@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronsRight,
+  Loader2,
   Package,
   Search,
   Settings,
@@ -43,7 +44,7 @@ import {
 } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ADMIN_ORDER_STATUS_PAGES } from "@/lib/admin-order-status-pages";
-import { formatDate, getCurrentMonthDateTimeRange } from "@/lib/dateUtils";
+import { formatDate, getCurrentDayDateTimeRange } from "@/lib/dateUtils";
 import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
 import { readAdminOrdersRefreshSignal } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
@@ -81,6 +82,9 @@ type AdminOrderListPageProps = {
 
 type PaymentFilter = "ALL" | "PAID" | "UNPAID";
 type StatusFilter = "ALL" | OrderStatus;
+type FetchOrdersOptions = {
+  background?: boolean;
+};
 
 const TABLE_COL_SPAN = 10;
 const PAGE_SIZE = 20;
@@ -111,7 +115,7 @@ export default function AdminOrderListPage({
   const router = useRouter();
   const { hasPermission, isLoadingAuth } = usePermissions();
   const { user, warehouseId } = useAuthStore();
-  const defaultMonthRange = useMemo(() => getCurrentMonthDateTimeRange(), []);
+  const defaultDateRange = useMemo(() => getCurrentDayDateTimeRange(), []);
   const statusGroupItems = useMemo(() => statusGroups ?? [], [statusGroups]);
   const [activeGroupId, setActiveGroupId] = useState(
     () => defaultStatusGroupId ?? statusGroups?.[0]?.id ?? "",
@@ -121,8 +125,8 @@ export default function AdminOrderListPage({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("ALL");
-  const [startDateFilter, setStartDateFilter] = useState(defaultMonthRange.start);
-  const [endDateFilter, setEndDateFilter] = useState(defaultMonthRange.end);
+  const [startDateFilter, setStartDateFilter] = useState(defaultDateRange.start);
+  const [endDateFilter, setEndDateFilter] = useState(defaultDateRange.end);
   const [currentPage, setCurrentPage] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [orders, setOrders] = useState<MyOrder[]>([]);
@@ -131,10 +135,12 @@ export default function AdminOrderListPage({
     useState<AdminOrderSummaryResponse | null>(null);
   const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [advancingOrderId, setAdvancingOrderId] = useState<number | null>(null);
+  const [replenishingOrderId, setReplenishingOrderId] = useState<number | null>(null);
   const lastRefreshSignalRef = useRef(0);
 
   const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
@@ -237,15 +243,26 @@ export default function AdminOrderListPage({
       statusFilter,
     ],
   );
+  const activeStatusFilter =
+    selectedFixedStatus ?? (statusFilter === "ALL" ? null : statusFilter);
+  const shouldKeepOrderInCurrentView = useCallback(
+    (nextStatus: OrderStatus) =>
+      !activeStatusFilter || activeStatusFilter === nextStatus,
+    [activeStatusFilter],
+  );
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async ({ background = false }: FetchOrdersOptions = {}) => {
     if (!canViewSystemOrders) {
       return;
     }
 
-    setIsLoading(true);
-    setExpandedId(null);
-    setDetailCache({});
+    if (background) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+      setExpandedId(null);
+      setDetailCache({});
+    }
     try {
       const [data, summary, groupCountEntries] = await Promise.all([
         orderService.getAdminOrders({
@@ -289,11 +306,17 @@ export default function AdminOrderListPage({
       );
       setSelectedItems([]);
     } catch {
-      setOrderSummary(null);
-      setGroupCounts({});
+      if (!background) {
+        setOrderSummary(null);
+        setGroupCounts({});
+      }
       toast.error("Không thể tải danh sách đơn hàng toàn hệ thống.");
     } finally {
-      setIsLoading(false);
+      if (background) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [
     adminOrderFilters,
@@ -319,7 +342,7 @@ export default function AdminOrderListPage({
     }
 
     lastRefreshSignalRef.current = nextSignal;
-    void fetchOrders();
+    void fetchOrders({ background: true });
   }, [fetchOrders]);
 
   useEffect(() => {
@@ -420,6 +443,7 @@ export default function AdminOrderListPage({
     event.stopPropagation();
 
     try {
+      setReplenishingOrderId(orderId);
       const response = await orderService.requestAdminOrderReplenishment(orderId);
       const responseDocuments = response.planItems ?? [];
       const hasCreatedDocuments =
@@ -452,9 +476,11 @@ export default function AdminOrderListPage({
         await openOrderDetailRow(orderId);
       }
       toast.success(getReplenishmentResultMessage(orderCode, response));
-      await fetchOrders();
+      await fetchOrders({ background: true });
     } catch (error) {
       toast.error(getFriendlyError(error));
+    } finally {
+      setReplenishingOrderId(null);
     }
   };
 
@@ -472,8 +498,35 @@ export default function AdminOrderListPage({
     try {
       setAdvancingOrderId(order.id);
       await orderService.updateOrderStatus(order.id, action.nextStatus);
+      if (shouldKeepOrderInCurrentView(action.nextStatus)) {
+        setOrders((prev) =>
+          prev.map((item) =>
+            item.id === order.id ? { ...item, status: action.nextStatus } : item,
+          ),
+        );
+        setDetailCache((prev) => {
+          const detail = prev[order.id];
+          return detail
+            ? {
+                ...prev,
+                [order.id]: {
+                  ...detail,
+                  status: action.nextStatus,
+                },
+              }
+            : prev;
+        });
+      } else {
+        setOrders((prev) => prev.filter((item) => item.id !== order.id));
+        setExpandedId((prev) => (prev === order.id ? null : prev));
+        setDetailCache((prev) => {
+          const next = { ...prev };
+          delete next[order.id];
+          return next;
+        });
+      }
       toast.success(`Đơn hàng ${getOrderCode(order)} đã được cập nhật trạng thái.`);
-      await fetchOrders();
+      await fetchOrders({ background: true });
     } catch {
       toast.error("Không thể cập nhật trạng thái đơn hàng.");
     } finally {
@@ -500,8 +553,8 @@ export default function AdminOrderListPage({
     setSearch("");
     setStatusFilter("ALL");
     setPaymentFilter("ALL");
-    setStartDateFilter(defaultMonthRange.start);
-    setEndDateFilter(defaultMonthRange.end);
+    setStartDateFilter(defaultDateRange.start);
+    setEndDateFilter(defaultDateRange.end);
   };
 
   const totalOrders =
@@ -516,8 +569,8 @@ export default function AdminOrderListPage({
   const hasActiveFilters = Boolean(
     searchInput.trim() ||
       paymentFilter !== "ALL" ||
-      startDateFilter !== defaultMonthRange.start ||
-      endDateFilter !== defaultMonthRange.end ||
+      startDateFilter !== defaultDateRange.start ||
+      endDateFilter !== defaultDateRange.end ||
       (isAllOrdersPage && statusFilter !== "ALL"),
   );
   const summaryCards = useMemo(
@@ -710,6 +763,13 @@ export default function AdminOrderListPage({
         </div>
       ) : null}
 
+      {isRefreshing ? (
+        <div className="flex items-center justify-end gap-2 px-1 text-[12px] font-medium text-blue-600">
+          <Loader2 size={14} className="animate-spin" />
+          Đang đồng bộ danh sách đơn hàng...
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
         <div className="w-full overflow-x-auto">
           <Table className="min-w-max [&_th]:whitespace-nowrap">
@@ -873,7 +933,14 @@ export default function AdminOrderListPage({
                                 disabled={advancingOrderId === orderId}
                                 onClick={(event) => void handleAdvanceStatus(event, orderDetail)}
                               >
-                                {nextAction.label}
+                                {advancingOrderId === orderId ? (
+                                  <>
+                                    <Loader2 size={14} className="mr-1.5 animate-spin" />
+                                    Đang cập nhật
+                                  </>
+                                ) : (
+                                  nextAction.label
+                                )}
                               </Button>
                             ) : allowReplenishment ? (
                               <Button
@@ -884,6 +951,7 @@ export default function AdminOrderListPage({
                                     ? "bg-emerald-600 hover:bg-emerald-700"
                                     : "bg-rose-600 hover:bg-rose-700",
                                 )}
+                                disabled={replenishingOrderId === orderId}
                                 onClick={(event) =>
                                   hasReplenishmentDocuments
                                     ? void handleOpenReplenishmentDocuments(

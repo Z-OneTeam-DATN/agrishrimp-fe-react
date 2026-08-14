@@ -1,10 +1,12 @@
 import {
   endOfMonth,
+  endOfDay,
   format,
   isToday,
   isYesterday,
   isThisWeek,
   differenceInCalendarWeeks,
+  startOfDay,
   startOfMonth,
 } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -64,6 +66,19 @@ export function getCurrentMonthDateTimeRange(baseDate: Date = new Date()) {
   start.setHours(0, 0, 0, 0);
 
   const end = endOfMonth(baseDate);
+  end.setHours(23, 59, 0, 0);
+
+  return {
+    start: toDateTimeLocalValue(start),
+    end: toDateTimeLocalValue(end),
+  };
+}
+
+export function getCurrentDayDateTimeRange(baseDate: Date = new Date()) {
+  const start = startOfDay(baseDate);
+  start.setHours(0, 0, 0, 0);
+
+  const end = endOfDay(baseDate);
   end.setHours(23, 59, 0, 0);
 
   return {

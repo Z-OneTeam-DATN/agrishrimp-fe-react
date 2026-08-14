@@ -12,6 +12,7 @@ import {
   Printer,
   RefreshCw,
   CheckCircle2,
+  Loader2,
   Truck,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,10 +29,15 @@ import {
 } from "@/components/ui/table";
 import { orderService } from "@/app/services/order.service";
 import { BranchOrder } from "@/app/types/order.types";
+import { formatDate } from "@/lib/dateUtils";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import { useAuthStore } from "@/stores/useAuthStore";
+
+type FetchBranchOrdersOptions = {
+  background?: boolean;
+};
 
 const DEFAULT_TAB = "PROCESSING";
 
@@ -90,23 +96,37 @@ export default function OrderManagementPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [orders, setOrders] = useState<BranchOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [detailCache, setDetailCache] = useState<Record<number, BranchOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
+  const [mutatingOrderId, setMutatingOrderId] = useState<number | null>(null);
 
   const fetchOrders = useCallback(
-    async (status: string, keyword?: string) => {
+    async (
+      status: string,
+      keyword?: string,
+      { background = false }: FetchBranchOrdersOptions = {},
+    ) => {
       if (!canUseBranchOrders) {
         return;
       }
 
-      setIsLoading(true);
+      if (background) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       try {
         const data = await orderService.getBranchOrders(status, keyword || undefined);
         setOrders(data);
       } catch {
         toast.error("Không thể tải danh sách đơn hàng chi nhánh.");
       } finally {
-        setIsLoading(false);
+        if (background) {
+          setIsRefreshing(false);
+        } else {
+          setIsLoading(false);
+        }
       }
     },
     [canUseBranchOrders],
@@ -182,11 +202,15 @@ export default function OrderManagementPage() {
     event.stopPropagation();
 
     try {
+      setMutatingOrderId(order.orderId);
       await orderService.updateBranchOrderStatus(order.orderId, nextStatus);
       toast.success(getSuccessMessage(order.orderCode, nextStatus));
       clearOrderFromCurrentView(order.orderId);
     } catch {
       toast.error("Lỗi khi cập nhật trạng thái đơn hàng.");
+    } finally {
+      setMutatingOrderId(null);
+      void fetchOrders(activeTab, search, { background: true });
     }
   };
 
@@ -197,14 +221,17 @@ export default function OrderManagementPage() {
     event.stopPropagation();
 
     try {
+      setMutatingOrderId(order.orderId);
       const response = await orderService.requestBranchOrderReplenishment(order.orderId);
       const transferSummary = response.transferCodes?.length
         ? ` (${response.transferCodes.join(", ")})`
         : "";
       toast.success(`Đã tạo lệnh điều chuyển cho ${order.orderCode}${transferSummary}`);
-      fetchOrders(activeTab, search);
+      void fetchOrders(activeTab, search, { background: true });
     } catch {
       toast.error("Không thể xử lý thiếu hàng.");
+    } finally {
+      setMutatingOrderId(null);
     }
   };
 
@@ -223,8 +250,9 @@ export default function OrderManagementPage() {
         <Button
           variant="outline"
           size="sm"
+          disabled={isRefreshing}
           className="h-[32px] border-slate-300 bg-white text-[12px] text-slate-600 hover:bg-slate-50"
-          onClick={() => fetchOrders(activeTab, search)}
+          onClick={() => void fetchOrders(activeTab, search, { background: true })}
         >
           <RefreshCw size={13} className="mr-1.5" /> Làm mới
         </Button>
@@ -268,6 +296,13 @@ export default function OrderManagementPage() {
         </div>
       </div>
 
+      {isRefreshing ? (
+        <div className="flex items-center justify-end gap-2 px-1 text-[12px] font-medium text-emerald-600">
+          <Loader2 size={14} className="animate-spin" />
+          Đang đồng bộ danh sách đơn chi nhánh...
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
         <div className="w-full overflow-x-auto">
           <Table>
@@ -309,6 +344,7 @@ export default function OrderManagementPage() {
                   const isExpanded = expandedId === order.orderId;
                   const detail = detailCache[order.orderId];
                   const isLoadingDetail = loadingDetailId === order.orderId;
+                  const isMutatingOrder = mutatingOrderId === order.orderId;
                   const hasMissingItems =
                     (detail?.items ?? order.items).some((item) => (item.missingQuantity ?? 0) > 0);
 
@@ -332,7 +368,7 @@ export default function OrderManagementPage() {
                           <span className="text-[13px] font-bold text-blue-600">{order.orderCode}</span>
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-[13px] text-slate-700">
-                          {new Date(order.createdAt).toLocaleString("vi-VN")}
+                          {formatDate(order.createdAt, "dd/MM/yyyy HH:mm")}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
@@ -408,6 +444,7 @@ export default function OrderManagementPage() {
                                   {activeTab === "PENDING" && hasMissingItems ? (
                                     <Button
                                       size="sm"
+                                      disabled={isMutatingOrder}
                                       className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
                                       onClick={(event) => handleRequestReplenishment(event, order)}
                                     >
@@ -417,6 +454,7 @@ export default function OrderManagementPage() {
                                   ) : activeTab === "PENDING" ? (
                                     <Button
                                       size="sm"
+                                      disabled={isMutatingOrder}
                                       className="h-[32px] bg-emerald-600 text-[12px] font-bold text-white shadow-sm hover:bg-emerald-700"
                                       onClick={(event) => handleUpdateStatus(event, order, "CONFIRMED")}
                                     >
@@ -426,6 +464,7 @@ export default function OrderManagementPage() {
                                   ) : activeTab === "AWAITING_REPLENISHMENT" ? (
                                     <Button
                                       size="sm"
+                                      disabled={isMutatingOrder}
                                       className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
                                       onClick={(event) => handleRequestReplenishment(event, order)}
                                     >
@@ -435,6 +474,7 @@ export default function OrderManagementPage() {
                                   ) : activeTab === "CONFIRMED" ? (
                                     <Button
                                       size="sm"
+                                      disabled={isMutatingOrder}
                                       className="h-[32px] bg-blue-600 text-[12px] font-bold text-white shadow-sm hover:bg-blue-700"
                                       onClick={(event) => handleUpdateStatus(event, order, "PROCESSING")}
                                     >
@@ -454,6 +494,7 @@ export default function OrderManagementPage() {
                                       </Button>
                                       <Button
                                         size="sm"
+                                        disabled={isMutatingOrder}
                                         className="h-[32px] bg-emerald-600 text-[12px] font-bold text-white shadow-sm hover:bg-emerald-700"
                                         onClick={(event) => handleUpdateStatus(event, order, "READY_FOR_PICKUP")}
                                       >

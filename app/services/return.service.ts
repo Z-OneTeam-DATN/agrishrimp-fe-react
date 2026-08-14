@@ -9,6 +9,7 @@ import {
   ReturnRequestRejectPayload,
   ReturnRequestStatus,
 } from "@/app/types/return.types";
+import { repairVietnameseData } from "@/lib/utils";
 
 const RETURN_PREFIX = "/v1/returns";
 
@@ -34,19 +35,19 @@ export const returnService = {
     const response = await apiJava.get<ReturnOrderDraft>(
       `${RETURN_PREFIX}/orders/${orderId}/draft`,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   createReturnRequest: async (
     payload: CreateReturnRequestPayload,
   ): Promise<ReturnRequest> => {
     const response = await apiJava.post<ReturnRequest>(RETURN_PREFIX, payload);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getMyReturnRequests: async (): Promise<ReturnRequest[]> => {
     const response = await apiJava.get<ReturnRequest[]>(`${RETURN_PREFIX}/my`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getMyReturnRequestDetail: async (
@@ -55,7 +56,7 @@ export const returnService = {
     const response = await apiJava.get<ReturnRequest>(
       `${RETURN_PREFIX}/my/${requestId}`,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getAdminReturnRequests: async (
@@ -65,7 +66,7 @@ export const returnService = {
     const response = await apiJava.get<ReturnRequest[]>("/admin/returns", {
       params: buildReturnAdminParams(status, search),
     });
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getAdminReturnRequestDetail: async (
@@ -74,7 +75,7 @@ export const returnService = {
     const response = await apiJava.get<ReturnRequest>(
       `/admin/returns/${requestId}`,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   approveAdminReturnRequest: async (
@@ -85,7 +86,7 @@ export const returnService = {
       `/admin/returns/${requestId}/approve`,
       payload ?? {},
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   rejectAdminReturnRequest: async (
@@ -96,7 +97,7 @@ export const returnService = {
       `/admin/returns/${requestId}/reject`,
       payload,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   receiveAdminReturnRequest: async (
@@ -107,7 +108,7 @@ export const returnService = {
       `/admin/returns/${requestId}/receive`,
       payload ?? {},
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   refundAdminReturnRequest: async (
@@ -118,7 +119,7 @@ export const returnService = {
       `/admin/returns/${requestId}/refund`,
       payload,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getBranchReturnRequests: async (
@@ -128,7 +129,7 @@ export const returnService = {
     const response = await apiJava.get<ReturnRequest[]>("/branch/returns", {
       params: buildReturnAdminParams(status, search),
     });
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getBranchReturnRequestDetail: async (
@@ -137,7 +138,7 @@ export const returnService = {
     const response = await apiJava.get<ReturnRequest>(
       `/branch/returns/${requestId}`,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   approveBranchReturnRequest: async (
@@ -148,7 +149,7 @@ export const returnService = {
       `/branch/returns/${requestId}/approve`,
       payload ?? {},
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   rejectBranchReturnRequest: async (
@@ -159,7 +160,7 @@ export const returnService = {
       `/branch/returns/${requestId}/reject`,
       payload,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   receiveBranchReturnRequest: async (
@@ -170,7 +171,7 @@ export const returnService = {
       `/branch/returns/${requestId}/receive`,
       payload ?? {},
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   refundBranchReturnRequest: async (
@@ -181,6 +182,6 @@ export const returnService = {
       `/branch/returns/${requestId}/refund`,
       payload,
     );
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 };

@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -39,7 +39,10 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { RETURN_ISSUE_OPTIONS, RETURN_REFUND_OPTIONS } from "@/lib/return-request";
+import {
+  RETURN_ISSUE_OPTIONS,
+  RETURN_REFUND_OPTIONS,
+} from "@/lib/return-request";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
 
@@ -57,7 +60,9 @@ type SelectedItemMap = Record<string, { quantity: number }>;
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
 
-function getDraftItemKey(item: Pick<ReturnDraftItem, "sourceType" | "sourceItemId">) {
+function getDraftItemKey(
+  item: Pick<ReturnDraftItem, "sourceType" | "sourceItemId">,
+) {
   return `${item.sourceType}:${item.sourceItemId}`;
 }
 
@@ -75,6 +80,11 @@ function extractErrorMessage(error: any, fallback: string) {
   );
 }
 
+const flatFieldClass =
+  "rounded-none border-[#cfe0f2] bg-white focus-visible:ring-[#1965a2]";
+const flatSelectClass =
+  "flex h-10 w-full rounded-none border border-[#cfe0f2] bg-white px-3 py-2 text-sm outline-none focus:border-[#1965a2]";
+
 export default function ReturnRequestPage({
   params,
 }: {
@@ -89,10 +99,15 @@ export default function ReturnRequestPage({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [uploadingType, setUploadingType] = useState<ReturnEvidenceType | null>(null);
+  const [uploadingType, setUploadingType] =
+    useState<ReturnEvidenceType | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItemMap>({});
-  const [imageEvidences, setImageEvidences] = useState<UploadEvidenceItem[]>([]);
-  const [videoEvidences, setVideoEvidences] = useState<UploadEvidenceItem[]>([]);
+  const [imageEvidences, setImageEvidences] = useState<UploadEvidenceItem[]>(
+    [],
+  );
+  const [videoEvidences, setVideoEvidences] = useState<UploadEvidenceItem[]>(
+    [],
+  );
   const [form, setForm] = useState({
     fullName: "",
     phoneNumber: "",
@@ -108,56 +123,81 @@ export default function ReturnRequestPage({
   });
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    const fetchDraft = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await returnService.getReturnDraft(id);
-        if (!mounted) return;
-        setDraft(response);
+
+        const [draftResponse, requests] = await Promise.all([
+          returnService.getReturnDraft(id),
+          returnService.getMyReturnRequests(),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        const existingRequest = requests.find(
+          (request) => String(request.orderId) === String(id),
+        );
+
+        if (existingRequest) {
+          toast.info(
+            `Đơn hàng ${existingRequest.orderCode} đã có phiếu ${existingRequest.code}.`,
+          );
+          router.replace("/orders/list?status=RETURNED");
+          return;
+        }
+
+        setDraft(draftResponse);
       } catch (err: any) {
-        if (!mounted) return;
+        if (!active) {
+          return;
+        }
+
         setError(
           extractErrorMessage(
             err,
-            "Khong the tai thong tin tra hang. Vui long thu lai sau.",
+            "Không thể tải thông tin trả hàng. Vui lòng thử lại sau.",
           ),
         );
       } finally {
-        if (mounted) {
+        if (active) {
           setLoading(false);
         }
       }
     };
 
-    void fetchDraft();
+    void fetchData();
 
     return () => {
-      mounted = false;
+      active = false;
     };
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => {
-    if (!draft) return;
+    if (!draft) {
+      return;
+    }
 
-    setForm((prev) => ({
-      ...prev,
+    setForm((current) => ({
+      ...current,
       fullName:
-        prev.fullName ||
+        current.fullName ||
         draft.customerName ||
         user?.fullName ||
         user?.displayName ||
         "",
       phoneNumber:
-        prev.phoneNumber ||
+        current.phoneNumber ||
         draft.customerPhone ||
         user?.phoneNumber ||
         "",
-      email: prev.email || user?.email || "",
+      email: current.email || user?.email || "",
       bankAccountName:
-        prev.bankAccountName ||
+        current.bankAccountName ||
         user?.fullName ||
         user?.displayName ||
         draft.customerName ||
@@ -176,7 +216,9 @@ export default function ReturnRequestPage({
   }, [imageEvidences, videoEvidences]);
 
   const selectedDraftItems = useMemo(() => {
-    if (!draft) return [];
+    if (!draft) {
+      return [];
+    }
 
     return draft.items
       .filter((item) => selectedItems[getDraftItemKey(item)])
@@ -186,15 +228,17 @@ export default function ReturnRequestPage({
       }));
   }, [draft, selectedItems]);
 
-  const selectedBranchIds = useMemo(() => {
-    return Array.from(
-      new Set(
-        selectedDraftItems
-          .map((item) => item.branchId)
-          .filter((branchId): branchId is number => branchId !== null),
+  const selectedBranchIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          selectedDraftItems
+            .map((item) => item.branchId)
+            .filter((branchId): branchId is number => branchId !== null),
+        ),
       ),
-    );
-  }, [selectedDraftItems]);
+    [selectedDraftItems],
+  );
 
   const selectedBranchName = selectedDraftItems[0]?.branchName ?? null;
   const branchConflict = selectedBranchIds.length > 1;
@@ -212,27 +256,33 @@ export default function ReturnRequestPage({
 
     if (checked) {
       const activeBranchId = selectedDraftItems[0]?.branchId;
+
       if (
         activeBranchId !== null &&
         activeBranchId !== undefined &&
         item.branchId !== null &&
         item.branchId !== activeBranchId
       ) {
-        toast.error("Moi yeu cau chi duoc chon san pham thuoc cung mot chi nhanh.");
+        toast.error(
+          "Mỗi yêu cầu chỉ được chọn sản phẩm thuộc cùng một chi nhánh phục vụ.",
+        );
         return;
       }
 
-      setSelectedItems((prev) => ({
-        ...prev,
+      setSelectedItems((current) => ({
+        ...current,
         [itemKey]: {
-          quantity: Math.min(prev[itemKey]?.quantity ?? 1, item.maxReturnQuantity),
+          quantity: Math.min(
+            current[itemKey]?.quantity ?? 1,
+            item.maxReturnQuantity,
+          ),
         },
       }));
       return;
     }
 
-    setSelectedItems((prev) => {
-      const next = { ...prev };
+    setSelectedItems((current) => {
+      const next = { ...current };
       delete next[itemKey];
       return next;
     });
@@ -244,8 +294,8 @@ export default function ReturnRequestPage({
       Math.min(item.maxReturnQuantity, normalizeNumberInput(value)),
     );
 
-    setSelectedItems((prev) => ({
-      ...prev,
+    setSelectedItems((current) => ({
+      ...current,
       [getDraftItemKey(item)]: {
         quantity: nextQuantity,
       },
@@ -256,7 +306,9 @@ export default function ReturnRequestPage({
     fileList: FileList | null,
     mediaType: ReturnEvidenceType,
   ) => {
-    if (!fileList?.length) return;
+    if (!fileList?.length) {
+      return;
+    }
 
     const files = Array.from(fileList);
     const maxSize =
@@ -266,8 +318,8 @@ export default function ReturnRequestPage({
       if (file.size > maxSize) {
         toast.error(
           mediaType === "IMAGE"
-            ? "Anh vuot qua gioi han 10MB."
-            : "Video vuot qua gioi han 50MB.",
+            ? "Ảnh vượt quá giới hạn 10MB."
+            : "Video vượt quá giới hạn 50MB.",
         );
         return;
       }
@@ -280,8 +332,8 @@ export default function ReturnRequestPage({
         files.map(async (file, index) => {
           const formData = new FormData();
           formData.append("file", file);
-          const response = await FileService.tmpUpload(formData);
 
+          const response = await FileService.tmpUpload(formData);
           return {
             id: `${mediaType}-${Date.now()}-${index}`,
             mediaType,
@@ -294,19 +346,19 @@ export default function ReturnRequestPage({
       );
 
       if (mediaType === "IMAGE") {
-        setImageEvidences((prev) => [...prev, ...uploaded]);
+        setImageEvidences((current) => [...current, ...uploaded]);
       } else {
-        setVideoEvidences((prev) => [...prev, ...uploaded]);
+        setVideoEvidences((current) => [...current, ...uploaded]);
       }
 
       toast.success(
         mediaType === "IMAGE"
-          ? "Da tai len hinh anh loi."
-          : "Da tai len video loi.",
+          ? "Đã tải lên hình ảnh lỗi."
+          : "Đã tải lên video lỗi.",
       );
     } catch (err: any) {
       toast.error(
-        extractErrorMessage(err, "Khong the tai len tep dinh kem luc nay."),
+        extractErrorMessage(err, "Không thể tải lên tệp đính kèm lúc này."),
       );
     } finally {
       setUploadingType(null);
@@ -319,28 +371,54 @@ export default function ReturnRequestPage({
     }
 
     if (item.mediaType === "IMAGE") {
-      setImageEvidences((prev) => prev.filter((evidence) => evidence.id !== item.id));
+      setImageEvidences((current) =>
+        current.filter((evidence) => evidence.id !== item.id),
+      );
       return;
     }
 
-    setVideoEvidences((prev) => prev.filter((evidence) => evidence.id !== item.id));
+    setVideoEvidences((current) =>
+      current.filter((evidence) => evidence.id !== item.id),
+    );
   };
 
   const validateBeforeSubmit = () => {
-    if (!draft) return "Khong co du lieu don hang de tao yeu cau.";
-    if (!selectedDraftItems.length) return "Vui long chon it nhat mot san pham can tra hang.";
-    if (branchConflict || selectedBranchIds.length !== 1) {
-      return "Moi yeu cau tra hang chi duoc xu ly cho mot chi nhanh phuc vu.";
+    if (!draft) {
+      return "Không có dữ liệu đơn hàng để tạo yêu cầu.";
     }
-    if (!form.fullName.trim()) return "Vui long nhap ho ten nguoi nhan hoan tien.";
-    if (!form.phoneNumber.trim()) return "Vui long nhap so dien thoai lien he.";
-    if (!form.bankAccountName.trim()) return "Vui long nhap ten chu tai khoan.";
-    if (!form.bankAccountNumber.trim()) return "Vui long nhap so tai khoan.";
-    if (!form.bankName.trim()) return "Vui long nhap ten ngan hang.";
-    if (!form.reason.trim()) return "Vui long nhap ly do tra hang.";
-    if (!form.description.trim()) return "Vui long mo ta chi tiet loi cua don hang.";
-    if (imageEvidences.length === 0) return "Can co it nhat 1 hinh anh loi.";
-    if (videoEvidences.length === 0) return "Can co it nhat 1 video loi.";
+    if (!selectedDraftItems.length) {
+      return "Vui lòng chọn ít nhất một sản phẩm cần trả hàng.";
+    }
+    if (branchConflict || selectedBranchIds.length !== 1) {
+      return "Mỗi yêu cầu trả hàng chỉ được xử lý cho một chi nhánh phục vụ.";
+    }
+    if (!form.fullName.trim()) {
+      return "Vui lòng nhập họ tên người nhận hoàn tiền.";
+    }
+    if (!form.phoneNumber.trim()) {
+      return "Vui lòng nhập số điện thoại liên hệ.";
+    }
+    if (!form.bankAccountName.trim()) {
+      return "Vui lòng nhập tên chủ tài khoản.";
+    }
+    if (!form.bankAccountNumber.trim()) {
+      return "Vui lòng nhập số tài khoản.";
+    }
+    if (!form.bankName.trim()) {
+      return "Vui lòng nhập tên ngân hàng.";
+    }
+    if (!form.reason.trim()) {
+      return "Vui lòng nhập lý do trả hàng.";
+    }
+    if (!form.description.trim()) {
+      return "Vui lòng mô tả chi tiết lỗi của đơn hàng.";
+    }
+    if (imageEvidences.length === 0) {
+      return "Cần có ít nhất 1 hình ảnh lỗi.";
+    }
+    if (videoEvidences.length === 0) {
+      return "Cần có ít nhất 1 video lỗi.";
+    }
     return null;
   };
 
@@ -352,7 +430,9 @@ export default function ReturnRequestPage({
       return;
     }
 
-    if (!draft) return;
+    if (!draft) {
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -385,13 +465,13 @@ export default function ReturnRequestPage({
 
       const createdRequest = await returnService.createReturnRequest(payload);
       toast.success(
-        `Da gui yeu cau tra hang ${createdRequest.code}. Chi nhanh phuc vu se xu ly tiep theo.`,
+        `Đã gửi yêu cầu trả hàng ${createdRequest.code}. Chi nhánh sẽ xử lý thủ công tiếp theo.`,
       );
       setConfirmOpen(false);
-      router.push("/orders/return/list");
+      router.replace("/orders/list?status=RETURNED");
     } catch (err: any) {
       toast.error(
-        extractErrorMessage(err, "Khong the gui yeu cau tra hang luc nay."),
+        extractErrorMessage(err, "Không thể gửi yêu cầu trả hàng lúc này."),
       );
     } finally {
       setSubmitting(false);
@@ -401,32 +481,33 @@ export default function ReturnRequestPage({
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-28 w-full" />
-        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-24 w-full rounded-none" />
+        <Skeleton className="h-40 w-full rounded-none" />
+        <Skeleton className="h-72 w-full rounded-none" />
       </div>
     );
   }
 
   if (error || !draft) {
     return (
-      <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
+      <div className="border border-[#d8e6f5] bg-white px-6 py-6">
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 text-rose-500" size={20} />
           <div className="space-y-3">
             <div>
-              <h1 className="text-lg font-semibold text-slate-900">
-                Khong the tao yeu cau tra hang
+              <h1 className="text-lg font-semibold text-[#12385b]">
+                Không thể tạo yêu cầu trả hàng
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                {error ?? "Don hang nay chua san sang cho luong tra hang thu cong."}
+                {error ??
+                  "Đơn hàng này chưa sẵn sàng cho luồng trả hàng thủ công."}
               </p>
             </div>
             <Link
               href="/orders/list?status=COMPLETED"
-              className="inline-flex h-10 items-center rounded-md bg-[#1965a2] px-4 text-sm font-semibold text-white hover:bg-[#145486]"
+              className="inline-flex h-10 items-center bg-[#1965a2] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#145486]"
             >
-              Quay lai don da giao
+              Quay lại đơn đã giao
             </Link>
           </div>
         </div>
@@ -436,67 +517,127 @@ export default function ReturnRequestPage({
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="space-y-5">
+        <section className="border border-[#d8e6f5] bg-white px-5 py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
               <Link
                 href="/orders/list?status=COMPLETED"
-                className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#1965a2]"
+                className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[#1965a2]"
               >
                 <ArrowLeft size={16} />
-                Quay lai don da giao
+                Quay lại đơn đã giao
               </Link>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  Tao yeu cau tra hang
+                <h1 className="text-2xl font-semibold text-[#12385b]">
+                  Tạo yêu cầu trả hàng
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  Don hang <span className="font-semibold text-slate-700">{draft.orderCode}</span> se
-                  duoc chuyen den chi nhanh phuc vu de xu ly thu cong.
+                  Đơn hàng{" "}
+                  <span className="font-semibold text-[#12385b]">
+                    {draft.orderCode}
+                  </span>{" "}
+                  sẽ được chuyển đến chi nhánh phục vụ để xử lý thủ công.
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              <div>
-                <span className="font-semibold text-slate-900">So san pham da chon:</span>{" "}
+            <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
+              <p>
+                <span className="font-semibold text-[#12385b]">
+                  Số sản phẩm đã chọn:
+                </span>{" "}
                 {selectedDraftItems.length}
-              </div>
-              <div>
-                <span className="font-semibold text-slate-900">So luong tra:</span>{" "}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold text-[#12385b]">
+                  Số lượng trả:
+                </span>{" "}
                 {totalSelectedQuantity}
-              </div>
-              <div>
-                <span className="font-semibold text-slate-900">Tam tinh hoan:</span>{" "}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold text-[#12385b]">
+                  Tạm tính hoàn:
+                </span>{" "}
                 {formatCurrency(refundPreview)}
-              </div>
+              </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {!draft.singleBranchOnly && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            Don hang nay co san pham do nhieu chi nhanh phuc vu. Moi lan gui yeu cau,
-            ban chi nen chon san pham thuoc cung mot chi nhanh de chi nhanh do xu ly.
+        {draft.message ? (
+          <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
+            {draft.message}
           </div>
-        )}
+        ) : null}
 
-        {form.issueType === "MISSING_ITEM" && (
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800">
-            Truong hop thieu hang se do chi nhanh phuc vu xu ly hoan tien truc tiep. Khach
-            hang khong can gui tra lai hang vat ly, nhung van bat buoc dinh kem hinh anh va
-            video mo ta loi don hang.
+        {!draft.singleBranchOnly ? (
+          <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
+            Đơn hàng này có sản phẩm từ nhiều chi nhánh phục vụ. Mỗi lần gửi yêu
+            cầu, bạn chỉ nên chọn sản phẩm thuộc cùng một chi nhánh để chi nhánh đó
+            xử lý nhanh hơn.
           </div>
-        )}
+        ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {form.issueType === "MISSING_ITEM" ? (
+          <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
+            Trường hợp thiếu hàng sẽ do chi nhánh phục vụ xử lý hoàn tiền trực tiếp.
+            Khách hàng không cần gửi lại hàng vật lý nhưng vẫn bắt buộc có hình ảnh
+            và video mô tả lỗi của đơn hàng.
+          </div>
+        ) : null}
+
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-5">
+            <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4 flex items-center gap-2">
-                <CheckCircle2 className="text-[#1965a2]" size={18} />
-                <h2 className="text-lg font-semibold text-slate-900">
-                  1. Chon san pham can tra
+                <CheckCircle2 size={18} className="text-[#1965a2]" />
+                <h2 className="text-lg font-semibold text-[#12385b]">
+                  1. Thông tin đơn hàng
+                </h2>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Mã đơn
+                  </p>
+                  <p className="mt-1 font-medium text-[#12385b]">
+                    {draft.orderCode}
+                  </p>
+                </div>
+                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Trạng thái đơn
+                  </p>
+                  <p className="mt-1 font-medium text-[#12385b]">
+                    {draft.orderStatus || "Đã giao"}
+                  </p>
+                </div>
+                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Khách hàng
+                  </p>
+                  <p className="mt-1 font-medium text-[#12385b]">
+                    {draft.customerName || user?.fullName || user?.displayName || "-"}
+                  </p>
+                </div>
+                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Điện thoại
+                  </p>
+                  <p className="mt-1 font-medium text-[#12385b]">
+                    {draft.customerPhone || user?.phoneNumber || "-"}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="border border-[#d8e6f5] bg-white px-5 py-5">
+              <div className="mb-4 flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-[#1965a2]" />
+                <h2 className="text-lg font-semibold text-[#12385b]">
+                  2. Chọn sản phẩm cần trả
                 </h2>
               </div>
 
@@ -504,24 +645,24 @@ export default function ReturnRequestPage({
                 {draft.items.map((item) => {
                   const itemKey = getDraftItemKey(item);
                   const isSelected = Boolean(selectedItems[itemKey]);
-                  const selectedBranchId = selectedDraftItems[0]?.branchId;
+                  const activeBranchId = selectedDraftItems[0]?.branchId;
                   const disabledByBranch =
                     !isSelected &&
-                    selectedBranchId !== null &&
-                    selectedBranchId !== undefined &&
+                    activeBranchId !== null &&
+                    activeBranchId !== undefined &&
                     item.branchId !== null &&
-                    item.branchId !== selectedBranchId;
+                    item.branchId !== activeBranchId;
 
                   return (
                     <div
                       key={itemKey}
-                      className={`rounded-2xl border p-4 transition-colors ${
+                      className={`border px-4 py-4 ${
                         isSelected
-                          ? "border-[#1965a2] bg-[#1965a2]/5"
-                          : "border-slate-200 bg-white"
+                          ? "border-[#1965a2] bg-[#f8fbff]"
+                          : "border-[#d8e6f5] bg-white"
                       } ${disabledByBranch ? "opacity-60" : ""}`}
                     >
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
                         <div className="flex items-start gap-3">
                           <Checkbox
                             checked={isSelected}
@@ -529,44 +670,48 @@ export default function ReturnRequestPage({
                               handleToggleItem(item, checked === true)
                             }
                             disabled={disabledByBranch}
-                            className="mt-1"
+                            className="mt-1 rounded-none"
                           />
 
                           <img
                             src={resolveImageUrl(item.image, "/placeholder.png")}
                             alt={item.productName}
-                            className="h-20 w-20 rounded-xl border border-slate-200 object-cover"
+                            className="h-20 w-20 border border-[#d8e6f5] object-cover"
                           />
 
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-slate-900">
-                              {item.productName}
-                            </h3>
-                            <div className="text-sm text-slate-500">
-                              {item.variantName || item.sku || "San pham thuoc don hang"}
+                          <div className="space-y-2">
+                            <div>
+                              <h3 className="text-sm font-semibold text-[#12385b]">
+                                {item.productName}
+                              </h3>
+                              <p className="mt-1 text-sm text-slate-500">
+                                {item.variantName || item.sku || "Sản phẩm thuộc đơn hàng"}
+                              </p>
                             </div>
-                            <div className="flex flex-wrap gap-2 pt-1 text-xs">
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-                                Da mua: {item.orderedQuantity}
+
+                            <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                              <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
+                                Đã mua: {item.orderedQuantity}
                               </span>
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-                                Toi da tra: {item.maxReturnQuantity}
+                              <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
+                                Tối đa trả: {item.maxReturnQuantity}
                               </span>
-                              {item.branchName && (
-                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
-                                  Chi nhanh: {item.branchName}
+                              {item.branchName ? (
+                                <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
+                                  Chi nhánh: {item.branchName}
                                 </span>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>
 
-                        <div className="ml-auto flex w-full flex-col gap-3 md:w-[210px]">
-                          <div className="text-right text-sm font-semibold text-slate-900">
+                        <div className="ml-auto flex w-full flex-col gap-3 lg:w-[220px]">
+                          <div className="text-right text-sm font-semibold text-[#12385b]">
                             {formatCurrency(item.unitPrice)}
                           </div>
-                          <label className="space-y-1 text-sm text-slate-500">
-                            <span>So luong tra</span>
+
+                          <label className="space-y-2 text-sm text-slate-600">
+                            <span>Số lượng trả</span>
                             <Input
                               type="number"
                               min={1}
@@ -576,13 +721,16 @@ export default function ReturnRequestPage({
                               onChange={(event) =>
                                 handleQuantityChange(item, event.target.value)
                               }
+                              className={flatFieldClass}
                             />
                           </label>
-                          {disabledByBranch && (
-                            <p className="text-xs text-amber-600">
-                              Ban dang chon san pham cua chi nhanh khac. Hay gui yeu cau rieng.
+
+                          {disabledByBranch ? (
+                            <p className="text-xs text-slate-500">
+                              Sản phẩm này thuộc chi nhánh khác. Hãy tạo phiếu riêng
+                              nếu muốn xử lý thêm.
                             </p>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -591,62 +739,81 @@ export default function ReturnRequestPage({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  2. Thong tin khach hang va hoan tien
+                <h2 className="text-lg font-semibold text-[#12385b]">
+                  3. Thông tin hoàn tiền
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Ho ten, so dien thoai, thong tin ngan hang va ly do deu bat buoc de chi
-                  nhanh xu ly thu cong nhanh hon.
+                  Họ tên, số điện thoại và thông tin ngân hàng đều bắt buộc để chi
+                  nhánh đối soát và hoàn tiền nhanh hơn.
                 </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ho ten nguoi nhan hoan tien</span>
+                  <span className="font-medium text-[#12385b]">
+                    Họ tên người nhận hoàn tiền
+                  </span>
                   <Input
                     value={form.fullName}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, fullName: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        fullName: event.target.value,
+                      }))
                     }
-                    placeholder="Nguyen Van A"
+                    placeholder="Nguyễn Văn A"
+                    className={flatFieldClass}
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">So dien thoai</span>
+                  <span className="font-medium text-[#12385b]">
+                    Số điện thoại
+                  </span>
                   <Input
                     value={form.phoneNumber}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, phoneNumber: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        phoneNumber: event.target.value,
+                      }))
                     }
                     placeholder="09xxxxxxxx"
+                    className={flatFieldClass}
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Email</span>
+                  <span className="font-medium text-[#12385b]">Email</span>
                   <Input
                     value={form.email}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, email: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      }))
                     }
                     placeholder="email@example.com"
+                    className={flatFieldClass}
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Phuong thuc hoan tien</span>
+                  <span className="font-medium text-[#12385b]">
+                    Phương thức hoàn tiền
+                  </span>
                   <select
                     value={form.refundMethod}
                     onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        refundMethod: event.target.value as CreateReturnRequestPayload["refundMethod"],
+                      setForm((current) => ({
+                        ...current,
+                        refundMethod:
+                          event.target.value as CreateReturnRequestPayload["refundMethod"],
                       }))
                     }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={flatSelectClass}
                   >
                     {RETURN_REFUND_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -657,85 +824,100 @@ export default function ReturnRequestPage({
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ten chu tai khoan</span>
+                  <span className="font-medium text-[#12385b]">
+                    Tên chủ tài khoản
+                  </span>
                   <Input
                     value={form.bankAccountName}
                     onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
+                      setForm((current) => ({
+                        ...current,
                         bankAccountName: event.target.value,
                       }))
                     }
                     placeholder="NGUYEN VAN A"
+                    className={flatFieldClass}
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">So tai khoan</span>
+                  <span className="font-medium text-[#12385b]">
+                    Số tài khoản
+                  </span>
                   <Input
                     value={form.bankAccountNumber}
                     onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
+                      setForm((current) => ({
+                        ...current,
                         bankAccountNumber: event.target.value,
                       }))
                     }
                     placeholder="0123456789"
+                    className={flatFieldClass}
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ten ngan hang</span>
+                  <span className="font-medium text-[#12385b]">
+                    Tên ngân hàng
+                  </span>
                   <Input
                     value={form.bankName}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, bankName: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        bankName: event.target.value,
+                      }))
                     }
                     placeholder="Vietcombank"
+                    className={flatFieldClass}
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Chi nhanh ngan hang</span>
+                  <span className="font-medium text-[#12385b]">
+                    Chi nhánh ngân hàng
+                  </span>
                   <Input
                     value={form.bankBranch}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, bankBranch: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        bankBranch: event.target.value,
+                      }))
                     }
-                    placeholder="Chi nhanh TP.HCM"
+                    placeholder="Chi nhánh Cần Thơ"
+                    className={flatFieldClass}
                   />
                 </label>
               </div>
-
-              <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                Luu y: thong tin ngan hang van bat buoc ngay ca khi ban chon hoan tien mat,
-                de admin va chi nhanh doi soat trong buoi demo va luu vet xu ly.
-              </p>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  3. Ly do va mo ta loi
+                <h2 className="text-lg font-semibold text-[#12385b]">
+                  4. Lý do và mô tả lỗi
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Mo ta ro tinh trang loi, thieu hang hoac giao sai de chi nhanh phuc vu
-                  xac minh nhanh hon.
+                  Mô tả rõ tình trạng lỗi, thiếu hàng hoặc giao sai để chi nhánh xác
+                  minh nhanh hơn.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Loai su co</span>
+                  <span className="font-medium text-[#12385b]">
+                    Loại sự cố
+                  </span>
                   <select
                     value={form.issueType}
                     onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
+                      setForm((current) => ({
+                        ...current,
                         issueType: event.target.value as ReturnIssueType,
                       }))
                     }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={flatSelectClass}
                   >
                     {RETURN_ISSUE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -746,57 +928,69 @@ export default function ReturnRequestPage({
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Ly do ngan gon</span>
+                  <span className="font-medium text-[#12385b]">
+                    Lý do ngắn gọn
+                  </span>
                   <Input
                     value={form.reason}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, reason: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        reason: event.target.value,
+                      }))
                     }
-                    placeholder="Vi du: Don giao thieu 1 san pham, vo bao bi bi rach..."
+                    placeholder="Ví dụ: Giao sai sản phẩm, thiếu 1 món, bao bì rách..."
+                    className={flatFieldClass}
                   />
                 </label>
 
                 <label className="space-y-2 text-sm">
-                  <span className="font-medium text-slate-700">Mo ta chi tiet</span>
+                  <span className="font-medium text-[#12385b]">
+                    Mô tả chi tiết
+                  </span>
                   <Textarea
                     value={form.description}
                     onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
+                      setForm((current) => ({
+                        ...current,
                         description: event.target.value,
                       }))
                     }
                     rows={5}
-                    placeholder="Mo ta ro van de, thoi diem nhan hang, tinh trang loi, so luong bi anh huong..."
+                    placeholder="Mô tả thời điểm nhận hàng, lỗi gặp phải, số lượng bị ảnh hưởng và thông tin cần chi nhánh kiểm tra."
+                    className={flatFieldClass}
                   />
                 </label>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  4. Hinh anh va video bang chung
+                <h2 className="text-lg font-semibold text-[#12385b]">
+                  5. Hình ảnh và video bằng chứng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Bat buoc co it nhat 1 hinh anh va 1 video loi. Anh va video giup chi nhanh
-                  phuc vu quyet dinh thu cong nhanh va de demo ro hon.
+                  Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để chi nhánh xác
+                  minh nhanh hơn.
                 </p>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-dashed border-slate-300 p-4">
+                <div className="border border-dashed border-[#cfe0f2] px-4 py-4">
                   <div className="mb-3 flex items-center gap-2">
                     <ImagePlus size={18} className="text-[#1965a2]" />
-                    <span className="font-medium text-slate-800">Hinh anh loi</span>
+                    <span className="font-medium text-[#12385b]">
+                      Hình ảnh lỗi
+                    </span>
                   </div>
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-8 text-center hover:bg-slate-100">
-                    <Upload size={20} className="mb-2 text-slate-500" />
-                    <span className="text-sm font-medium text-slate-700">
-                      Tai anh bang chung
+
+                  <label className="flex cursor-pointer flex-col items-center justify-center bg-[#f8fbff] px-4 py-8 text-center transition-colors hover:bg-[#eef6ff]">
+                    <Upload size={20} className="mb-2 text-[#1965a2]" />
+                    <span className="text-sm font-medium text-[#12385b]">
+                      Tải ảnh bằng chứng
                     </span>
                     <span className="mt-1 text-xs text-slate-500">
-                      JPG, PNG, WEBP. Toi da 10MB moi tep.
+                      JPG, PNG, WEBP. Tối đa 10MB mỗi tệp.
                     </span>
                     <input
                       type="file"
@@ -810,32 +1004,32 @@ export default function ReturnRequestPage({
                     />
                   </label>
 
-                  {uploadingType === "IMAGE" && (
+                  {uploadingType === "IMAGE" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
-                      Dang tai hinh anh...
+                      Đang tải hình ảnh...
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     {imageEvidences.map((item) => (
                       <div
                         key={item.id}
-                        className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                        className="overflow-hidden border border-[#d8e6f5] bg-white"
                       >
                         <img
                           src={item.previewUrl}
                           alt={item.fileName ?? "evidence-image"}
                           className="h-32 w-full object-cover"
                         />
-                        <div className="flex items-center justify-between gap-2 p-2">
+                        <div className="flex items-center justify-between gap-2 px-2 py-2">
                           <p className="truncate text-xs text-slate-500">
-                            {item.fileName ?? "Hinh anh"}
+                            {item.fileName ?? "Hình ảnh"}
                           </p>
                           <button
                             type="button"
                             onClick={() => removeEvidence(item)}
-                            className="rounded-md p-1 text-rose-500 hover:bg-rose-50"
+                            className="p-1 text-rose-500 transition-colors hover:bg-rose-50"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -845,18 +1039,19 @@ export default function ReturnRequestPage({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-dashed border-slate-300 p-4">
+                <div className="border border-dashed border-[#cfe0f2] px-4 py-4">
                   <div className="mb-3 flex items-center gap-2">
                     <Video size={18} className="text-[#1965a2]" />
-                    <span className="font-medium text-slate-800">Video loi</span>
+                    <span className="font-medium text-[#12385b]">Video lỗi</span>
                   </div>
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-8 text-center hover:bg-slate-100">
-                    <Upload size={20} className="mb-2 text-slate-500" />
-                    <span className="text-sm font-medium text-slate-700">
-                      Tai video bang chung
+
+                  <label className="flex cursor-pointer flex-col items-center justify-center bg-[#f8fbff] px-4 py-8 text-center transition-colors hover:bg-[#eef6ff]">
+                    <Upload size={20} className="mb-2 text-[#1965a2]" />
+                    <span className="text-sm font-medium text-[#12385b]">
+                      Tải video bằng chứng
                     </span>
                     <span className="mt-1 text-xs text-slate-500">
-                      MP4, MOV, WEBM. Toi da 50MB moi tep.
+                      MP4, MOV, WEBM. Tối đa 50MB mỗi tệp.
                     </span>
                     <input
                       type="file"
@@ -870,32 +1065,32 @@ export default function ReturnRequestPage({
                     />
                   </label>
 
-                  {uploadingType === "VIDEO" && (
+                  {uploadingType === "VIDEO" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
-                      Dang tai video...
+                      Đang tải video...
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="mt-4 space-y-3">
                     {videoEvidences.map((item) => (
                       <div
                         key={item.id}
-                        className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                        className="overflow-hidden border border-[#d8e6f5] bg-white"
                       >
                         <video
                           src={item.previewUrl}
                           controls
                           className="h-40 w-full bg-slate-950 object-cover"
                         />
-                        <div className="flex items-center justify-between gap-2 p-2">
+                        <div className="flex items-center justify-between gap-2 px-2 py-2">
                           <p className="truncate text-xs text-slate-500">
-                            {item.fileName ?? "Video loi"}
+                            {item.fileName ?? "Video lỗi"}
                           </p>
                           <button
                             type="button"
                             onClick={() => removeEvidence(item)}
-                            className="rounded-md p-1 text-rose-500 hover:bg-rose-50"
+                            className="p-1 text-rose-500 transition-colors hover:bg-rose-50"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -909,27 +1104,27 @@ export default function ReturnRequestPage({
           </div>
 
           <aside className="space-y-4">
-            <div className="sticky top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Xac nhan truoc khi gui
+            <div className="sticky top-24 border border-[#d8e6f5] bg-white px-5 py-5">
+              <h2 className="text-lg font-semibold text-[#12385b]">
+                6. Xác nhận gửi
               </h2>
 
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Ma don</span>
-                  <span className="text-right font-semibold text-slate-900">
+                  <span className="text-slate-500">Mã đơn</span>
+                  <span className="text-right font-semibold text-[#12385b]">
                     {draft.orderCode}
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Chi nhanh xu ly</span>
-                  <span className="text-right font-semibold text-slate-900">
-                    {selectedBranchName || "Se xac dinh theo san pham da chon"}
+                  <span className="text-slate-500">Chi nhánh xử lý</span>
+                  <span className="text-right font-semibold text-[#12385b]">
+                    {selectedBranchName || "Sẽ xác định theo sản phẩm đã chọn"}
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Loai su co</span>
-                  <span className="text-right font-semibold text-slate-900">
+                  <span className="text-slate-500">Loại sự cố</span>
+                  <span className="text-right font-semibold text-[#12385b]">
                     {
                       RETURN_ISSUE_OPTIONS.find(
                         (option) => option.value === form.issueType,
@@ -938,21 +1133,21 @@ export default function ReturnRequestPage({
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Tam tinh hoan</span>
-                  <span className="text-right text-lg font-semibold text-rose-600">
+                  <span className="text-slate-500">Tạm tính hoàn</span>
+                  <span className="text-right text-lg font-semibold text-[#1965a2]">
                     {formatCurrency(refundPreview)}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-                Bat buoc:
+              <div className="mt-4 border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-xs leading-6 text-slate-600">
+                Bắt buộc:
                 <br />
-                - Ho ten, so dien thoai, tai khoan, ten ngan hang
+                - Họ tên, số điện thoại, số tài khoản, tên ngân hàng
                 <br />
-                - Ma don, ly do, mo ta chi tiet
+                - Mã đơn, lý do, mô tả chi tiết
                 <br />
-                - It nhat 1 hinh anh va 1 video loi
+                - Ít nhất 1 hình ảnh và 1 video lỗi
               </div>
 
               <Button
@@ -965,21 +1160,16 @@ export default function ReturnRequestPage({
                   }
                   setConfirmOpen(true);
                 }}
-                className="mt-5 h-11 w-full bg-[#1965a2] text-white hover:bg-[#145486]"
+                className="mt-5 h-11 w-full rounded-none bg-[#1965a2] text-white hover:bg-[#145486]"
                 disabled={submitting}
               >
-                {submitting ? "Dang gui..." : "Gui yeu cau tra hang"}
+                {submitting ? "Đang gửi..." : "Gửi yêu cầu trả hàng"}
               </Button>
 
               <p className="mt-3 text-xs text-slate-500">
-                Sau khi gui, yeu cau se hien thi tai trang{" "}
-                <Link
-                  href="/admin/orders/return"
-                  className="font-medium text-[#1965a2] hover:underline"
-                >
-                  /admin/orders/return
-                </Link>{" "}
-                de admin va nguoi quan ly chi nhanh xu ly thu cong.
+                Sau khi gửi, phiếu sẽ hiển thị ngay trong tab{" "}
+                <span className="font-medium text-[#1965a2]">Trả hàng</span> để
+                bạn theo dõi tiến độ xử lý của chi nhánh.
               </p>
             </div>
           </aside>
@@ -987,51 +1177,56 @@ export default function ReturnRequestPage({
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Xac nhan gui yeu cau tra hang</AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận gửi yêu cầu trả hàng</AlertDialogTitle>
             <AlertDialogDescription>
-              Yeu cau se duoc chuyen den chi nhanh phuc vu cua don hang nay. Hay chac
-              rang thong tin khach hang, ngan hang, ly do va bang chung da day du.
+              Yêu cầu sẽ được chuyển đến chi nhánh phục vụ của đơn hàng này. Hãy
+              chắc rằng thông tin khách hàng, ngân hàng, lý do và bằng chứng đã đầy
+              đủ.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-4 text-sm text-slate-600">
             <div className="flex justify-between gap-4">
-              <span>Don hang</span>
-              <span className="font-semibold text-slate-900">{draft.orderCode}</span>
-            </div>
-            <div className="mt-2 flex justify-between gap-4">
-              <span>Chi nhanh</span>
-              <span className="text-right font-semibold text-slate-900">
-                {selectedBranchName}
+              <span>Đơn hàng</span>
+              <span className="font-semibold text-[#12385b]">
+                {draft.orderCode}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>San pham da chon</span>
-              <span className="font-semibold text-slate-900">
+              <span>Chi nhánh</span>
+              <span className="text-right font-semibold text-[#12385b]">
+                {selectedBranchName || "Sẽ xác định khi gửi"}
+              </span>
+            </div>
+            <div className="mt-2 flex justify-between gap-4">
+              <span>Sản phẩm đã chọn</span>
+              <span className="font-semibold text-[#12385b]">
                 {selectedDraftItems.length}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>Tam tinh hoan</span>
-              <span className="font-semibold text-rose-600">
+              <span>Tạm tính hoàn</span>
+              <span className="font-semibold text-[#1965a2]">
                 {formatCurrency(refundPreview)}
               </span>
             </div>
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting}>Huy</AlertDialogCancel>
+            <AlertDialogCancel disabled={submitting} className="rounded-none">
+              Hủy
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
                 void handleSubmit();
               }}
-              className="bg-[#1965a2] text-white hover:bg-[#145486]"
+              className="rounded-none bg-[#1965a2] text-white hover:bg-[#145486]"
               disabled={submitting}
             >
-              {submitting ? "Dang gui..." : "Dong y gui yeu cau"}
+              {submitting ? "Đang gửi..." : "Đồng ý gửi yêu cầu"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
