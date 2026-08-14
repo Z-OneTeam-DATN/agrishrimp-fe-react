@@ -29,14 +29,15 @@ export default function HomeBestSellingProductsSection({
   return (
     <section className={`${HOME_CONTENT_CONTAINER_CLASS} mt-5`}>
       <div className="overflow-hidden rounded-[8px] bg-[#3f67a6] shadow-[0_18px_38px_rgba(31,82,145,0.22)]">
-        <div className="relative aspect-[28/5] min-h-[92px] overflow-hidden bg-[#69aaf0] sm:min-h-[128px] lg:max-h-[220px]">
+        <div className="overflow-hidden bg-[#69aaf0]">
           <Image
             src={BEST_SELLING_HEADER_IMAGE}
             alt="Sản phẩm bán chạy"
-            fill
+            width={1280}
+            height={160}
             priority
             sizes="(min-width: 1440px) 1440px, 100vw"
-            className="object-cover object-center"
+            className="h-auto w-full object-contain"
           />
         </div>
 
@@ -45,16 +46,16 @@ export default function HomeBestSellingProductsSection({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:gap-5">
               {visibleProducts.map((product, index) => (
                 <div key={product.id} className="relative min-w-0">
-                  <div className="absolute left-2 top-2 z-20 h-11 w-28 overflow-hidden rounded-[8px] bg-white/95 shadow-md">
+                  <div className="absolute left-2 top-2 z-20 h-8 w-20 overflow-hidden rounded-[6px] bg-white/95 shadow-sm">
                     <Image
                       src={BEST_SELLING_BADGE_IMAGE}
                       alt="Bán chạy"
                       fill
-                      sizes="112px"
-                      className="scale-[2.35] object-cover object-[72%_63%] mix-blend-multiply"
+                      sizes="80px"
+                      className="scale-[1.65] object-cover object-[73%_65%] mix-blend-multiply"
                     />
                   </div>
-                  <div className="absolute left-2 top-[50px] z-20 rounded-r-full rounded-tl-[8px] bg-[#de4c38] px-2.5 py-1 text-xs font-extrabold text-white shadow-md">
+                  <div className="absolute left-2 top-[38px] z-20 rounded-r-full rounded-tl-[6px] bg-[#de4c38] px-2 py-0.5 text-[11px] font-extrabold text-white shadow-sm">
                     #{index + 1}
                   </div>
                   {Number(product.soldCount ?? 0) > 0 && (
