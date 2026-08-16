@@ -153,32 +153,20 @@ export default function FloatingContactCluster() {
         </button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleChat}
-          aria-label="Mở chat trực tuyến"
-          title="Chat trực tuyến"
-          className="group flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl ring-1 ring-blue-200 transition-transform hover:-translate-y-0.5 hover:bg-blue-700 md:h-16 md:w-16"
-        >
-          <MessageCircle className="h-7 w-7 md:h-8 md:w-8" strokeWidth={2.4} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          aria-expanded={open}
-          aria-label={open ? "Đóng cụm tư vấn" : "Mở cụm tư vấn"}
-          className="group flex h-16 items-center rounded-full bg-white pl-6 pr-2 text-blue-600 shadow-2xl ring-1 ring-blue-100 transition-transform hover:-translate-y-0.5 hover:text-blue-700"
-        >
-          <span className="mr-4 text-[20px] font-extrabold leading-none">
-            Nhận tư vấn
-          </span>
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-colors group-hover:bg-blue-700">
-            {open ? <X className="h-7 w-7" /> : <Headset className="h-7 w-7" />}
-          </span>
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-label={open ? "Đóng cụm tư vấn" : "Mở cụm tư vấn"}
+        className="group flex h-16 items-center rounded-full bg-white pl-6 pr-2 text-blue-600 shadow-2xl ring-1 ring-blue-100 transition-transform hover:-translate-y-0.5 hover:text-blue-700"
+      >
+        <span className="mr-4 text-[20px] font-extrabold leading-none">
+          Nhận tư vấn
+        </span>
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-colors group-hover:bg-blue-700">
+          {open ? <X className="h-7 w-7" /> : <Headset className="h-7 w-7" />}
+        </span>
+      </button>
     </div>
   );
 }

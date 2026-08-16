@@ -361,7 +361,7 @@ export default function ChatWindow() {
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 flex flex-col ${isMinimized ? "h-auto" : "h-[500px]"}`}>
+    <div className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-[400px] md:w-[430px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 flex flex-col ${isMinimized ? "h-auto" : "h-[560px] md:h-[580px]"}`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-blue-600 dark:bg-blue-700">
         <div className="relative">
