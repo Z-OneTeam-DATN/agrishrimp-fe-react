@@ -40,7 +40,6 @@ const SERIES = [
   { key: "profit", label: "Lợi nhuận", color: VIZ_SERIES.profit },
 ] as const;
 
-const axisTick = { fontSize: 10, fill: VIZ_CHROME.axis };
 
 const shortMoney = (value: number) => {
   const amount = toFiniteNumber(value);
@@ -139,42 +138,32 @@ export default function AdminDashboardTrendChart({
             <TrendTable points={points} isMonthly={isMonthly} />
           ) : (
             <>
-              <div className="h-[300px]">
+              <div className="h-[280px]">
                 <SafeChartViewport
-                  className="h-[300px] w-full"
-                  minHeight={200}
+                  className="h-[280px] w-full"
+                  minHeight={180}
                   minWidth={240}
                 >
                   {({ height, width }) => (
                     <BarChart
-
                       key={`${width}x${height}`}
                       width={width}
                       height={height}
                       data={points}
-                      margin={{ left: 0, right: 8, top: 16, bottom: 0 }}
+                      margin={{ left: 8, right: 8, top: 16, bottom: 8 }}
                       barCategoryGap="22%"
-
                       barGap={2}
                     >
                       <CartesianGrid
                         stroke={VIZ_CHROME.grid}
                         vertical={false}
                       />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={axisTick}
-                        interval={0}
-                        height={28}
-                      />
+                      <XAxis dataKey="label" hide />
                       <YAxis
-                        width={52}
+                        width={0}
                         tickLine={false}
                         axisLine={false}
-                        tick={axisTick}
-                        tickFormatter={shortMoney}
+                        tick={false}
                         allowDecimals={false}
                       />
                       <Tooltip
@@ -199,27 +188,28 @@ export default function AdminDashboardTrendChart({
                           fill={series.color}
                           radius={[4, 4, 0, 0]}
                           maxBarSize={26}
-
                           minPointSize={0}
                           isAnimationActive={false}
-                          label={
-                            showRevenueLabels && series.key === "revenue"
-                              ? {
-                                  position: "top",
-                                  fontSize: 9.5,
-                                  fill: "#64748b",
-                                  formatter: (value: number) =>
-                                    toFiniteNumber(value) === 0
-                                      ? ""
-                                      : shortMoney(value),
-                                }
-                              : false
-                          }
                         />
                       ))}
                     </BarChart>
                   )}
                 </SafeChartViewport>
+              </div>
+
+              {/* Custom HTML X-Axis Ticks */}
+              <div
+                className="flex justify-between text-[10px] select-none px-2"
+                style={{
+                  color: VIZ_CHROME.axis,
+                  marginTop: "6px",
+                }}
+              >
+                {points.map((point) => (
+                  <div key={point.period} className="flex-1 truncate text-center">
+                    {point.label}
+                  </div>
+                ))}
               </div>
               <ChartLegend
                 items={SERIES.map((series) => ({
