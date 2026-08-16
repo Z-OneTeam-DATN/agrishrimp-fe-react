@@ -1,8 +1,28 @@
 "use client";
 
 import { Search, Phone, MessageCircle } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useChatStore } from "@/stores/useChatStore";
 
 export default function StoreBanner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated } = useAuthStore();
+  const { openChat, setConsultProduct } = useChatStore();
+
+  const handleChat = () => {
+    if (!isAuthenticated) {
+      toast.error("Vui lòng đăng nhập để chat với chăm sóc khách hàng!");
+      router.push(`/login?redirect=${encodeURIComponent(pathname || "/")}`);
+      return;
+    }
+
+    setConsultProduct(null);
+    openChat();
+  };
+
   return (
     <div
       className="relative w-full mx-auto mb-8 py-12 px-5 text-white rounded-lg overflow-hidden shadow-lg bg-[#1965a2] bg-cover bg-center bg-no-repeat"
@@ -66,7 +86,11 @@ export default function StoreBanner() {
           </a>
 
           {/* .contact-box 2 (Chat) */}
-          <div className="flex items-center cursor-pointer transition-transform duration-200 hover:scale-105 group">
+          <button
+            type="button"
+            onClick={handleChat}
+            className="flex items-center cursor-pointer transition-transform duration-200 hover:scale-105 group"
+          >
             {/* .icon-circle-white */}
             <div className="w-[35px] h-[35px] bg-white rounded-full flex items-center justify-center text-[#1965a2] shadow-sm mr-2 flex-shrink-0">
               <MessageCircle size={18} fill="currentColor" />
@@ -75,7 +99,7 @@ export default function StoreBanner() {
             <div className="flex items-baseline text-white">
               <span className="text-lg font-bold">Chat ngay</span>
             </div>
-          </div>
+          </button>
         </div>
       </div>
     </div>

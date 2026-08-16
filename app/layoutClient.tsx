@@ -24,6 +24,10 @@ const Footer = dynamic(() => import("@/components/site/SiteFooter"), {
 const ChatWidget = dynamic(() => import("@/components/chat/ChatWidget"), {
   ssr: false,
 });
+const FloatingContactCluster = dynamic(
+  () => import("@/components/site/FloatingContactCluster"),
+  { ssr: false },
+);
 const WebSocketProvider = dynamic(() => import("@/components/providers/WebSocketProvider"), {
   ssr: false,
 });
@@ -445,6 +449,7 @@ export default function LayoutClient({
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 {isAgronomistPage ? null : <Footer />}
                 <ChatWidget />
+                <FloatingContactCluster />
               </div>
             )}
             <Toaster position="top-right" richColors closeButton />
