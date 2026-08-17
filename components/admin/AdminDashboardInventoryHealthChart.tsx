@@ -77,7 +77,7 @@ export default function AdminDashboardInventoryHealthChart({
           }))}
         />
       )}
-      <div className="grid gap-3">
+      <div className="grid gap-3 min-w-0 w-full">
         {rows.map((row) => {
 
           const isLinkable = !!row.href && row.value > 0;
@@ -87,15 +87,15 @@ export default function AdminDashboardInventoryHealthChart({
 
           const content = (
             <>
-              <div className="mb-1.5 flex items-center justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-1.5">
+              <div className="mb-1.5 flex items-center justify-between gap-3 min-w-0 w-full">
+                <span className="flex min-w-0 items-center gap-1.5 min-w-0">
                   <span
                     aria-hidden
                     className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
                     style={{ backgroundColor: row.color }}
                   />
                   <span
-                    className={`truncate text-[12px] text-slate-600 ${
+                    className={`block min-w-0 truncate text-[12px] text-slate-600 ${
                       isInteractive ? "underline decoration-dotted underline-offset-2" : ""
                     }`}
                   >
@@ -112,7 +112,7 @@ export default function AdminDashboardInventoryHealthChart({
                     ))}
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-slate-100">
+              <div className="h-2 rounded-full bg-slate-100 w-full">
                 <div
                   className="h-2 rounded-full"
                   style={{
@@ -129,7 +129,7 @@ export default function AdminDashboardInventoryHealthChart({
               <Link
                 key={row.key}
                 href={row.href as string}
-                className="-mx-1.5 rounded-[4px] px-1.5 py-0.5 transition hover:bg-slate-50"
+                className="block w-full min-w-0 rounded-[4px] p-1.5 transition hover:bg-slate-50"
                 title={`Xem danh sách mặt hàng ${row.label.toLowerCase()}`}
               >
                 {content}
@@ -139,25 +139,41 @@ export default function AdminDashboardInventoryHealthChart({
 
           if (isExpandableBackorder) {
             return (
-              <div key={row.key}>
+              <div key={row.key} className="min-w-0 w-full">
                 <button
                   type="button"
                   onClick={() => setShowBackorderDetail((value) => !value)}
-                  className="-mx-1.5 w-[calc(100%+12px)] rounded-[4px] px-1.5 py-0.5 text-left transition hover:bg-slate-50"
+                  className="block w-full min-w-0 rounded-[4px] p-1.5 text-left transition hover:bg-slate-50"
                 >
                   {content}
                 </button>
                 {showBackorderDetail && (
-                  <ul className="mt-2 space-y-1.5 rounded-[4px] border border-slate-100 bg-slate-50 p-2.5">
+                  <ul className="mt-2 space-y-1.5 rounded-[4px] border border-slate-100 bg-slate-50 p-2.5 min-w-0 w-full">
                     {backorderItems.slice(0, MAX_BACKORDER_ITEMS_SHOWN).map((item) => (
                       <li
                         key={item.productVariantId}
-                        className="flex items-center justify-between gap-2 text-[11px]"
+                        className="flex items-center justify-between gap-2 text-[11px] min-w-0 w-full py-0.5"
                       >
-                        <span className="min-w-0 truncate text-slate-600">
-                          {item.productName}
-                          {item.variantName ? ` - ${item.variantName}` : ""}
-                        </span>
+                        <div className="flex min-w-0 items-center gap-2">
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl.split(",")[0].trim()}
+                              alt={item.productName}
+                              className="h-6 w-6 shrink-0 rounded border border-slate-200 object-cover bg-white"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="h-6 w-6 shrink-0 rounded border border-slate-200 bg-slate-100 flex items-center justify-center text-[10px] text-slate-400 font-semibold">
+                              SP
+                            </div>
+                          )}
+                          <span className="block min-w-0 truncate text-slate-600">
+                            {item.productName}
+                            {item.variantName ? ` - ${item.variantName}` : ""}
+                          </span>
+                        </div>
                         <span className="shrink-0 font-semibold text-amber-700">
                           -{numberText(item.totalMissingQuantity)}
                         </span>
@@ -174,7 +190,7 @@ export default function AdminDashboardInventoryHealthChart({
             );
           }
 
-          return <div key={row.key}>{content}</div>;
+          return <div key={row.key} className="p-1.5 min-w-0 w-full">{content}</div>;
         })}
       </div>
     </div>

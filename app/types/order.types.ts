@@ -36,6 +36,7 @@ export interface MissingItemReport {
   sku: string
   productName: string
   variantName?: string | null
+  imageUrl?: string | null
   totalMissingQuantity: number
   affectedSubOrders: number
 }

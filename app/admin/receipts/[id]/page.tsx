@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/axios";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 import {
   AlertDialog,
@@ -1184,9 +1185,12 @@ export default function ReceiptDetailPage() {
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-slate-200 bg-white">
                           {item.imageUrl ? (
                             <img
-                              src={item.imageUrl}
+                              src={resolveImageUrl(item.imageUrl)}
                               alt=""
                               className="h-full w-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
                             />
                           ) : (
                             <ImageIcon size={15} className="text-slate-300" />
