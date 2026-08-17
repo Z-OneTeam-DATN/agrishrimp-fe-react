@@ -180,8 +180,10 @@ const WorkflowCard = ({
 
 export default function WarehouseWorkflowCards({
   refreshToken = 0,
+  branchId,
 }: {
   refreshToken?: number;
+  branchId?: string;
 }) {
   const { accessToken } = useAuthStore();
   const { hasPermission } = usePermissions();
@@ -218,21 +220,21 @@ export default function WarehouseWorkflowCards({
           inventoryChecksResponse,
         ] = await Promise.all([
           canViewReceipts
-            ? InventoryApiService.getAllReceipts().catch(() => [])
+            ? InventoryApiService.getAllReceipts(branchId).catch(() => [])
             : Promise.resolve([]),
           canViewExports
-            ? InventoryExportApiService.getAllExportCommands().catch(() => [])
+            ? InventoryExportApiService.getAllExportCommands(branchId).catch(() => [])
             : Promise.resolve([]),
           canViewExports
-            ? InventoryExportApiService.getAllExportReceipts().catch(() => [])
+            ? InventoryExportApiService.getAllExportReceipts(branchId).catch(() => [])
             : Promise.resolve([]),
           canViewTransfers
             ? transferService
-                .getAll("", "all", 0, 1000)
+                .getAll("", "all", 0, 1000, branchId)
                 .catch(() => ({ content: [] }))
             : Promise.resolve({ content: [] }),
           canViewChecks
-            ? InventoryCheckApiService.getAll().catch(() => [])
+            ? InventoryCheckApiService.getAll(branchId).catch(() => [])
             : Promise.resolve([]),
         ]);
 
@@ -426,6 +428,7 @@ export default function WarehouseWorkflowCards({
     canViewReceipts,
     canViewTransfers,
     refreshToken,
+    branchId,
   ]);
 
   if (loading) {

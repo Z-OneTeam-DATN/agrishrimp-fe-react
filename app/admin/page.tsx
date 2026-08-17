@@ -853,7 +853,7 @@ export default function AdminDashboard() {
 
       {canViewWarehouseWorkflows && (
         <Panel title="Phiếu kho cần xử lý">
-          <WarehouseWorkflowCards refreshToken={warehouseRefreshToken} />
+          <WarehouseWorkflowCards refreshToken={warehouseRefreshToken} branchId={selectedBranchId} />
         </Panel>
       )}
 

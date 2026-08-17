@@ -7,9 +7,11 @@ const BASE_URL = "/inventory";
 
 export const InventoryApiService = {
 
-  getAllReceipts: async () => {
+  getAllReceipts: async (branchId?: string) => {
     // Browser đi qua /be-api, còn SSR dùng JAVA_API_URL tới Spring Boot
-    const response = await apiJava.get(`${BASE_URL}/receipts`);
+    const response = await apiJava.get(`${BASE_URL}/receipts`, {
+      params: { branchId: branchId || undefined }
+    });
     return repairVietnameseData(response.data);
   },
 
@@ -65,14 +67,18 @@ export const InventoryApiService = {
 };
 export const InventoryExportApiService = {
   // Lấy danh sách lệnh xuất
-  getAllExportCommands: async () => {
-    const response = await apiJava.get(`${BASE_URL}/export-commands`);
+  getAllExportCommands: async (branchId?: string) => {
+    const response = await apiJava.get(`${BASE_URL}/export-commands`, {
+      params: { branchId: branchId || undefined }
+    });
     return repairVietnameseData(response.data);
   },
 
   // Lấy danh sách phiếu xuất (lịch sử)
-  getAllExportReceipts: async () => {
-    const response = await apiJava.get(`${BASE_URL}/export-receipts`);
+  getAllExportReceipts: async (branchId?: string) => {
+    const response = await apiJava.get(`${BASE_URL}/export-receipts`, {
+      params: { branchId: branchId || undefined }
+    });
     return repairVietnameseData(response.data);
   },
 
@@ -125,8 +131,10 @@ rejectExportCommand: async (id: number | string) => {
 };
 export const InventoryCheckApiService = {
   // A. Lấy danh sách phiếu (Cả PENDING và COMPLETED)
-  getAll: async () => {
-    const response = await apiJava.get("/inventory-checks");
+  getAll: async (branchId?: string) => {
+    const response = await apiJava.get("/inventory-checks", {
+      params: { branchId: branchId || undefined }
+    });
     return response.data;
   },
 

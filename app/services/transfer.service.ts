@@ -4,13 +4,14 @@ export const transferService = {
   PREFIX: "/transfers",
 
   // 1. Lấy danh sách phiếu điều chuyển
-  getAll: async (keyword: string = "", status: string = "all", page: number = 0, size: number = 10) => {
+  getAll: async (keyword: string = "", status: string = "all", page: number = 0, size: number = 10, branchId?: string) => {
     const response = await apiJava.get(`${transferService.PREFIX}`, {
       params: {
         keyword: keyword || undefined,
         status: status !== "all" ? status : undefined,
         page,
         size,
+        branchId: branchId || undefined,
       },
     });
     return response.data;
