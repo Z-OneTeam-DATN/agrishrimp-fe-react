@@ -739,8 +739,8 @@ export default function SupplierDetailPage() {
                     ...oldItem,
                     ...patch,
                     status: ("status" in patch ? patch.status : oldItem.status) as SupplierProductCatalogStatus,
-                    note: "note" in patch ? (patch.note ?? "") : (oldItem.note ?? ""),
                     price: "price" in patch ? patch.price : oldItem.price,
+                    note: "note" in patch ? (patch.note ?? "") : (oldItem.note ?? ""),
                 };
                 return updated;
             }

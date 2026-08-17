@@ -37,6 +37,7 @@ type SupplierCatalogVariant = {
   quantity?: number;
   systemStockQuantity?: number;
   lowStock?: boolean;
+  price: number;
   customSpecs?: string;
   specs?: string;
   unit?: string;
@@ -164,6 +165,7 @@ function buildSupplierCatalogVariants(
         item.systemStockQuantity ?? variant?.quantity ?? 0,
       );
       const lowStock = item.lowStock ?? systemStockQuantity < LOW_STOCK_THRESHOLD;
+      const price = Number(item.price ?? 0);
 
       if (
         process.env.NODE_ENV === "development" &&
@@ -188,6 +190,7 @@ function buildSupplierCatalogVariants(
         quantity: variant?.quantity,
         systemStockQuantity,
         lowStock,
+        price: Number.isFinite(price) ? price : 0,
         customSpecs: specs,
         specs,
         unit: "Cái",
@@ -207,11 +210,6 @@ function buildSupplierCatalogVariants(
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
-}
-
-function parseMoneyInput(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return digits ? Number(digits) : 0;
 }
 
 function formatMoneyInput(value: unknown) {
@@ -514,7 +512,7 @@ export default function NewPurchaseRequestPage() {
           productName: product.productName ?? existing?.productName ?? "",
           imageUrl: product.imageUrl ?? existing?.imageUrl,
           requestedQty: existing?.requestedQty ?? 1,
-          unitPrice: existing?.unitPrice ?? 0,
+          unitPrice: product.price,
           note: existing?.note ?? "",
         };
       }),
@@ -582,14 +580,6 @@ export default function NewPurchaseRequestPage() {
             row["Quantity"] ||
             1,
         );
-        const unitPrice = Number(
-          row["Đơn giá"] ||
-            row["Don gia"] ||
-            row["Giá"] ||
-            row["Gia"] ||
-            row["UnitPrice"] ||
-            0,
-        );
         const note = String(row["Ghi chú"] || row["Ghi chu"] || row["Note"] || "");
 
         currentBySku.set(sku.toLowerCase(), {
@@ -598,7 +588,7 @@ export default function NewPurchaseRequestPage() {
           productName: catalogItem.productName,
           imageUrl: catalogItem.imageUrl,
           requestedQty: Number.isFinite(qty) && qty > 0 ? qty : 1,
-          unitPrice: Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0,
+          unitPrice: catalogItem.price,
           note,
         });
       });
@@ -638,13 +628,21 @@ export default function NewPurchaseRequestPage() {
         return;
       }
 
-      const catalogSkus = new Set(
-        supplierProducts.map((product) => product.sku.trim().toLowerCase()),
+      const catalogBySku = new Map(
+        supplierProducts.map((product) => [
+          product.sku.trim().toLowerCase(),
+          product,
+        ]),
       );
+      const catalogSkus = new Set(catalogBySku.keys());
       const invalidCatalogSkus = data.items
         .map((item) => item.productCode?.trim())
         .filter((sku): sku is string => Boolean(sku))
         .filter((sku) => !catalogSkus.has(sku.toLowerCase()));
+      const missingPriceSkus = data.items
+        .map((item) => item.productCode?.trim())
+        .filter((sku): sku is string => Boolean(sku))
+        .filter((sku) => Number(catalogBySku.get(sku.toLowerCase())?.price ?? 0) <= 0);
 
       if (catalogSkus.size === 0) {
         toast.error(
@@ -658,6 +656,15 @@ export default function NewPurchaseRequestPage() {
           `Không thể tạo phiếu vì ${invalidCatalogSkus.length} SKU không nằm trong catalog đang bán của nhà cung cấp: ${invalidCatalogSkus
             .slice(0, 5)
             .join(", ")}. Vui lòng xóa các dòng này và chọn lại sản phẩm từ danh sách nhà cung cấp.`,
+        );
+        return;
+      }
+
+      if (missingPriceSkus.length > 0) {
+        toast.error(
+          `Không thể tạo phiếu vì ${missingPriceSkus.length} SKU chưa có giá NCC hợp lệ: ${missingPriceSkus
+            .slice(0, 5)
+            .join(", ")}. Vui lòng cập nhật giá catalog nhà cung cấp trước khi lưu phiếu.`,
         );
         return;
       }
@@ -940,15 +947,10 @@ export default function NewPurchaseRequestPage() {
                             type="text"
                             inputMode="numeric"
                             value={formatMoneyInput(item?.unitPrice)}
-                            onChange={(event) =>
-                              setValue(
-                                `items.${idx}.unitPrice`,
-                                parseMoneyInput(event.target.value),
-                                { shouldDirty: true, shouldValidate: true },
-                              )
-                            }
+                            readOnly
+                            title="Lấy từ giá catalog của nhà cung cấp"
                             className={cn(
-                              "h-9 w-full border px-2 text-right text-[12px] shadow-none outline-none focus:border-blue-300",
+                              "h-9 w-full cursor-default border bg-slate-50 px-2 text-right text-[12px] text-slate-700 shadow-none outline-none",
                               errors.items?.[idx]?.unitPrice
                                 ? "border-red-400"
                                 : "border-slate-200",
@@ -1133,6 +1135,18 @@ export default function NewPurchaseRequestPage() {
                           >
                             {product.lowStock && <AlertTriangle size={12} />}
                             Tồn hệ thống: {product.systemStockQuantity ?? 0} sp
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex h-5 items-center rounded-[3px] px-2 text-[10.5px] font-semibold",
+                              product.price > 0
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-amber-50 text-amber-700",
+                            )}
+                          >
+                            {product.price > 0
+                              ? `Giá NCC: ${formatCurrency(product.price)}`
+                              : "Chưa có giá NCC"}
                           </span>
                           {product.lowStock && (
                             <span className="text-[10.5px] font-medium text-red-600">

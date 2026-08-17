@@ -95,6 +95,7 @@ export const supplierService = {
         items: Array<{
             productVariantId: number;
             status?: SupplierProductCatalogStatus;
+            price?: number | null;
             note?: string;
             version?: number;
             isDeleted?: boolean;
