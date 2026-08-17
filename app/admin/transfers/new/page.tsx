@@ -101,6 +101,8 @@ export default function NewTransferPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const hasPrefilledRef = useRef(false);
+
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -283,6 +285,48 @@ export default function NewTransferPage() {
 
   useEffect(() => {
     if (!editId) {
+      const paramSourceBranch = searchParams.get("sourceBranch");
+      const paramDestBranch = searchParams.get("destBranch");
+      const paramItems = searchParams.get("items");
+
+      if (paramSourceBranch) {
+        setValue("sourceBranch", paramSourceBranch, { shouldValidate: true });
+        const branch = branches.find((b) => String(b.id) === paramSourceBranch);
+        if (branch) {
+          setValue("sourceAddress", branch.addressDetail || "Chua cap nhat dia chi");
+        }
+      }
+      if (paramDestBranch) {
+        setValue("destBranch", paramDestBranch, { shouldValidate: true });
+        const branch = branches.find((b) => String(b.id) === paramDestBranch);
+        if (branch) {
+          setValue("destAddress", branch.addressDetail || "Chua cap nhat dia chi");
+        }
+      }
+      if (paramItems && !hasPrefilledRef.current) {
+        try {
+          const parsedItems = JSON.parse(paramItems);
+          if (Array.isArray(parsedItems)) {
+            replace(
+              parsedItems.map((item: any) => ({
+                variantId: Number(item.variantId),
+                productCode: item.sku || item.productCode || "",
+                productName: item.productName || "",
+                unit: item.unit || "Cái",
+                quantity: Number(item.quantity || 0),
+                availableQuantity: Number(item.availableQuantity ?? item.quantity ?? 0),
+                receivedQuantity: 0,
+                itemNote: item.itemNote || "",
+                imageUrl: item.imageUrl || "",
+                unitTransferPrice: item.unitTransferPrice != null ? Number(item.unitTransferPrice) : undefined,
+              }))
+            );
+            hasPrefilledRef.current = true;
+          }
+        } catch (e) {
+          console.error("Error parsing items from query:", e);
+        }
+      }
       setIsBootstrapping(false);
       return;
     }
@@ -342,7 +386,7 @@ export default function NewTransferPage() {
     };
 
     void fetchTransfer();
-  }, [editId, replace, router, setValue]);
+  }, [editId, replace, router, setValue, branches, searchParams]);
 
   const onSubmit = async (formData: any) => {
     setIsSubmitting(true);
