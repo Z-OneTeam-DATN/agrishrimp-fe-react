@@ -13,7 +13,10 @@ import {
     RefreshCcw,
     Save,
     Search,
+    Upload,
+    FileDown,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
@@ -127,8 +130,8 @@ interface FlatVariantCatalogItem {
     categoryName?: string;
     imageUrl?: string;
     status?: SupplierProductCatalogStatus;
-    price?: number;
     note?: string;
+    price?: number | null;
     updatedAt?: string;
     statusChangedAt?: string;
     updatedByName?: string;
@@ -136,21 +139,21 @@ interface FlatVariantCatalogItem {
 }
 
 const buildCatalogPayload = (items: SupplierProductCatalogItem[], flatItems: FlatVariantCatalogItem[]) => {
-    const payload: { productVariantId: number; status?: SupplierProductCatalogStatus; price?: number; note?: string; version?: number; isDeleted?: boolean }[] = [];
+    const payload: { productVariantId: number; status?: SupplierProductCatalogStatus; note?: string; price?: number | null; version?: number; isDeleted?: boolean }[] = [];
 
     flatItems.forEach((flatItem) => {
         const currentInState = items.find((c) => c.productVariantId === flatItem.productVariantId);
         const status = currentInState?.status;
-        const price = currentInState?.price;
         const note = currentInState?.note;
+        const price = currentInState?.price;
 
         if (status) {
             payload.push({
                 productVariantId: flatItem.productVariantId,
                 status: status,
-                price: price,
                 note: note?.trim() || undefined,
-                version: flatItem.version || undefined,
+                price: price != null ? Number(price) : null,
+                version: flatItem.version ?? undefined,
                 isDeleted: false,
             });
         } else if (flatItem.id > 0) {
@@ -523,7 +526,7 @@ export default function SupplierDetailPage() {
                             categoryName: product.categoryName,
                             imageUrl: getFirstImageUrl(variant.imageUrl, product.imageUrls),
                             status: catalogRecord?.status,
-                            price: catalogRecord?.price,
+                            price: catalogRecord?.price ?? null,
                             note: catalogRecord?.note || "",
                             updatedAt: catalogRecord?.updatedAt,
                             statusChangedAt: catalogRecord?.statusChangedAt,
@@ -569,7 +572,7 @@ export default function SupplierDetailPage() {
                 categoryName: cName,
                 imageUrl: getFirstImageUrl(matchedImg, c.imageUrl),
                 status: c.status,
-                price: c.price,
+                price: c.price ?? null,
                 note: c.note || "",
                 updatedAt: c.updatedAt,
                 statusChangedAt: c.statusChangedAt,
@@ -726,7 +729,7 @@ export default function SupplierDetailPage() {
         return () => document.removeEventListener("click", handleDocumentLinkClick, true);
     }, [hasCatalogDraft]);
 
-    const updateCatalogItem = (productVariantId: number, patch: Partial<Pick<SupplierProductCatalogItem, "status" | "price" | "note">>) => {
+    const updateCatalogItem = (productVariantId: number, patch: Partial<Pick<SupplierProductCatalogItem, "status" | "note" | "price">>) => {
         setCatalogItems((prev) => {
             const existingIndex = prev.findIndex((item) => item.productVariantId === productVariantId);
             if (existingIndex >= 0) {
@@ -760,12 +763,120 @@ export default function SupplierDetailPage() {
                     origin: flatItem.origin,
                     categoryName: flatItem.categoryName,
                     status: patch.status || "CHECKING",
-                    price: patch.price,
                     note: patch.note || "",
+                    price: patch.price ?? null,
                     version: 0,
                 } as SupplierProductCatalogItem,
             ];
         });
+    };
+
+    const handleDownloadExcelTemplate = () => {
+        if (!flatCatalogItems || flatCatalogItems.length === 0) {
+            toast.error("Không có sản phẩm nào để tạo mẫu");
+            return;
+        }
+
+        const data = flatCatalogItems.map((item) => {
+            let statusText = "Đang xác minh";
+            if (item.status === "AVAILABLE") statusText = "Có thể đặt mua";
+            else if (item.status === "UNAVAILABLE") statusText = "Ngừng cung cấp";
+
+            return {
+                "Mã SKU": item.sku || "",
+                "Tên sản phẩm": item.productName || "",
+                "Thương hiệu": item.brandName || "",
+                "Đơn giá thỏa thuận": item.price ?? "",
+                "Khả năng cung cấp": statusText,
+                "Ghi chú": item.note || "",
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Catalog Mẫu");
+
+        worksheet["!cols"] = [
+            { wch: 15 },
+            { wch: 30 },
+            { wch: 15 },
+            { wch: 20 },
+            { wch: 20 },
+            { wch: 25 },
+        ];
+
+        XLSX.writeFile(workbook, `mau-catalog-ncc-${supplierRecord?.code || "template"}.xlsx`);
+        toast.success("Đã tải xuống file mẫu Excel");
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = new Uint8Array(event.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: "array" });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json<any>(worksheet);
+
+                if (rows.length === 0) {
+                    toast.error("File Excel không có dữ liệu");
+                    return;
+                }
+
+                let successCount = 0;
+                let failCount = 0;
+
+                rows.forEach((row) => {
+                    const sku = String(row["Mã SKU"] || "").trim();
+                    if (!sku) {
+                        failCount++;
+                        return;
+                    }
+
+                    const matchedVariant = flatCatalogItems.find(
+                        (v) => String(v.sku || "").trim().toLowerCase() === sku.toLowerCase()
+                    );
+
+                    if (!matchedVariant) {
+                        failCount++;
+                        return;
+                    }
+
+                    const rawPrice = row["Đơn giá thỏa thuận"];
+                    const price = rawPrice !== undefined && rawPrice !== "" ? Number(rawPrice) : null;
+
+                    const statusText = String(row["Khả năng cung cấp"] || "").trim().toLowerCase();
+                    let status: SupplierProductCatalogStatus = "CHECKING";
+                    if (statusText === "có thể đặt mua" || statusText === "available") {
+                        status = "AVAILABLE";
+                    } else if (statusText === "ngừng cung cấp" || statusText === "unavailable") {
+                        status = "UNAVAILABLE";
+                    } else if (statusText === "đang xác minh" || statusText === "checking") {
+                        status = "CHECKING";
+                    }
+
+                    const note = String(row["Ghi chú"] || "").trim();
+
+                    updateCatalogItem(matchedVariant.productVariantId, {
+                        price,
+                        status,
+                        note: note || undefined,
+                    });
+                    successCount++;
+                });
+
+                toast.success(`Nhập Excel thành công: Khớp ${successCount} dòng, bỏ qua ${failCount} dòng không hợp lệ.`);
+            } catch (err) {
+                console.error("Lỗi đọc Excel:", err);
+                toast.error("Không thể đọc file Excel. Vui lòng kiểm tra lại định dạng.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+        e.target.value = "";
     };
 
     const toggleCatalogSelection = (productVariantId: number, checked: boolean) => {
@@ -818,6 +929,7 @@ export default function SupplierDetailPage() {
                     categoryName: flatItem.categoryName,
                     status: bulkCatalogStatus,
                     note: "",
+                    price: null,
                     version: 0,
                 });
             });
@@ -1284,6 +1396,36 @@ export default function SupplierDetailPage() {
                                                 Áp dụng ({selectedCatalogProductIds.length})
                                             </Button>
                                         </div>
+                                        <div className="flex flex-wrap items-center gap-2 xl:w-auto">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="h-[34px] text-[11px] font-medium border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+                                                onClick={handleDownloadExcelTemplate}
+                                            >
+                                                <FileDown size={14} className="mr-1.5" />
+                                                Tải file mẫu Excel
+                                            </Button>
+
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept=".xlsx, .xls"
+                                                    id="catalog-excel-import"
+                                                    className="hidden"
+                                                    onChange={handleImportExcel}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="h-[34px] text-[11px] font-medium border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-50"
+                                                    onClick={() => document.getElementById("catalog-excel-import")?.click()}
+                                                >
+                                                    <Upload size={14} className="mr-1.5" />
+                                                    Nhập từ Excel
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1291,10 +1433,11 @@ export default function SupplierDetailPage() {
                                     <Table className="table-custom w-full table-fixed border-collapse">
                                         <colgroup>
                                             <col className="w-[44px]" />
-                                            <col className="w-[34%]" />
-                                            <col className="w-[18%]" />
-                                            <col className="w-[18%]" />
-                                            <col className="w-[30%]" />
+                                            <col className="w-[32%]" />
+                                            <col className="w-[16%]" />
+                                            <col className="w-[14%]" />
+                                            <col className="w-[16%]" />
+                                            <col className="w-[22%]" />
                                         </colgroup>
                                         <TableHeader>
                                             <TableRow className="bg-slate-50 border-b border-slate-100">
@@ -1307,6 +1450,7 @@ export default function SupplierDetailPage() {
                                                 </TableHead>
                                                 <TableHead className="py-3 text-[11px] font-medium text-slate-500">Sản phẩm</TableHead>
                                                 <TableHead className="py-3 text-[11px] font-medium text-slate-500">Thương hiệu và xuất xứ</TableHead>
+                                                <TableHead className="py-3 text-[11px] font-medium text-slate-500">Đơn giá</TableHead>
                                                 <TableHead className="py-3 text-[11px] font-medium text-slate-500">Khả năng cung cấp</TableHead>
                                                 <TableHead className="py-3 pr-4 text-[11px] font-medium text-slate-500">Ghi chú</TableHead>
                                             </TableRow>
@@ -1355,6 +1499,19 @@ export default function SupplierDetailPage() {
                                                                 {item.origin && (
                                                                     <p className="mt-1 text-[10.5px] text-slate-500">{item.origin}</p>
                                                                 )}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 pr-3">
+                                                                <Input
+                                                                    type="number"
+                                                                    value={item.price ?? ""}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value === "" ? null : Number(e.target.value);
+                                                                        updateCatalogItem(item.productVariantId, { price: val });
+                                                                    }}
+                                                                    placeholder="Giá nhập..."
+                                                                    className="h-9 w-full text-[12px] font-normal shadow-none px-3"
+                                                                    disabled={Boolean(catalogLoadError)}
+                                                                />
                                                             </TableCell>
                                                             <TableCell className="py-3 pr-3">
                                                                 <Select
