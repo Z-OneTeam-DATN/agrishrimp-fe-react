@@ -932,7 +932,7 @@ export default function AdminDashboard() {
         <Panel
           title="Sức khỏe tồn kho"
           description={`${numberText(inventoryInfo?.totalItems)} mặt hàng đang theo dõi`}
-          footnote="Thanh ngang là tỷ lệ trên tổng số mặt hàng. Riêng 'Thiếu hàng trong đơn' là số lượng còn thiếu để giao đủ các đơn đã nhận, không phải số mặt hàng. Bấm vào từng dòng để xem đích danh mặt hàng: 'Còn hàng ổn định' mở danh sách sản phẩm, 'Sắp hết hàng'/'Hết hàng' mở báo cáo dưới định mức, 'Thiếu hàng trong đơn' xổ ngay danh sách tại chỗ."
+          footnote="Thanh ngang thể hiện tỷ lệ mặt hàng; riêng 'Thiếu hàng trong đơn' là số lượng sản phẩm thiếu. Bấm các dòng để xem chi tiết."
         >
           <AdminDashboardInventoryHealthChart
             totalItems={Number(inventoryInfo?.totalItems || 0)}
