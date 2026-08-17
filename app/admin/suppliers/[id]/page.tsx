@@ -127,6 +127,7 @@ interface FlatVariantCatalogItem {
     categoryName?: string;
     imageUrl?: string;
     status?: SupplierProductCatalogStatus;
+    price?: number;
     note?: string;
     updatedAt?: string;
     statusChangedAt?: string;
@@ -135,17 +136,19 @@ interface FlatVariantCatalogItem {
 }
 
 const buildCatalogPayload = (items: SupplierProductCatalogItem[], flatItems: FlatVariantCatalogItem[]) => {
-    const payload: { productVariantId: number; status?: SupplierProductCatalogStatus; note?: string; version?: number; isDeleted?: boolean }[] = [];
+    const payload: { productVariantId: number; status?: SupplierProductCatalogStatus; price?: number; note?: string; version?: number; isDeleted?: boolean }[] = [];
 
     flatItems.forEach((flatItem) => {
         const currentInState = items.find((c) => c.productVariantId === flatItem.productVariantId);
         const status = currentInState?.status;
+        const price = currentInState?.price;
         const note = currentInState?.note;
 
         if (status) {
             payload.push({
                 productVariantId: flatItem.productVariantId,
                 status: status,
+                price: price,
                 note: note?.trim() || undefined,
                 version: flatItem.version || undefined,
                 isDeleted: false,
@@ -520,6 +523,7 @@ export default function SupplierDetailPage() {
                             categoryName: product.categoryName,
                             imageUrl: getFirstImageUrl(variant.imageUrl, product.imageUrls),
                             status: catalogRecord?.status,
+                            price: catalogRecord?.price,
                             note: catalogRecord?.note || "",
                             updatedAt: catalogRecord?.updatedAt,
                             statusChangedAt: catalogRecord?.statusChangedAt,
@@ -565,6 +569,7 @@ export default function SupplierDetailPage() {
                 categoryName: cName,
                 imageUrl: getFirstImageUrl(matchedImg, c.imageUrl),
                 status: c.status,
+                price: c.price,
                 note: c.note || "",
                 updatedAt: c.updatedAt,
                 statusChangedAt: c.statusChangedAt,
@@ -721,7 +726,7 @@ export default function SupplierDetailPage() {
         return () => document.removeEventListener("click", handleDocumentLinkClick, true);
     }, [hasCatalogDraft]);
 
-    const updateCatalogItem = (productVariantId: number, patch: Partial<Pick<SupplierProductCatalogItem, "status" | "note">>) => {
+    const updateCatalogItem = (productVariantId: number, patch: Partial<Pick<SupplierProductCatalogItem, "status" | "price" | "note">>) => {
         setCatalogItems((prev) => {
             const existingIndex = prev.findIndex((item) => item.productVariantId === productVariantId);
             if (existingIndex >= 0) {
@@ -731,6 +736,7 @@ export default function SupplierDetailPage() {
                     ...oldItem,
                     ...patch,
                     status: ("status" in patch ? patch.status : oldItem.status) as SupplierProductCatalogStatus,
+                    price: "price" in patch ? patch.price : oldItem.price,
                     note: "note" in patch ? (patch.note ?? "") : (oldItem.note ?? ""),
                 };
                 return updated;
@@ -754,6 +760,7 @@ export default function SupplierDetailPage() {
                     origin: flatItem.origin,
                     categoryName: flatItem.categoryName,
                     status: patch.status || "CHECKING",
+                    price: patch.price,
                     note: patch.note || "",
                     version: 0,
                 } as SupplierProductCatalogItem,
