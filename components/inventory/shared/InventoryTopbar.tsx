@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export function InventoryTopbar() {
   const [time, setTime] = useState(new Date());
@@ -46,6 +47,9 @@ export function InventoryTopbar() {
       "Warehouse Admin"
     );
   };
+
+  const userAvatarUrl =
+    user?.avatar?.imageUrl || (user as any)?.avatarUrl || "";
 
   const formattedDate = mounted
     ? time.toLocaleDateString("vi-VN", {
@@ -156,7 +160,12 @@ export function InventoryTopbar() {
                 </p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">
-                <AvatarImage src={user?.avatar?.imageUrl ?? ""} />
+                {userAvatarUrl ? (
+                  <AvatarImage
+                    src={resolveImageUrl(userAvatarUrl)}
+                    alt={getUserDisplayName()}
+                  />
+                ) : null}
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white text-[11px] font-bold">
                   {getUserDisplayName().charAt(0).toUpperCase()}
                 </AvatarFallback>

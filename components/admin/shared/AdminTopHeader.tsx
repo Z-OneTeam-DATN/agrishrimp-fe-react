@@ -38,6 +38,7 @@ import {
   ADMIN_ORDER_STATUS_PAGES,
   getAdminOrderStatusHref,
 } from "@/lib/admin-order-status-pages";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 type BranchSummary = {
   id: number;
@@ -55,6 +56,7 @@ const ADMIN_ORDER_STATUS_ROUTE_LABELS = Object.fromEntries(
 
 const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin": "Trang chủ",
+  "/admin/profile": "Hồ sơ cá nhân",
   "/admin/activity-logs": "Nhật ký hoạt động",
   "/admin/employees": "Quản lý nhân sự",
   "/admin/employees/add": "Thêm nhân sự",
@@ -287,6 +289,9 @@ export default function AdminTopHeader() {
       : (branchList.length > 0 ? "Chưa gán chi nhánh" : "Chưa có chi nhánh");
   };
 
+  const userAvatarUrl =
+    user?.avatar?.imageUrl || (user as any)?.avatarUrl || "";
+
   return (
     <header className="h-[64px] border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
       <div className="flex items-center gap-6 flex-1 min-w-0">
@@ -356,7 +361,12 @@ export default function AdminTopHeader() {
                 </p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">
-                <AvatarImage src={user?.avatar?.imageUrl ?? ""} />
+                {userAvatarUrl ? (
+                  <AvatarImage
+                    src={resolveImageUrl(userAvatarUrl)}
+                    alt={getUserDisplayName()}
+                  />
+                ) : null}
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-[11px] font-bold">
                   {getUserDisplayName().charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -380,9 +390,11 @@ export default function AdminTopHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
-            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
-              <User className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
-              <span className="text-[13px] font-medium">Hồ sơ cá nhân</span>
+            <DropdownMenuItem asChild className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
+              <Link href="/admin/profile">
+                <User className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
+                <span className="text-[13px] font-medium">Hồ sơ cá nhân</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
             <DropdownMenuItem
