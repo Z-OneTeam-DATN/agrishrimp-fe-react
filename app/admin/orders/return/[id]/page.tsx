@@ -48,6 +48,7 @@ import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
 
 type ActionType = "approve" | "reject" | "receive" | "refund" | null;
+const BANK_TRANSFER_REFUND_METHOD: ReturnRefundMethod = "BANK_TRANSFER";
 type FetchDetailOptions = {
   background?: boolean;
   showError?: boolean;
@@ -87,7 +88,7 @@ export default function ReturnOrderDetailPage({
     internalNote: "",
     rejectReason: "",
     refundAmount: "",
-    refundMethod: "BANK_TRANSFER" as ReturnRefundMethod,
+    refundMethod: BANK_TRANSFER_REFUND_METHOD,
   });
 
   const fetchDetail = useCallback(
@@ -109,7 +110,7 @@ export default function ReturnOrderDetailPage({
           refundAmount:
             prev.refundAmount ||
             String(Math.round(Number(data.totalRefundAmount ?? 0))),
-          refundMethod: data.refundMethod,
+          refundMethod: BANK_TRANSFER_REFUND_METHOD,
         }));
       } catch (err: any) {
         const message = extractErrorMessage(
@@ -195,6 +196,10 @@ export default function ReturnOrderDetailPage({
         toast.error("Vui lòng nhập số tiền hoàn hợp lệ.");
         return;
       }
+      if (form.refundMethod !== BANK_TRANSFER_REFUND_METHOD) {
+        toast.error("Luồng trả hàng chỉ hỗ trợ hoàn tiền qua chuyển khoản ngân hàng.");
+        return;
+      }
     }
 
     try {
@@ -232,12 +237,12 @@ export default function ReturnOrderDetailPage({
         updatedRequest = canViewSystemOrders
           ? await returnService.refundAdminReturnRequest(request.id, {
               refundAmount: Number(form.refundAmount),
-              refundMethod: form.refundMethod,
+              refundMethod: BANK_TRANSFER_REFUND_METHOD,
               internalNote: form.internalNote.trim() || undefined,
             })
           : await returnService.refundBranchReturnRequest(request.id, {
               refundAmount: Number(form.refundAmount),
-              refundMethod: form.refundMethod,
+              refundMethod: BANK_TRANSFER_REFUND_METHOD,
               internalNote: form.internalNote.trim() || undefined,
             });
       }
@@ -249,7 +254,7 @@ export default function ReturnOrderDetailPage({
         internalNote: "",
         rejectReason: "",
         refundAmount: String(Math.round(Number(updatedRequest.totalRefundAmount ?? 0))),
-        refundMethod: updatedRequest.refundMethod,
+        refundMethod: BANK_TRANSFER_REFUND_METHOD,
       }));
 
       toast.success(
@@ -754,19 +759,7 @@ export default function ReturnOrderDetailPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-slate-700">Phương thức hoàn</span>
-                  <select
-                    value={form.refundMethod}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        refundMethod: event.target.value as ReturnRefundMethod,
-                      }))
-                    }
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="BANK_TRANSFER">Chuyển khoản</option>
-                    <option value="CASH">Tiền mặt</option>
-                  </select>
+                  <Input value="Chuyển khoản ngân hàng" readOnly disabled />
                 </label>
               </div>
             </div>
@@ -833,7 +826,7 @@ export default function ReturnOrderDetailPage({
                   ? "Khách hàng sẽ nhìn thấy lý do từ chối trong danh sách yêu cầu của họ."
                   : actionOpen === "receive"
                     ? "Chỉ áp dụng cho trường hợp cần nhận lại hàng vật lý trước khi hoàn tiền."
-                    : "Số tiền và phương thức hoàn sẽ được ghi nhận trong luồng demo."}
+                    : "Số tiền hoàn sẽ được ghi nhận với phương thức chuyển khoản ngân hàng."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

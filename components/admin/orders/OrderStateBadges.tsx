@@ -316,7 +316,6 @@ export const getNextOrderWorkflowAction = (
   if (
     [
       "PENDING_PAYMENT",
-      "PENDING_AUTO_APPROVAL",
       "PENDING_SHORTAGE_REVIEW",
       "PENDING_TRANSFER",
       "AWAITING_REPLENISHMENT",
