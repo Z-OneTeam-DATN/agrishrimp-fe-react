@@ -15,6 +15,35 @@ function NotificationIcon({ type }: { type: NotificationType }) {
   return <Bell className="w-4 h-4 text-gray-400" />;
 }
 
+function NotificationMedia({ notification }: { notification: Notification }) {
+  if (!notification.imageUrl) {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
+        <NotificationIcon type={notification.notificationType} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+      <img
+        src={notification.imageUrl}
+        alt=""
+        className="h-full w-full object-cover"
+        loading="lazy"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+          event.currentTarget.nextElementSibling?.classList.remove("hidden");
+          event.currentTarget.nextElementSibling?.classList.add("flex");
+        }}
+      />
+      <div className="hidden h-full w-full items-center justify-center bg-blue-50">
+        <NotificationIcon type={notification.notificationType} />
+      </div>
+    </div>
+  );
+}
+
 export default function NotificationBell() {
   const {
     notifications, unreadCount, isOpen,
@@ -114,7 +143,7 @@ export default function NotificationBell() {
                   }`}
                 >
                   <div className="mt-0.5 shrink-0">
-                    <NotificationIcon type={n.notificationType} />
+                    <NotificationMedia notification={n} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm leading-tight ${!n.isRead ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>

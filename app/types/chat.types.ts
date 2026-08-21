@@ -50,6 +50,7 @@ export interface Notification {
   notificationType: NotificationType;
   isRead: boolean;
   referenceId?: number;
+  imageUrl?: string;
   createdAt: string;
 }
 
