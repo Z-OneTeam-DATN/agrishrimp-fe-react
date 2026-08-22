@@ -3,12 +3,12 @@
 import AdminOrderListPage, {
   type AdminOrderStatusGroup,
 } from "@/components/admin/orders/AdminOrderListPage";
+import BranchOrderListPage from "@/components/admin/orders/BranchOrderListPage";
 import AdminAccessDenied from "@/components/admin/shared/AdminAccessDenied";
 import { usePermissions } from "@/hooks/usePermissions";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
-import BranchOrderProcessingPage from "./page.codex";
 
 const ORDER_PROCESSING_GROUPS: AdminOrderStatusGroup[] = [
   {
@@ -68,7 +68,15 @@ export default function OrderProcessingPage() {
   }
 
   if (canViewOrderModule && canUseBranchOrders) {
-    return <BranchOrderProcessingPage />;
+    return (
+      <BranchOrderListPage
+        title="Xử lý đơn hàng"
+        subtitle="Gom các trạng thái cần xử lý theo từng bước vận hành để chi nhánh theo dõi nhanh hơn."
+        statusGroups={ORDER_PROCESSING_GROUPS}
+        defaultStatusGroupId="pending"
+        enableProcessingActions
+      />
+    );
   }
 
   if (canViewOrderModule) {

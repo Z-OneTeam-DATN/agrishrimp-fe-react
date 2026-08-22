@@ -46,7 +46,10 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { ADMIN_ORDER_STATUS_PAGES } from "@/lib/admin-order-status-pages";
 import { formatDate, getCurrentDayDateTimeRange } from "@/lib/dateUtils";
 import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
-import { readAdminOrdersRefreshSignal } from "@/lib/order-refresh";
+import {
+  readAdminOrdersRefreshSignal,
+  subscribeToOrderRefresh,
+} from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
@@ -356,11 +359,16 @@ export default function AdminOrderListPage({
       }
     };
 
+    const unsubscribe = subscribeToOrderRefresh(() => {
+      refreshOrdersIfNeeded();
+    });
+
     window.addEventListener("focus", refreshOrdersIfNeeded);
     window.addEventListener("pageshow", refreshOrdersIfNeeded);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      unsubscribe();
       window.removeEventListener("focus", refreshOrdersIfNeeded);
       window.removeEventListener("pageshow", refreshOrdersIfNeeded);
       document.removeEventListener("visibilitychange", handleVisibilityChange);

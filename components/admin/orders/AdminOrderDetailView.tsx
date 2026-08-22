@@ -27,7 +27,10 @@ import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/dateUtils";
 import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
-import { readAdminOrdersRefreshSignal } from "@/lib/order-refresh";
+import {
+  readAdminOrdersRefreshSignal,
+  subscribeToOrderRefresh,
+} from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -149,11 +152,16 @@ export default function AdminOrderDetailView({
       }
     };
 
+    const unsubscribe = subscribeToOrderRefresh(() => {
+      refreshOrderIfNeeded();
+    });
+
     window.addEventListener("focus", refreshOrderIfNeeded);
     window.addEventListener("pageshow", refreshOrderIfNeeded);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      unsubscribe();
       window.removeEventListener("focus", refreshOrderIfNeeded);
       window.removeEventListener("pageshow", refreshOrderIfNeeded);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -293,7 +301,7 @@ export default function AdminOrderDetailView({
             <Button
               type="button"
               variant="outline"
-              className="border-slate-200 bg-white"
+              className="hidden border-slate-200 bg-white"
               onClick={() => void fetchOrder()}
               disabled={isLoading}
             >

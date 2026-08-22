@@ -3,6 +3,17 @@ import {
   getAdminOrderStatusHref,
 } from "./admin-order-status-pages";
 
+const BRANCH_ORDER_BASE_PATH = "/admin/orders";
+const BRANCH_ORDER_INCOMPLETE_PATH = "/admin/orders/incomplete";
+const BRANCH_ORDER_PROCESSING_BASE_PATH = "/admin/orders-processing";
+const BRANCH_PROCESSING_STATUSES = new Set([
+  "AWAITING_REPLENISHMENT",
+  "PENDING",
+  "CONFIRMED",
+  "PROCESSING",
+  "READY_FOR_PICKUP",
+]);
+
 type OrderRouteUser = {
   branch?: {
     id?: number | null;
@@ -44,22 +55,24 @@ function getSystemOrderPath(status?: string | null) {
 
 function getBranchOrderPath(status?: string | null) {
   if (!status) {
-    return "/admin/orders-processing";
+    return BRANCH_ORDER_BASE_PATH;
   }
 
-  const supportedBranchStatuses = new Set([
-    "AWAITING_REPLENISHMENT",
-    "PENDING",
-    "CONFIRMED",
-    "PROCESSING",
-    "READY_FOR_PICKUP",
-  ]);
+  const normalizedStatus = status.trim().toUpperCase();
 
-  if (!supportedBranchStatuses.has(status)) {
-    return "/admin/orders-processing";
+  if (normalizedStatus === "INCOMPLETE") {
+    return BRANCH_ORDER_INCOMPLETE_PATH;
   }
 
-  return `/admin/orders-processing?${new URLSearchParams({ status }).toString()}`;
+  if (BRANCH_PROCESSING_STATUSES.has(normalizedStatus)) {
+    return `${BRANCH_ORDER_PROCESSING_BASE_PATH}?${new URLSearchParams({
+      status: normalizedStatus,
+    }).toString()}`;
+  }
+
+  return `${BRANCH_ORDER_BASE_PATH}?${new URLSearchParams({
+    status: normalizedStatus,
+  }).toString()}`;
 }
 
 export function resolveOrderRouteAccess({
@@ -69,7 +82,7 @@ export function resolveOrderRouteAccess({
 }: ResolveOrderRouteOptions) {
   const basePath = canViewSystemOrders
     ? "/admin/orders-all"
-    : "/admin/orders-processing";
+    : BRANCH_ORDER_BASE_PATH;
 
   const listPath = status
     ? canViewSystemOrders

@@ -4,9 +4,9 @@ import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import AdminAccessDenied from "@/components/admin/shared/AdminAccessDenied";
 import AdminSidebar from "@/components/admin/shared/AdminSidebar";
 import AdminTopHeader from "@/components/admin/shared/AdminTopHeader";
-import AdminAccessDenied from "@/components/admin/shared/AdminAccessDenied";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
@@ -105,7 +105,7 @@ export default function AdminLayout({
         return resolvedRoute;
       }
 
-      return isBranchScopedOrderUser ? "/admin/orders-processing" : resolvedRoute;
+      return isBranchScopedOrderUser ? "/admin/orders" : resolvedRoute;
     },
     [hasPermission, isBranchScopedOrderUser],
   );
