@@ -69,7 +69,7 @@ export interface SupplierProductCatalogItem {
   note?: string;
   price?: number | null;
   statusChangedAt?: string;
-  version: number;
+  version?: number;
   createdAt?: string;
   updatedAt?: string;
   createdByUserId?: number;

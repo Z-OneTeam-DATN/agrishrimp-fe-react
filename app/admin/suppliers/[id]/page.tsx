@@ -765,7 +765,7 @@ export default function SupplierDetailPage() {
                     status: patch.status || "CHECKING",
                     note: patch.note || "",
                     price: patch.price ?? null,
-                    version: 0,
+                    version: undefined,
                 } as SupplierProductCatalogItem,
             ];
         });
@@ -930,7 +930,7 @@ export default function SupplierDetailPage() {
                     status: bulkCatalogStatus,
                     note: "",
                     price: null,
-                    version: 0,
+                    version: undefined,
                 });
             });
 
