@@ -119,7 +119,8 @@ export default function PinProductModal({ conversationId, open, onClose, onPinne
             </p>
           )}
           {results.map((product) => {
-            const imageUrl = product.imageUrls?.[0] || product.variants?.find((v) => v.imageUrl)?.imageUrl;
+            const rawImageUrl = product.imageUrls?.[0] || product.variants?.find((v) => v.imageUrl)?.imageUrl;
+            const imageUrl = rawImageUrl ? rawImageUrl.split(",")[0]?.trim() : undefined;
             const price = product.variants?.[0]?.price ?? 0;
             return (
               <div
