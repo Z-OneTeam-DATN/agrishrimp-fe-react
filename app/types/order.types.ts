@@ -87,8 +87,6 @@ export interface SuggestedTransfer {
 
 export interface PrepareOrderPayload {
   userAddressId: number
-  userLat?: number
-  userLng?: number
   voucherCode?: string
   cart?: Array<{ productVariantId: number; quantity: number }>
 }

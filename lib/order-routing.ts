@@ -69,16 +69,12 @@ export function resolveOrderRouteAccess({
 }: ResolveOrderRouteOptions) {
   const basePath = canViewSystemOrders
     ? "/admin/orders-all"
-    : canUseBranchOrders
-      ? "/admin/orders-processing"
-      : "/admin/forbidden";
+    : "/admin/orders-processing";
 
   const listPath = status
     ? canViewSystemOrders
       ? getSystemOrderPath(status)
-      : canUseBranchOrders
-        ? getBranchOrderPath(status)
-        : "/admin/forbidden"
+      : getBranchOrderPath(status)
     : basePath;
 
   return {

@@ -45,7 +45,7 @@ export default function ReturnOrdersPage() {
   const user = useAuthStore((state) => state.user);
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission } = usePermissions();
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
   const orderRouteAccess = resolveOrderRouteAccess({
     canViewSystemOrders,

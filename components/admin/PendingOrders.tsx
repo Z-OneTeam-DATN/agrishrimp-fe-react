@@ -27,7 +27,7 @@ interface PendingOrdersProps {
 export default function PendingOrders({ branchId }: PendingOrdersProps) {
   const { user, isLoadingAuth, warehouseId } = useAuthStore();
   const { hasPermission } = usePermissions();
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
   const getOrderHref = (status?: string | null) =>
     getOrderListPath({

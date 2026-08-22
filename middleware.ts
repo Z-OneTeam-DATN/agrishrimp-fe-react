@@ -16,7 +16,7 @@ const ADMIN_ROUTE_PERMISSIONS: { path: string; permission: string }[] = [
   { path: "/admin/orders",             permission: "ORDER_VIEW" },
   { path: "/admin/orders-processing",  permission: "ORDER_VIEW" },
   { path: "/admin/orders-handover",    permission: "ORDER_VIEW" },
-  { path: "/admin/orders-all",         permission: "ORDER_VIEW" },
+  { path: "/admin/orders-all",         permission: "ORDER_VIEW_ALL_BRANCHES" },
   { path: "/admin/customers",          permission: "CUSTOMER_VIEW" },
   { path: "/admin/products",           permission: "PRODUCT_VIEW" },
   { path: "/admin/brands",             permission: "PRODUCT_VIEW" },

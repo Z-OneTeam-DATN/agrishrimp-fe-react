@@ -67,7 +67,7 @@ export default function AdminOrderDetailView({
   );
   const lastRefreshSignalRef = useRef(0);
 
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
   const orderRouteAccess = useMemo(
     () =>

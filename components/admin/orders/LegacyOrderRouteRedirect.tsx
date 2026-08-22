@@ -16,13 +16,21 @@ export function LegacyOrderRouteRedirect({
   const router = useRouter();
   const { hasPermission } = usePermissions();
   const { user, isLoadingAuth, warehouseId } = useAuthStore();
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
+  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const canViewOrderModule = hasPermission(P.ORDER_VIEW);
   const targetPath = useMemo(
-    () =>
-      resolveOrderRouteAccess({
-        canViewSystemOrders: hasPermission(P.ORDER_VIEW),
-        canUseBranchOrders: canUseBranchOrderRoutes(user, warehouseId),
-      }).orderListPath,
-    [hasPermission, user, warehouseId],
+    () => {
+      if (!canViewSystemOrders && canViewOrderModule && !canUseBranchOrders) {
+        return "/admin/orders-processing";
+      }
+
+      return resolveOrderRouteAccess({
+        canViewSystemOrders,
+        canUseBranchOrders,
+      }).orderListPath;
+    },
+    [canUseBranchOrders, canViewOrderModule, canViewSystemOrders],
   );
 
   useEffect(() => {

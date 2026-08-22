@@ -12,14 +12,12 @@ import { orderService } from "@/app/services/order.service"
 import { voucherService, type UserVoucher } from "@/app/services/voucher.service"
 import { useCartStore } from "@/stores/useCartStore"
 import { useAuthStore } from "@/stores/useAuthStore"
-import { useLocationStore } from "@/stores/locationStore"
-import { useUserLocation } from "@/hooks/useUserLocation"
 import { usePrepareOrder } from "@/hooks/usePrepareOrder"
 import { useConfirmOrder } from "@/hooks/useConfirmOrder"
 import AddressForm from "@/components/profile/AddressForm"
 import CheckoutVoucherSelector from "@/components/order/CheckoutVoucherSelector"
 import PendingPaymentResumeView from "@/components/checkout/PendingPaymentResumeView"
-import { getFriendlyError } from "@/app/utils/apiError"
+import { getFriendlyError, parseApiError } from "@/app/utils/apiError"
 import type { DeliveryInfo, CartItem, PaymentMethod, MyOrder, PrepareOrderResponse } from "@/app/types/order.types"
 import { resolveImageUrl } from "@/lib/resolveImageUrl"
 
@@ -46,6 +44,16 @@ const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: R
         icon: <Smartphone size={20} className="text-blue-500" />,
     },
 ]
+
+const SHIPPING_UNAVAILABLE_MESSAGES: Record<string, string> = {
+    GHN_NOT_CONFIGURED: "Hệ thống chưa cấu hình đủ GHN nên chưa thể tính phí ship thật. Bạn cần chờ quản trị viên cập nhật.",
+    GHN_MISSING_BRANCH_DISTRICT: "Chi nhánh giao hàng đang thiếu District ID GHN. Bạn chưa thể đặt đơn này cho tới khi chi nhánh được cấu hình đúng.",
+    GHN_MISSING_DELIVERY_DISTRICT: "Địa chỉ nhận hàng đang thiếu Quận/Huyện GHN. Hãy cập nhật lại địa chỉ rồi tính phí lại.",
+    GHN_MISSING_DELIVERY_WARD: "Địa chỉ nhận hàng đang thiếu Phường/Xã GHN. Hãy cập nhật lại địa chỉ rồi tính phí lại.",
+    GHN_API_FAILED: "GHN đang không trả về phí vận chuyển thật. Hãy thử lại sau ít phút.",
+    ORDER_PREPARE_NO_ACTIVE_BRANCHES: "Hiện chưa có chi nhánh hoạt động có thể phục vụ đơn hàng của bạn. Vui lòng thử lại sau.",
+    ORDER_PREPARE_NO_DELIVERY_BRANCHES: "Chưa có chi nhánh phù hợp cho địa chỉ giao hàng này. Hãy kiểm tra hoặc chọn địa chỉ khác.",
+}
 
 type SavedAddress = {
     id: number
@@ -293,7 +301,6 @@ export default function CheckoutPage() {
         setPrepareResponse,
         clearPrepareResponse,
     } = useCartStore()
-    const { userLocation } = useLocationStore()
     const { isAuthenticated, isLoadingAuth } = useAuthStore()
     const persistedCartItemsSignature = useMemo(
         () => buildCheckoutItemsSignature(persistedCartItems),
@@ -303,9 +310,6 @@ export default function CheckoutPage() {
         () => filterCheckoutItemsBySelection(persistedCartItems, selectedItemIds),
         [persistedCartItemsSignature, selectedItemIds]
     )
-
-    useUserLocation({ showIpFallbackToast: false })
-
     const prepareMutation = usePrepareOrder({
         onRateLimited: (seconds) => setRateLimitCooldown((prev) => Math.max(prev, seconds)),
     })
@@ -313,6 +317,14 @@ export default function CheckoutPage() {
         onTokenExpired: () => setShowTokenExpiredModal(true),
         onRateLimited: (seconds) => setRateLimitCooldown((prev) => Math.max(prev, seconds)),
     })
+    const prepareErrorInfo = useMemo(
+        () => (prepareMutation.error ? parseApiError(prepareMutation.error) : null),
+        [prepareMutation.error]
+    )
+    const prepareErrorHelpText = useMemo(() => {
+        const reasonCode = prepareErrorInfo?.backendCode
+        return reasonCode ? SHIPPING_UNAVAILABLE_MESSAGES[reasonCode] ?? null : null
+    }, [prepareErrorInfo?.backendCode])
 
     useEffect(() => {
         if (rateLimitCooldown <= 0) return
@@ -392,9 +404,8 @@ export default function CheckoutPage() {
                 quantity: item.quantity,
             })),
             ...(nextVoucherCode ? { voucherCode: nextVoucherCode } : {}),
-            ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
         })
-    }, [cartItems, prepareMutation, userLocation])
+    }, [cartItems, prepareMutation])
 
     const syncVisibleCartItems = useCallback((nextItems: CartItem[]) => {
         setCartItems((currentItems) =>
@@ -541,16 +552,7 @@ export default function CheckoutPage() {
         }
 
         if (addr.id) {
-            prepareMutation.mutate({
-                userAddressId: addr.id,
-                // 🐛 FIX LỖI 400: Bổ sung mảng cart vào payload gửi lên backend
-                cart: currentCart.map(item => ({
-                    productVariantId: item.productVariantId,
-                    quantity: item.quantity
-                })),
-                ...(activeVoucherCode && { voucherCode: activeVoucherCode }),
-                ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
-            })
+            triggerPrepare(addr.id, currentCart, activeVoucherCode)
         }
     }
 
@@ -932,9 +934,18 @@ export default function CheckoutPage() {
         return {
             carrier: firstSubOrder?.carrier?.trim() || "Đối tác vận chuyển",
             estimatedDays: firstSubOrder?.estimatedDays?.trim() || "2-3 ngày",
-            label: "Phí vận chuyển",
+            label: firstSubOrder?.shippingEstimate ? "Phí vận chuyển tạm tính" : "Phí vận chuyển GHN",
+            isEstimate: Boolean(firstSubOrder?.shippingEstimate),
+            reason: firstSubOrder?.shippingEstimateReason?.trim() || null,
         }
     }, [prepareOrderDisplayResponse])
+
+    const shippingEstimateNotice = useMemo(() => {
+        const reasonCode = shippingPreview?.reason
+        if (!shippingPreview?.isEstimate || !reasonCode) return null
+
+        return SHIPPING_UNAVAILABLE_MESSAGES[reasonCode] || `Lý do tạm tính: ${reasonCode}`
+    }, [shippingPreview?.isEstimate, shippingPreview?.reason])
 
     const totalDisplayQuantity = useMemo(
         () => checkoutDisplayItems.reduce((sum, item) => sum + item.quantity, 0),
@@ -1026,16 +1037,7 @@ export default function CheckoutPage() {
             setAddressLocationWarning("Địa chỉ này đang thiếu Quận/Huyện hoặc Phường/Xã. Vui lòng cập nhật địa chỉ trước khi tính phí giao hàng.")
             return
         }
-        prepareMutation.mutate({
-            userAddressId: deliveryInfo.userAddressId,
-            // 🐛 FIX LỖI 400: Bổ sung mảng cart vào payload gửi lên backend
-            cart: cartItems.map(item => ({
-                productVariantId: item.productVariantId,
-                quantity: item.quantity
-            })),
-            ...(activeVoucherCode && { voucherCode: activeVoucherCode }),
-            ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
-        })
+        triggerPrepare(deliveryInfo.userAddressId, cartItems, activeVoucherCode)
     }
 
     const handleResumePaymentConfirm = async () => {
@@ -1360,7 +1362,14 @@ export default function CheckoutPage() {
                                 {addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
                                     <div className="border border-red-100 bg-red-50 p-5 text-center">
                                         <p className="text-sm font-semibold text-red-700 mb-1">{getFriendlyError(prepareMutation.error)}</p>
-                                        <p className="text-xs text-red-400">Vui lòng kiểm tra lại thông tin giao hàng hoặc thử lại sau.</p>
+                                        <p className="text-xs text-red-400">
+                                            {prepareErrorHelpText || "Vui lòng kiểm tra lại thông tin giao hàng hoặc thử lại sau."}
+                                        </p>
+                                        {prepareErrorInfo?.backendCode && (
+                                            <p className="mt-2 text-[11px] font-medium text-red-500">
+                                                Mã lỗi: {prepareErrorInfo.backendCode}
+                                            </p>
+                                        )}
                                     </div>
                                 )}
 
@@ -1380,6 +1389,11 @@ export default function CheckoutPage() {
                                 {addressConfirmed && !prepareMutation.isPending && prepareOrderDisplayResponse && (
                                     <div className="space-y-3">
                                         <div className="overflow-hidden border border-gray-200 bg-white">
+                                            {shippingEstimateNotice && (
+                                                <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                                    Phí vận chuyển tạm tính. {shippingEstimateNotice}
+                                                </div>
+                                            )}
                                             <div className="divide-y divide-gray-100">
                                                 {checkoutDisplayItems.map((item) => (
                                                     <div key={item.productVariantId} className="flex gap-3 px-4 py-4">
@@ -1425,7 +1439,9 @@ export default function CheckoutPage() {
                                                             {shippingPreview.carrier}
                                                         </span>
                                                         {" · "}
-                                                        Dự kiến {shippingPreview.estimatedDays}
+                                                        {shippingPreview.isEstimate
+                                                            ? `Tạm tính ${shippingPreview.estimatedDays}`
+                                                            : `Dự kiến ${shippingPreview.estimatedDays}`}
                                                     </div>
                                                     <div className="text-right font-semibold text-gray-700">
                                                         {formatMoney(prepareOrderDisplayResponse.totalShippingFee)}

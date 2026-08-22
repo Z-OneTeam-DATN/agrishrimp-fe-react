@@ -218,7 +218,7 @@ export default function AdminDashboard() {
     P.TRANSFER_VIEW,
     P.CHECK_VIEW,
   ]);
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
   const getOrderHref = (status?: string | null) =>
     getOrderListPath({

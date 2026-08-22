@@ -48,7 +48,7 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/suppliers", permission: P.SUPPLIER_VIEW },
   { path: "/admin/orders-processing", permission: P.ORDER_VIEW },
   { path: "/admin/orders-handover", permission: P.ORDER_VIEW },
-  { path: "/admin/orders-all", permission: P.ORDER_VIEW },
+  { path: "/admin/orders-all", permission: P.ORDER_VIEW_ALL_BRANCHES },
   { path: "/admin/orders", permission: P.ORDER_VIEW },
   { path: "/admin/vouchers", permission: P.VOUCHER_VIEW },
   { path: "/admin/customers", permission: P.CUSTOMER_VIEW },
