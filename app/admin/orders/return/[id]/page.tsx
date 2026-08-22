@@ -77,7 +77,8 @@ export default function ReturnOrderDetailPage({
 }) {
   const { id } = use(params);
   const { hasPermission } = usePermissions();
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
+  const canManageReturns = hasPermission(P.ORDER_UPDATE);
 
   const [request, setRequest] = useState<ReturnRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,10 +175,14 @@ export default function ReturnOrderDetailPage({
   const imageEvidences = request?.evidences.filter((item) => item.mediaType === "IMAGE") ?? [];
   const videoEvidences = request?.evidences.filter((item) => item.mediaType === "VIDEO") ?? [];
 
-  const canApprove = request?.status === "PENDING";
-  const canReject = request?.status === "PENDING";
-  const canReceive = request?.status === "APPROVED" && request.requiresPhysicalReturn;
+  const canApprove = canManageReturns && request?.status === "PENDING";
+  const canReject = canManageReturns && request?.status === "PENDING";
+  const canReceive =
+    canManageReturns &&
+    request?.status === "APPROVED" &&
+    request.requiresPhysicalReturn;
   const canRefund =
+    canManageReturns &&
     !!request &&
     ((request.status === "APPROVED" && !request.requiresPhysicalReturn) ||
       request.status === "RECEIVED");

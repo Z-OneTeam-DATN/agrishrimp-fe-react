@@ -14,27 +14,52 @@ const TECHNICAL_SERVER_ERROR_PATTERNS = [
 const isTechnicalServerError = (message: string) =>
   TECHNICAL_SERVER_ERROR_PATTERNS.some((pattern) => pattern.test(message))
 
-/** BE trả về lỗi dạng: { status: 400, message: "..." } */
-export function parseApiError(error: unknown): { code: string; message: string; retryAfterSeconds?: number } {
+const UNKNOWN_ERROR_MESSAGE = "Lỗi không xác định"
+
+const normalizeErrorTextForMatching = (message: string) =>
+  repairVietnameseText(message)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+type ParsedApiError = {
+  code: string
+  message: string
+  retryAfterSeconds?: number
+  backendCode?: string
+}
+
+export function parseApiError(error: unknown): ParsedApiError {
   if (axios.isAxiosError(error)) {
     const httpStatus = error.response?.status
     const data = error.response?.data
     const fieldErrors =
       Array.isArray(data?.fieldErrors) && data.fieldErrors.length > 0
         ? data.fieldErrors
-            .filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+            .filter(
+              (value: unknown): value is string =>
+                typeof value === "string" && value.trim().length > 0,
+            )
             .map((value: string) => repairVietnameseText(value).trim())
         : []
+
     const message: string =
-      (typeof data?.message === "string" ? repairVietnameseText(data.message).trim() : undefined) ||
-      (typeof data?.detail === "string" ? repairVietnameseText(data.detail).trim() : undefined) ||
+      (typeof data?.message === "string"
+        ? repairVietnameseText(data.message).trim()
+        : undefined) ||
+      (typeof data?.detail === "string"
+        ? repairVietnameseText(data.detail).trim()
+        : undefined) ||
       (typeof data?.error_description === "string"
         ? repairVietnameseText(data.error_description).trim()
         : undefined) ||
       (fieldErrors.length > 0 ? fieldErrors.join(". ") : undefined) ||
       data?.title ||
-      "Lỗi không xác định"
+      UNKNOWN_ERROR_MESSAGE
+
     const normalizedMessage = repairVietnameseText(message)
+    const normalizedMessageForMatching =
+      normalizeErrorTextForMatching(normalizedMessage)
     const backendCode = typeof data?.code === "string" ? data.code : undefined
     const backendRetryAfter =
       typeof data?.retryAfterSeconds === "number"
@@ -42,23 +67,26 @@ export function parseApiError(error: unknown): { code: string; message: string; 
         : undefined
     const retryAfterMatch = normalizedMessage.match(/\((\d+)s\)/i)
     const retryAfterSeconds =
-      backendRetryAfter ?? (retryAfterMatch ? Number(retryAfterMatch[1]) : undefined)
+      backendRetryAfter ??
+      (retryAfterMatch ? Number(retryAfterMatch[1]) : undefined)
 
-    // Map HTTP status → semantic code
     let code: string
     if (backendCode === "ORDER_RATE_LIMITED") {
       code = "RATE_LIMITED"
     } else if (httpStatus === 409) {
-      const lower = normalizedMessage.toLowerCase()
-      code = lower.includes("quá nhanh") || lower.includes("kiểm soát cao")
-        ? "RATE_LIMITED"
-        : "CONFLICT"
+      code =
+        normalizedMessageForMatching.includes("qua nhanh") ||
+        normalizedMessageForMatching.includes("kiem soat cao")
+          ? "RATE_LIMITED"
+          : "CONFLICT"
     } else if (httpStatus === 404) {
       code = "NOT_FOUND"
     } else if (httpStatus === 400) {
-      // Phân biệt token hết hạn vs lỗi 400 khác
-      const lower = normalizedMessage.toLowerCase()
-      if (lower.includes("token") && (lower.includes("hết hạn") || lower.includes("không hợp lệ"))) {
+      if (
+        normalizedMessageForMatching.includes("token") &&
+        (normalizedMessageForMatching.includes("het han") ||
+          normalizedMessageForMatching.includes("khong hop le"))
+      ) {
         code = "TOKEN_EXPIRED"
       } else {
         code = "BAD_REQUEST"
@@ -75,7 +103,12 @@ export function parseApiError(error: unknown): { code: string; message: string; 
       code = "UNKNOWN"
     }
 
-    return { code, message: normalizedMessage, retryAfterSeconds }
+    return {
+      code,
+      message: normalizedMessage,
+      retryAfterSeconds,
+      backendCode,
+    }
   }
 
   return { code: "NETWORK_ERROR", message: "Không thể kết nối đến máy chủ" }
@@ -100,8 +133,7 @@ export function getFriendlyError(error: unknown): string {
   if (isTechnicalServerError(message)) {
     return technicalServerErrorMessage
   }
-  // Ưu tiên message từ BE (tiếng Việt), fallback sang map
-  if (message !== "Lỗi không xác định") {
+  if (message !== UNKNOWN_ERROR_MESSAGE) {
     return message
   }
   if (code === "UNKNOWN") {
@@ -110,23 +142,19 @@ export function getFriendlyError(error: unknown): string {
   return ERROR_MESSAGES[code] ?? message
 }
 
-/** Kiểm tra nhanh lỗi 409 Conflict (race condition tồn kho) */
 export function isConflictError(error: unknown): boolean {
   return parseApiError(error).code === "CONFLICT"
 }
 
-/** Kiểm tra lỗi bị giới hạn tần suất */
 export function isRateLimitedError(error: unknown): boolean {
   return parseApiError(error).code === "RATE_LIMITED"
 }
 
-/** Trả về số giây cần chờ (nếu backend có gửi) */
 export function getRetryAfterSeconds(error: unknown): number {
   const seconds = parseApiError(error).retryAfterSeconds
   return typeof seconds === "number" && seconds > 0 ? seconds : 15
 }
 
-/** Kiểm tra nhanh lỗi token hết hạn */
 export function isTokenExpiredError(error: unknown): boolean {
   return parseApiError(error).code === "TOKEN_EXPIRED"
 }

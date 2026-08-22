@@ -143,7 +143,7 @@ export default function AdminOrderListPage({
   const [replenishingOrderId, setReplenishingOrderId] = useState<number | null>(null);
   const lastRefreshSignalRef = useRef(0);
 
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
   const orderRouteAccess = useMemo(
     () =>

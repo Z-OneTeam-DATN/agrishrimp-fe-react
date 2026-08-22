@@ -91,6 +91,11 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
         ],
       },
       {
+        id: P.ORDER_VIEW_ALL_BRANCHES,
+        label: "Xem đơn hàng mọi chi nhánh",
+        advanced: [],
+      },
+      {
         id: P.CUSTOMER_VIEW,
         label: "Khách hàng",
         advanced: [

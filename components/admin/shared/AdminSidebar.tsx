@@ -154,7 +154,7 @@ export default function AdminSidebar() {
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
   const isAdmin = isAdminRole(user?.role);
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const orderRouteAccess = resolveOrderRouteAccess({
     canViewSystemOrders,
@@ -168,7 +168,8 @@ export default function AdminSidebar() {
   const canAccessTransfers = hasAnyPermission(TRANSFER_PERMISSIONS);
   const canAccessInventoryChecks = hasAnyPermission(INVENTORY_CHECK_PERMISSIONS);
   const canAccessCustomerChat = hasAnyPermission(CUSTOMER_CHAT_PERMISSIONS);
-  const canAccessOrderManagement = orderRouteAccess.canAccessOrderModule;
+  const canAccessOrderManagement =
+    hasPermission(P.ORDER_VIEW) || orderRouteAccess.canAccessOrderModule;
   const canAccessRoleModule = hasAnyPermission([
     P.ROLE_VIEW,
     P.ROLE_CREATE,
