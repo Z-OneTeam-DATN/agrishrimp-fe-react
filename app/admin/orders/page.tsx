@@ -1,5 +1,5 @@
-import { LegacyOrderRouteRedirect } from "@/components/admin/orders/LegacyOrderRouteRedirect";
+import OrderListEntryPage from "@/components/admin/orders/OrderListEntryPage";
 
 export default function AdminOrdersPage() {
-  return <LegacyOrderRouteRedirect />;
+  return <OrderListEntryPage title="Danh sách đơn hàng" />;
 }

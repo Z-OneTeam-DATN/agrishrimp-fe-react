@@ -728,7 +728,7 @@ export default function AdminSidebar() {
                       isChild
                     />
                   ) : null}
-                  {canViewSystemOrders ? (
+                  {canAccessOrderManagement ? (
                     <SidebarLink
                       href="/admin/orders/incomplete"
                       icon={List}
@@ -1095,6 +1095,8 @@ function SidebarLink({
 }: any) {
   const router = useRouter();
   const canPrefetch = typeof href === "string" && href.startsWith("/");
+  const displayLabel =
+    href === "/admin/orders" ? "Danh sách đơn hàng" : label;
 
   return (
     <Link
@@ -1140,7 +1142,7 @@ function SidebarLink({
             )}
           />
         </div>
-        <span className="truncate">{label}</span>
+        <span className="truncate">{displayLabel}</span>
       </div>
       {badge !== undefined && badge > 0 && (
         <Badge

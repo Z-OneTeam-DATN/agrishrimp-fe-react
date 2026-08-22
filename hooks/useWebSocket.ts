@@ -7,7 +7,12 @@ import { useChatStore } from "@/stores/useChatStore";
 import { useNotificationStore } from "@/stores/useNotificationStore";
 import { useTypingStore } from "@/stores/useTypingStore";
 import { ChatMessage, Notification } from "@/app/types/chat.types";
+import { OrderRealtimeEvent } from "@/app/types/order.types";
 import { ChatService } from "@/app/services/chat.service";
+import { usePermissions } from "@/hooks/usePermissions";
+import { canUseBranchOrderRoutes } from "@/lib/order-routing";
+import { markOrderRefreshNeeded } from "@/lib/order-refresh";
+import { P } from "@/lib/permissions";
 import { normalizeRoleSlug } from "@/lib/roles";
 
 // Use SOCKET_URL (no /api suffix) to build the correct ws-native endpoint
@@ -21,16 +26,28 @@ function buildWsUrl(socketUrl: string) {
 export function useWebSocket() {
   const clientRef = useRef<Client | null>(null);
   const subscriptionsRef = useRef<StompSubscription[]>([]);
-  const { user, accessToken, isAuthenticated } = useAuthStore();
+  const orderRefreshTimerRef = useRef<number | null>(null);
+  const { user, accessToken, isAuthenticated, warehouseId } = useAuthStore();
+  const { hasPermission } = usePermissions();
   const { addMessage, updateConversationLastMsg, addOrUpdateConversation, markConvRead } = useChatStore();
   const { addNotification } = useNotificationStore();
   const { setTyping } = useTypingStore();
   const roleSlug = normalizeRoleSlug((user as any)?.role);
   const isStaff = Boolean(roleSlug && roleSlug !== "CUSTOMER");
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
+  const canUseBranchOrders =
+    hasPermission(P.ORDER_VIEW) &&
+    canUseBranchOrderRoutes(user, warehouseId) &&
+    !canViewSystemOrders;
+  const branchRealtimeScopeId = user?.branch?.id ?? warehouseId ?? null;
 
   const disconnect = useCallback(() => {
     subscriptionsRef.current.forEach((s) => { try { s.unsubscribe(); } catch {} });
     subscriptionsRef.current = [];
+    if (orderRefreshTimerRef.current !== null) {
+      window.clearTimeout(orderRefreshTimerRef.current);
+      orderRefreshTimerRef.current = null;
+    }
     if (clientRef.current) {
       clientRef.current.deactivate();
     }
@@ -38,6 +55,28 @@ export function useWebSocket() {
   }, []);
 
   const attemptsRef = useRef(0);
+
+  const queueOrderRefresh = useCallback((event: OrderRealtimeEvent) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (orderRefreshTimerRef.current !== null) {
+      window.clearTimeout(orderRefreshTimerRef.current);
+    }
+
+    orderRefreshTimerRef.current = window.setTimeout(() => {
+      markOrderRefreshNeeded({
+        scope: canViewSystemOrders ? "admin" : "branch",
+        orderId: event.orderId,
+        branchIds: event.branchIds ?? [],
+        eventType: event.eventType,
+        occurredAt: event.occurredAt ?? undefined,
+        reason: "websocket",
+      });
+      orderRefreshTimerRef.current = null;
+    }, 250);
+  }, [canViewSystemOrders]);
 
   /**
    * Handle an incoming shop message (from /topic/shop-messages):
@@ -158,6 +197,31 @@ export function useWebSocket() {
           subs.push(shopSub, shopTypingSub, shopViewersSub);
         }
 
+        if (canViewSystemOrders) {
+          const orderSub = client.subscribe("/topic/orders/all", (frame) => {
+            try {
+              const event: OrderRealtimeEvent = JSON.parse(frame.body);
+              if (event?.orderId) {
+                queueOrderRefresh(event);
+              }
+            } catch {}
+          });
+          subs.push(orderSub);
+        } else if (canUseBranchOrders && branchRealtimeScopeId) {
+          const branchOrderSub = client.subscribe(
+            `/topic/orders/branch/${branchRealtimeScopeId}`,
+            (frame) => {
+              try {
+                const event: OrderRealtimeEvent = JSON.parse(frame.body);
+                if (event?.orderId) {
+                  queueOrderRefresh(event);
+                }
+              } catch {}
+            },
+          );
+          subs.push(branchOrderSub);
+        }
+
         subscriptionsRef.current = subs;
       },
       onDisconnect: () => {
@@ -174,7 +238,7 @@ export function useWebSocket() {
 
     clientRef.current = client;
     client.activate();
-  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage, markConvRead]);
+  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage, markConvRead, canUseBranchOrders, canViewSystemOrders, branchRealtimeScopeId, queueOrderRefresh]);
 
   useEffect(() => {
     connect();

@@ -129,6 +129,8 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/ai-knowledge/approvals": "Duyệt phác đồ",
 };
 
+ADMIN_ROUTE_LABELS["/admin/orders-processing"] = "Xử lý đơn hàng";
+
 const HIDDEN_BREADCRUMB_PATHS = new Set([
   "/admin/employees",
 ]);

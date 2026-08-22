@@ -328,3 +328,13 @@ export interface BranchOrder {
   overdueShippingDays?: number
   items: BranchOrderItem[]
 }
+
+export interface OrderRealtimeEvent {
+  eventType: string
+  orderId: number
+  orderCode?: string | null
+  branchIds?: number[]
+  orderStatus?: OrderStatus | LegacyOrderStatus | null
+  paymentStatus?: OrderPaymentStatus | null
+  occurredAt?: string | null
+}
