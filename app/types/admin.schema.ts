@@ -210,6 +210,21 @@ export const EmployeeSchema = z.object({
 export type EmployeeFormValues = z.infer<typeof EmployeeSchema>;
 
 // viết bắt lỗi chi nhánh form
+const coordinateSchema = (min: number, max: number, minMessage: string, maxMessage: string) =>
+    z.preprocess(
+        (value) => {
+            if (value === "" || value === null || value === undefined) return null;
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : value;
+        },
+        z
+            .number({ invalid_type_error: "Toa do phai la so" })
+            .min(min, minMessage)
+            .max(max, maxMessage)
+            .nullable()
+            .optional(),
+    );
+
 export const AdminBranchSchema = z.object({
     id: z
         .string()
@@ -250,19 +265,9 @@ export const AdminBranchSchema = z.object({
         .min(5, "Vui lòng nhập địa chỉ chi tiết (số nhà, tên đường)")
         .max(255, "Địa chỉ quá dài"),
 
-    lat: z
-        .number({ invalid_type_error: "Vĩ độ phải là số" })
-        .min(-90, "Vĩ độ không hợp lệ")
-        .max(90, "Vĩ độ không hợp lệ")
-        .nullable()
-        .optional(),
+    lat: coordinateSchema(-90, 90, "Vi do khong hop le", "Vi do khong hop le"),
 
-    lng: z
-        .number({ invalid_type_error: "Kinh độ phải là số" })
-        .min(-180, "Kinh độ không hợp lệ")
-        .max(180, "Kinh độ không hợp lệ")
-        .nullable()
-        .optional(),
+    lng: coordinateSchema(-180, 180, "Kinh do khong hop le", "Kinh do khong hop le"),
 
     status: z
         .enum(["ACTIVE", "MAINT", "INACTIVE", "active", "inactive"]) // Cho phép cả 2 để an toàn

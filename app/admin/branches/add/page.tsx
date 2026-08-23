@@ -1426,6 +1426,17 @@ export default function AddBranchPage() {
                 latitude={watchedLat}
                 longitude={watchedLng}
                 displayName={mapDisplayName}
+                onPositionChange={(lat, lng) => {
+                  setValue("lat", lat, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  setValue("lng", lng, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  setMapDisplayName(buildFullAddress(addressDetailValue || ""));
+                }}
               />
 
               <input type="hidden" {...register("lat")} />

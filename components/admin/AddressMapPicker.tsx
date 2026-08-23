@@ -8,12 +8,14 @@ import {
   Popup,
   TileLayer,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 
 type AddressMapPickerProps = {
   latitude?: number | string | null;
   longitude?: number | string | null;
   displayName?: string;
+  onPositionChange?: (lat: number, lng: number) => void;
 };
 
 type MapRecenterProps = {
@@ -56,10 +58,25 @@ function MapRecenter({ position }: MapRecenterProps) {
   return null;
 }
 
+function MapClickHandler({
+  onPositionChange,
+}: {
+  onPositionChange?: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(event) {
+      onPositionChange?.(event.latlng.lat, event.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
 export default function AddressMapPicker({
   latitude,
   longitude,
   displayName,
+  onPositionChange,
 }: AddressMapPickerProps) {
   const lat = Number(latitude);
   const lng = Number(longitude);
@@ -80,8 +97,20 @@ export default function AddressMapPicker({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapRecenter position={position} />
+          <MapClickHandler onPositionChange={onPositionChange} />
           {position && (
-            <Marker position={position} icon={markerIcon}>
+            <Marker
+              position={position}
+              icon={markerIcon}
+              draggable={Boolean(onPositionChange)}
+              eventHandlers={{
+                dragend(event) {
+                  const marker = event.target;
+                  const nextPosition = marker.getLatLng();
+                  onPositionChange?.(nextPosition.lat, nextPosition.lng);
+                },
+              }}
+            >
               <Popup>{displayName || "Vi tri chi nhanh"}</Popup>
             </Marker>
           )}
@@ -93,7 +122,7 @@ export default function AddressMapPicker({
         </p>
       ) : (
         <p className="mt-2 text-[11px] leading-5 text-slate-400">
-          Chon goi y dia chi de hien thi marker tren ban do.
+          Nhap dia chi de tu dinh vi, hoac click tren ban do de chon vi tri.
         </p>
       )}
     </div>
