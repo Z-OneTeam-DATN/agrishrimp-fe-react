@@ -622,14 +622,14 @@ export default function AddBranchPage() {
       .filter(Boolean)
       .join(", ");
 
-  const syncSelectedMapLocation = (item: any) => {
+  const syncSelectedMapLocation = (item: any, replaceAddressDetail = true) => {
     const typedDetail = addressDetailValue?.trim();
     const fallbackDetail = getScopedAddressDetail(
       item.sourceDisplayName || item.label || "",
     );
     const nextDetail = fallbackDetail || typedDetail;
 
-    if (fallbackDetail) {
+    if (replaceAddressDetail && fallbackDetail) {
       setValue("addressDetail", fallbackDetail, {
         shouldDirty: true,
         shouldValidate: true,
@@ -797,6 +797,16 @@ export default function AddBranchPage() {
 
         setAddressSuggestions(nextSuggestions);
         setShowSuggestions(nextSuggestions.length > 0);
+
+        const canAutoLocate =
+          Boolean(currentProvince) &&
+          Boolean(currentDistrict) &&
+          Boolean(currentWard) &&
+          input.length >= 5;
+        const bestSuggestion = nextSuggestions[0];
+        if (canAutoLocate && bestSuggestion) {
+          syncSelectedMapLocation(bestSuggestion, false);
+        }
       } catch (e) {
         if (requestId !== addressSuggestionRequestRef.current) {
           return;
