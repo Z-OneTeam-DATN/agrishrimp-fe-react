@@ -24,6 +24,19 @@ type MapRecenterProps = {
 
 const DEFAULT_CENTER: [number, number] = [10.0452, 105.7469];
 
+const parseCoordinate = (value: number | string | null | undefined) => {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const markerIcon = L.divIcon({
   className: "",
   html: `
@@ -78,10 +91,15 @@ export default function AddressMapPicker({
   displayName,
   onPositionChange,
 }: AddressMapPickerProps) {
-  const lat = Number(latitude);
-  const lng = Number(longitude);
-  const hasPosition = Number.isFinite(lat) && Number.isFinite(lng);
-  const position: [number, number] | null = hasPosition ? [lat, lng] : null;
+  const lat = parseCoordinate(latitude);
+  const lng = parseCoordinate(longitude);
+  const isZeroCoordinate =
+    lat !== null &&
+    lng !== null &&
+    Math.abs(lat) < 0.000001 &&
+    Math.abs(lng) < 0.000001;
+  const position: [number, number] | null =
+    lat !== null && lng !== null && !isZeroCoordinate ? [lat, lng] : null;
 
   return (
     <div className="xl:col-span-12">
@@ -94,7 +112,7 @@ export default function AddressMapPicker({
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url="/api/map/tiles/{z}/{x}/{y}"
           />
           <MapRecenter position={position} />
           <MapClickHandler onPositionChange={onPositionChange} />

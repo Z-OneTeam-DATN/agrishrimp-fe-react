@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const OPENMAP_BASE_URL = "https://mapapis.openmap.vn/v1";
 const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
+const PHOTON_SEARCH_URL = "https://photon.komoot.io/api/";
+
+async function searchOpenMapForward(query: string, apiKey: string) {
+  const params = new URLSearchParams({
+    text: query,
+    size: "5",
+    admin_v2: "true",
+    apikey: apiKey,
+  });
+
+  const response = await fetch(
+    `${OPENMAP_BASE_URL}/geocode/forward?${params.toString()}`,
+    {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const results = await response.json();
+  return Array.isArray(results?.features) ? results.features : [];
+}
 
 async function searchNominatim(query: string) {
   const params = new URLSearchParams({
@@ -26,6 +54,28 @@ async function searchNominatim(query: string) {
 
   const results = await response.json();
   return Array.isArray(results) ? results : [];
+}
+
+async function searchPhoton(query: string) {
+  const params = new URLSearchParams({
+    q: query,
+    limit: "5",
+  });
+
+  const response = await fetch(`${PHOTON_SEARCH_URL}?${params.toString()}`, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "AgriShrimp/1.0 (branch-address-search)",
+    },
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const results = await response.json();
+  return Array.isArray(results?.features) ? results.features : [];
 }
 
 function normalizeSearchText(value: string) {
@@ -67,13 +117,13 @@ function buildInputVariants(input: string) {
     addVariant(withoutLeadingHouseNumber);
 
     const withoutExtension = value
-      .replace(/\b(noi dai|noi dai\.|extended)\b/gi, "")
+      .replace(/\b(noi dai|noi dai\.|nối dài|nối dài\.|extended)\b/gi, "")
       .replace(/\s+/g, " ")
       .trim();
     addVariant(withoutExtension);
 
     const withoutHouseNumberAndExtension = withoutLeadingHouseNumber
-      .replace(/\b(noi dai|noi dai\.|extended)\b/gi, "")
+      .replace(/\b(noi dai|noi dai\.|nối dài|nối dài\.|extended)\b/gi, "")
       .replace(/\s+/g, " ")
       .trim();
     addVariant(withoutHouseNumberAndExtension);
@@ -83,22 +133,125 @@ function buildInputVariants(input: string) {
 }
 
 function scoreByScope(item: any, province: string, district: string, ward: string) {
-  const label = normalizeSearchText(item.label || "");
+  const actualProvince = normalizeSearchText(item.province || "");
+  const actualDistrict = normalizeSearchText(item.district || "");
+  const actualWard = normalizeSearchText(item.ward || "");
   const expectedProvince = normalizeSearchText(province);
   const expectedDistrict = normalizeSearchText(district);
   const expectedWard = normalizeSearchText(ward);
 
   let score = 0;
-  if (expectedProvince && label.includes(expectedProvince)) {
+  if (
+    expectedProvince &&
+    actualProvince &&
+    (actualProvince.includes(expectedProvince) ||
+      expectedProvince.includes(actualProvince))
+  ) {
     score += 1;
   }
-  if (expectedDistrict && label.includes(expectedDistrict)) {
-    score += 2;
+  if (expectedDistrict && actualDistrict) {
+    score +=
+      actualDistrict.includes(expectedDistrict) ||
+      expectedDistrict.includes(actualDistrict)
+        ? 12
+        : -12;
   }
-  if (expectedWard && label.includes(expectedWard)) {
-    score += 4;
+  if (expectedWard && actualWard) {
+    score +=
+      actualWard.includes(expectedWard) || expectedWard.includes(actualWard)
+        ? 16
+        : -16;
   }
   return score;
+}
+
+function stripAdministrativePrefix(value: string) {
+  return value
+    .replace(
+      /\b(phường|phuong|xã|xa|thị trấn|thi tran|quận|quan|huyện|huyen|thành phố|thanh pho|tp)\b\.?/gi,
+      "",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreInputVariant(value: string) {
+  const normalizedValue = normalizeSearchText(value);
+  let penalty = value.length;
+  if (/^\d/.test(normalizedValue)) penalty += 80;
+  if (/\b(noi dai|nối dài|extended)\b/i.test(value)) penalty += 40;
+  if (value === normalizedValue) penalty += 8;
+  return penalty;
+}
+
+function mapNominatimItem(item: any, fallbackLabel: string, accuracy = "address") {
+  const address = item?.address ?? {};
+  return {
+    label: item?.display_name || fallbackLabel,
+    province: address.city || address.state || address.province || "",
+    district: address.city_district || address.county || address.district || "",
+    ward: address.suburb || address.quarter || address.village || address.hamlet || "",
+    lat: item?.lat ? Number(item.lat) : undefined,
+    lng: item?.lon ? Number(item.lon) : undefined,
+    source: "nominatim",
+    accuracy,
+  };
+}
+
+function mapPhotonItem(item: any, fallbackLabel: string, accuracy = "address") {
+  const properties = item?.properties ?? {};
+  const coordinates = item?.geometry?.coordinates ?? [];
+  const label = [
+    properties.name,
+    properties.housenumber
+      ? `${properties.housenumber} ${properties.street || ""}`.trim()
+      : properties.street,
+    properties.district,
+    properties.city,
+    properties.state,
+    properties.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    label: label || fallbackLabel,
+    province: properties.state || properties.city || "",
+    district: properties.district || properties.county || "",
+    ward: properties.locality || properties.suburb || "",
+    lat: Number(coordinates[1]),
+    lng: Number(coordinates[0]),
+    source: "photon",
+    accuracy,
+  };
+}
+
+function mapOpenMapItem(item: any, fallbackLabel: string, accuracy = "address") {
+  const properties = item?.properties ?? {};
+  const coordinates = item?.geometry?.coordinates ?? [];
+  return {
+    label: properties.label || properties.name || fallbackLabel,
+    province: properties.region || "",
+    district: properties.county || "",
+    ward: properties.locality || "",
+    lat: Number(coordinates[1]),
+    lng: Number(coordinates[0]),
+    source: "openmapvn",
+    accuracy,
+    placeId: properties.id || "",
+  };
+}
+
+function isResultInExpectedProvince(item: any, province: string) {
+  const expectedProvince = normalizeSearchText(province);
+  const actualProvince = normalizeSearchText(item.province || "");
+  const label = normalizeSearchText(item.label || "");
+  return (
+    !expectedProvince ||
+    actualProvince.includes(expectedProvince) ||
+    expectedProvince.includes(actualProvince) ||
+    label.includes(expectedProvince)
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -106,51 +259,116 @@ export async function GET(request: NextRequest) {
   const province = request.nextUrl.searchParams.get("province")?.trim() ?? "";
   const district = request.nextUrl.searchParams.get("district")?.trim() ?? "";
   const ward = request.nextUrl.searchParams.get("ward")?.trim() ?? "";
+  const openMapApiKey = process.env.OPENMAP_API_KEY?.trim() ?? "";
 
   if (input.length < 3 || !province) {
     return NextResponse.json([]);
   }
 
   const inputVariants = buildInputVariants(input)
-    .sort((left, right) => left.length - right.length)
+    .sort((left, right) => scoreInputVariant(left) - scoreInputVariant(right))
     .slice(0, 4);
   const provinceAscii = normalizeSearchText(province);
   const districtAscii = normalizeSearchText(district);
+  const wardAscii = normalizeSearchText(ward);
+  const provinceName = stripAdministrativePrefix(province);
+  const districtName = stripAdministrativePrefix(district);
+  const wardName = stripAdministrativePrefix(ward);
   const queryCandidates = inputVariants
     .flatMap((inputVariant) => [
-      [inputVariant, district, province, "Vietnam"],
-      [inputVariant, districtAscii, provinceAscii, "Vietnam"],
       [inputVariant, province, "Vietnam"],
+      [inputVariant, districtName, provinceName, "Vietnam"],
+      [inputVariant, wardName, districtName, provinceName, "Vietnam"],
       [inputVariant, provinceAscii, "Vietnam"],
+      [inputVariant, districtAscii, provinceAscii, "Vietnam"],
+      [inputVariant, wardAscii, districtAscii, provinceAscii, "Vietnam"],
     ])
     .map((parts) => parts.filter(Boolean).join(", "))
     .filter((query, index, queries) => queries.indexOf(query) === index)
+    .slice(0, 6);
+  const photonQueryCandidates = inputVariants
+    .flatMap((inputVariant) => [
+      [inputVariant, provinceAscii, "vietnam"],
+      [inputVariant, districtAscii, provinceAscii, "vietnam"],
+      [inputVariant, wardAscii, districtAscii, provinceAscii, "vietnam"],
+    ])
+    .map((parts) => normalizeSearchText(parts.filter(Boolean).join(" ")))
+    .filter((query, index, queries) => query && queries.indexOf(query) === index)
+    .slice(0, 4);
+  const openMapQueryCandidates = [
+    [input, ward, district, province],
+    ...inputVariants.flatMap((inputVariant) => [
+      [inputVariant, ward, district, province],
+      [inputVariant, district, province],
+      [inputVariant, province],
+    ]),
+  ]
+    .map((parts) => parts.filter(Boolean).join(", "))
+    .filter((query, index, queries) => query && queries.indexOf(query) === index)
     .slice(0, 8);
 
   try {
-    const mergedResults: any[] = [];
-    for (const query of queryCandidates) {
-      const results = await searchNominatim(query);
-      mergedResults.push(...results);
-      if (mergedResults.length >= 5) {
-        break;
+    const openMapResults: any[] = [];
+    if (openMapApiKey) {
+      for (const query of openMapQueryCandidates) {
+        const results = await searchOpenMapForward(query, openMapApiKey);
+        const scopedResults = results.filter((item: any) =>
+          isResultInExpectedProvince(
+            mapOpenMapItem(item, openMapQueryCandidates[0]),
+            province,
+          ),
+        );
+        openMapResults.push(...scopedResults);
+        if (scopedResults.length > 0) {
+          break;
+        }
       }
     }
 
-    return NextResponse.json(
-      mergedResults
-        .map((item: any) => {
-          const address = item?.address ?? {};
-          return {
-            label: item?.display_name || queryCandidates[0],
-            province: address.city || address.state || address.province || province,
-            district: address.city_district || address.county || address.district || district,
-            ward: address.suburb || address.quarter || address.village || address.hamlet || ward,
-            lat: item?.lat ? Number(item.lat) : undefined,
-            lng: item?.lon ? Number(item.lon) : undefined,
-          };
-        })
+    let mappedResults: any[] = openMapResults
+      .map((item: any) => mapOpenMapItem(item, openMapQueryCandidates[0]))
+      .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
+      .filter((item: any) => isResultInExpectedProvince(item, province))
+      .filter(
+        (item: any, index: number, array: any[]) =>
+          array.findIndex(
+            (current) =>
+              current.label === item.label ||
+              `${current.lat},${current.lng}` === `${item.lat},${item.lng}`,
+          ) === index,
+      )
+      .sort(
+        (left: any, right: any) =>
+          scoreByScope(right, province, district, ward) -
+          scoreByScope(left, province, district, ward),
+      );
+
+    const photonResults: any[] = [];
+    if (mappedResults.length === 0) {
+      for (const query of photonQueryCandidates) {
+        const results = await searchPhoton(query);
+        photonResults.push(...results);
+        if (photonResults.length > 0) {
+          break;
+        }
+      }
+    }
+
+    if (mappedResults.length === 0) {
+      mappedResults = photonResults
+        .map((item: any) => mapPhotonItem(item, photonQueryCandidates[0]))
         .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
+        .filter((item: any) => {
+          if (item.source === "photon") return true;
+          const actualDistrict = normalizeSearchText(item.district || "");
+          const expectedDistrict = normalizeSearchText(district);
+          return (
+            !actualDistrict ||
+            !expectedDistrict ||
+            actualDistrict.includes(expectedDistrict) ||
+            expectedDistrict.includes(actualDistrict)
+          );
+        })
         .filter(
           (item: any, index: number, array: any[]) =>
             array.findIndex(
@@ -163,9 +381,48 @@ export async function GET(request: NextRequest) {
           (left: any, right: any) =>
             scoreByScope(right, province, district, ward) -
             scoreByScope(left, province, district, ward),
-        )
-        .slice(0, 5),
-    );
+        );
+    }
+
+    if (mappedResults.length === 0) {
+      const mergedResults: any[] = [];
+      for (const query of queryCandidates) {
+        const results = await searchNominatim(query);
+        mergedResults.push(...results);
+        if (mergedResults.length > 0) {
+          break;
+        }
+      }
+
+      mappedResults = mergedResults
+        .map((item: any) => mapNominatimItem(item, queryCandidates[0]))
+        .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+    }
+
+    if (mappedResults.length === 0) {
+      const fallbackQueries = [
+        [ward, district, province, "Vietnam"],
+        [wardName, districtName, provinceName, "Vietnam"],
+        [district, province, "Vietnam"],
+        [districtName, provinceName, "Vietnam"],
+        [province, "Vietnam"],
+        [provinceName, "Vietnam"],
+      ]
+        .map((parts) => parts.filter(Boolean).join(", "))
+        .filter((query, index, queries) => query && queries.indexOf(query) === index);
+
+      for (const query of fallbackQueries) {
+        const fallbackResults = await searchNominatim(query);
+        mappedResults.push(
+          ...fallbackResults.map((item: any) =>
+            mapNominatimItem(item, query, ward ? "ward" : "district"),
+          ),
+        );
+        if (mappedResults.length > 0) break;
+      }
+    }
+
+    return NextResponse.json(mappedResults.slice(0, 5));
   } catch (error) {
     console.error("[/api/nominatim/search] Error:", error);
     return NextResponse.json([]);

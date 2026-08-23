@@ -66,6 +66,28 @@ const withDistrictScope = (ward: any, district: any) => ({
   __districtName: getDistName(district),
 });
 
+const toFiniteCoordinate = (value: unknown) => {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const hasValidCoordinatePair = (latValue: unknown, lngValue: unknown) => {
+  const lat = toFiniteCoordinate(latValue);
+  const lng = toFiniteCoordinate(lngValue);
+  return (
+    lat !== null &&
+    lng !== null &&
+    !(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001)
+  );
+};
+
 const normalizeAddressText = (text: string) => {
   return text
     .toLowerCase()
@@ -241,6 +263,8 @@ export default function AddBranchPage() {
     handleSubmit,
     control,
     setValue,
+    getValues,
+    clearErrors,
     reset,
     watch,
     formState: { errors },
@@ -564,9 +588,22 @@ export default function AddBranchPage() {
 
     loadDistrictWardScopes(watchedDistrict, districts)
       .then((wardList) => {
+        const selectedWard = String(getValues("ward") || "");
+        const wardStillBelongsToDistrict = wardList.some(
+          (ward: any) => String(getWardId(ward)) === selectedWard,
+        );
+
         setWards(wardList);
         loadedDistrictRef.current = watchedDistrict;
-        setValue("ward", "", { shouldDirty: true, shouldValidate: true });
+        if (selectedWard && wardStillBelongsToDistrict) {
+          setValue("ward", selectedWard, {
+            shouldDirty: false,
+            shouldValidate: true,
+          });
+          clearErrors("ward");
+        } else if (selectedWard) {
+          setValue("ward", "", { shouldDirty: true, shouldValidate: true });
+        }
       })
       .catch(() => {
         setWards([]);
@@ -580,6 +617,8 @@ export default function AddBranchPage() {
     isFormInitialized,
     isLoading,
     setValue,
+    getValues,
+    clearErrors,
   ]);
 
   const getScopedAddressDetail = (label: string) => {
@@ -645,60 +684,6 @@ export default function AddBranchPage() {
     }
   };
 
-  const syncSelectedAdministrativeScope = async (item: any) => {
-    if (!currentProvince || (!item?.district && !item?.ward)) return;
-
-    const districtList =
-      districts.length > 0
-        ? districts
-        : (await loadProvinceAddressScopes(String(getProvId(currentProvince)))).districtList;
-
-    setDistricts(districtList);
-
-    const matchedDistrict = item.district
-      ? resolveLocationOption(
-          districtList,
-          [],
-          [item.district],
-          getDistId,
-          getDistName,
-        )
-      : undefined;
-
-    const nextDistrict = matchedDistrict
-      ? String(getDistId(matchedDistrict))
-      : watchedDistrict && watchedDistrict !== NO_DISTRICT_VALUE
-        ? watchedDistrict
-        : "";
-    const wardList = nextDistrict
-      ? await loadDistrictWardScopes(nextDistrict, districtList)
-      : [];
-    setWards(wardList);
-
-    const matchedWard = item.ward
-      ? resolveLocationOption(
-          wardList,
-          [],
-          [item.ward],
-          getWardId,
-          getWardName,
-        )
-      : undefined;
-
-    if (nextDistrict) {
-      setValue("district", nextDistrict, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    }
-    if (matchedWard) {
-      setValue("ward", String(getWardId(matchedWard)), {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    }
-  };
-
   const resolveTypedAddressLocation = async (input?: string) => {
     const detail = (input ?? addressDetailValue ?? "").trim();
     if (!detail || !currentProvince) return null;
@@ -707,8 +692,9 @@ export default function AddBranchPage() {
     const bestSuggestion = suggestions[0];
     if (!bestSuggestion) return null;
 
-    syncSelectedMapLocation(bestSuggestion);
-    await syncSelectedAdministrativeScope(bestSuggestion);
+    // Province/district/ward are authoritative GHN shipping fields. Geocoding
+    // only resolves map coordinates and must never overwrite those selections.
+    syncSelectedMapLocation(bestSuggestion, false);
     setAddressSuggestions(suggestions);
     setShowSuggestions(false);
     return {
@@ -755,6 +741,9 @@ export default function AddBranchPage() {
           lat: item.lat ? Number(item.lat) : undefined,
           lng: item.lng ? Number(item.lng) : undefined,
           mapDisplayName: item.label || buildFullAddress(input),
+          source: item.source || "nominatim",
+          locationType: item.locationType || "",
+          placeId: item.placeId || "",
         };
       })
       .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
@@ -844,16 +833,16 @@ export default function AddBranchPage() {
   }, []);
 
   const normalizeText = normalizeAddressText;
-  const toFiniteCoordinate = (value: unknown) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
   const onSubmit = async (data: AdminBranchForm) => {
     try {
       setIsLoading(true);
       let resolvedLat = toFiniteCoordinate(data.lat);
       let resolvedLng = toFiniteCoordinate(data.lng);
+
+      if (!hasValidCoordinatePair(resolvedLat, resolvedLng)) {
+        resolvedLat = null;
+        resolvedLng = null;
+      }
 
       if (
         (resolvedLat === null || resolvedLng === null) &&
@@ -886,7 +875,7 @@ export default function AddBranchPage() {
           : "";
       const resolvedWardCode = selectedWardObj
         ? String(getWardId(selectedWardObj))
-        : String(data.ward || "");
+        : "";
 
       if (!resolvedDistrictId) {
         toast.error("Vui long chon Quan/Huyen GHN de tinh phi giao hang.");
@@ -906,7 +895,7 @@ export default function AddBranchPage() {
         return;
       }
 
-      if (data.ward && (!selectedWardObj || !resolvedWardCode)) {
+      if (!selectedWardObj || !resolvedWardCode) {
         toast.error("Vui lòng chọn Phường/Xã từ danh sách GHN hoặc bỏ trống để tính theo tỉnh.");
         setIsLoading(false);
         return;
@@ -1017,8 +1006,7 @@ export default function AddBranchPage() {
     }
     if (!watchedProvince) missing.push("Tỉnh/Thành GHN");
     if (
-      toFiniteCoordinate(watchedLat) === null ||
-      toFiniteCoordinate(watchedLng) === null
+      !hasValidCoordinatePair(watchedLat, watchedLng)
     ) {
       missing.push("tọa độ bản đồ");
     }
@@ -1282,7 +1270,12 @@ export default function AddBranchPage() {
                         if (open) setSearchTerm("");
                       }}
                       onValueChange={(val) => {
-                        field.onChange(val);
+                        setValue("ward", val, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: true,
+                        });
+                        clearErrors("ward");
                         const selectedWard = wards.find(
                           (ward: any) => String(getWardId(ward)) === val,
                         );
@@ -1352,9 +1345,10 @@ export default function AddBranchPage() {
                     }}
                     onBlur={() => {
                       window.setTimeout(() => {
-                        const hasCoordinates =
-                          toFiniteCoordinate(watch("lat")) !== null &&
-                          toFiniteCoordinate(watch("lng")) !== null;
+                        const hasCoordinates = hasValidCoordinatePair(
+                          watch("lat"),
+                          watch("lng"),
+                        );
                         if (!hasCoordinates) {
                           void resolveTypedAddressLocation();
                         }
@@ -1390,7 +1384,6 @@ export default function AddBranchPage() {
                         className="cursor-pointer border-b px-4 py-2 text-[12px] hover:bg-slate-50"
                         onClick={async () => {
                           syncSelectedMapLocation(item);
-                          await syncSelectedAdministrativeScope(item);
                           setShowSuggestions(false);
                           setAddressSuggestions([]);
                         }}

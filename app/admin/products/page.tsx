@@ -34,6 +34,7 @@ import {
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -1053,16 +1054,20 @@ export default function ProductsPage() {
                                     {paginatedVariants.map((variant, index) => {
                                         const stt = currentPage * pageSize + index + 1;
                                         const skuStatusLabel = variant.variantStatus === "ACTIVE" ? "Đang bán" : variant.variantStatus || "Không rõ";
+                                        const skuImageUrl = resolveImageUrl(variant.imageUrl, "/placeholder.svg");
                                         return (
                                             <tr key={`${variant.variantId}-${variant.sku}-${index}`} className="border-b border-[#eee] hover:bg-[#f8fbff] transition-colors">
                                                 <td className="p-2 text-center text-[11px] font-bold text-slate-500">{stt}</td>
                                                 <td className="p-2">
                                                     <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] overflow-hidden flex items-center justify-center">
-                                                        {variant.imageUrl ? (
-                                                            <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <span className="text-[9px] text-slate-300 font-bold">NO IMG</span>
-                                                        )}
+                                                        <img
+                                                            src={skuImageUrl}
+                                                            alt={variant.sku || "SKU"}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(event) => {
+                                                                event.currentTarget.src = "/placeholder.svg";
+                                                            }}
+                                                        />
                                                     </div>
                                                 </td>
                                                 <td className="p-2">

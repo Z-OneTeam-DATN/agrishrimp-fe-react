@@ -28,6 +28,7 @@ services:
       # Server-side only (không expose ra browser)
       - JAVA_API_URL=${JAVA_API_URL:-http://api:8004/api}
       - GHN_TOKEN=${GHN_TOKEN}
+      - OPENMAP_API_KEY=${OPENMAP_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - NEXT_GEMINI_API_KEY=${NEXT_GEMINI_API_KEY}
       - NODE_ENV=production
