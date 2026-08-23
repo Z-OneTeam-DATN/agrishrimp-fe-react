@@ -43,12 +43,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useOrderRealtimeSync } from "@/hooks/useOrderRealtimeSync";
 import { ADMIN_ORDER_STATUS_PAGES } from "@/lib/admin-order-status-pages";
 import { formatDate, getCurrentDayDateTimeRange } from "@/lib/dateUtils";
 import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
 import {
   readAdminOrdersRefreshSignal,
-  subscribeToOrderRefresh,
 } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
@@ -66,6 +66,7 @@ import {
   canRequestReplenishmentAction,
   OrderWorkflowBadge,
 } from "./OrderStateBadges";
+import { OrderRealtimeStatusIndicator } from "./OrderRealtimeStatusIndicator";
 import {
   ORDER_LIST_EXPANDED_ROW_CLASS,
   ORDER_LIST_HEADER_CLASS,
@@ -430,42 +431,11 @@ export default function AdminOrderListPage({
     void fetchOrders();
   }, [canViewSystemOrders, fetchOrders, isLoadingAuth]);
 
-  const refreshOrdersIfNeeded = useCallback(() => {
-    const nextSignal = readAdminOrdersRefreshSignal();
-    if (nextSignal <= lastRefreshSignalRef.current) {
-      return;
-    }
-
-    lastRefreshSignalRef.current = nextSignal;
-    void fetchOrders({ background: true });
-  }, [fetchOrders]);
-
-  useEffect(() => {
-    if (isLoadingAuth || !canViewSystemOrders) {
-      return;
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        refreshOrdersIfNeeded();
-      }
-    };
-
-    const unsubscribe = subscribeToOrderRefresh(() => {
-      refreshOrdersIfNeeded();
-    });
-
-    window.addEventListener("focus", refreshOrdersIfNeeded);
-    window.addEventListener("pageshow", refreshOrdersIfNeeded);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener("focus", refreshOrdersIfNeeded);
-      window.removeEventListener("pageshow", refreshOrdersIfNeeded);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [canViewSystemOrders, isLoadingAuth, refreshOrdersIfNeeded]);
+  useOrderRealtimeSync({
+    enabled: !isLoadingAuth && canViewSystemOrders,
+    lastRefreshSignalRef,
+    onBackgroundRefresh: () => fetchOrders({ background: true }),
+  });
 
   const pageShortageCount = useMemo(
     () => orders.filter(hasOrderShortage).length,
@@ -969,6 +939,10 @@ export default function AdminOrderListPage({
           Đang đồng bộ danh sách đơn hàng...
         </div>
       ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <OrderRealtimeStatusIndicator />
+      </div>
 
       <div className={ORDER_LIST_SHELL_CLASS}>
         <div className="w-full overflow-x-auto">

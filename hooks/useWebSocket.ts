@@ -10,10 +10,15 @@ import { ChatMessage, Notification } from "@/app/types/chat.types";
 import { OrderRealtimeEvent } from "@/app/types/order.types";
 import { ChatService } from "@/app/services/chat.service";
 import { usePermissions } from "@/hooks/usePermissions";
+import {
+  ORDER_REALTIME_HEARTBEAT_MS,
+  logOrderRealtimeDebug,
+} from "@/lib/order-realtime";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import { markOrderRefreshNeeded } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
 import { normalizeRoleSlug } from "@/lib/roles";
+import { useOrderRealtimeStore } from "@/stores/useOrderRealtimeStore";
 
 // Use SOCKET_URL (no /api suffix) to build the correct ws-native endpoint
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8004";
@@ -40,6 +45,35 @@ export function useWebSocket() {
     canUseBranchOrderRoutes(user, warehouseId) &&
     !canViewSystemOrders;
   const branchRealtimeScopeId = user?.branch?.id ?? warehouseId ?? null;
+  const {
+    markConnecting: markOrderRealtimeConnecting,
+    markConnected: markOrderRealtimeConnected,
+    markReconnecting: markOrderRealtimeReconnecting,
+    markDisconnected: markOrderRealtimeDisconnected,
+    markHeartbeatReceived: markOrderRealtimeHeartbeatReceived,
+    markOrderEventReceived: markOrderRealtimeEventReceived,
+    reset: resetOrderRealtimeState,
+  } = useOrderRealtimeStore((state) => ({
+    markConnecting: state.markConnecting,
+    markConnected: state.markConnected,
+    markReconnecting: state.markReconnecting,
+    markDisconnected: state.markDisconnected,
+    markHeartbeatReceived: state.markHeartbeatReceived,
+    markOrderEventReceived: state.markOrderEventReceived,
+    reset: state.reset,
+  }));
+
+  const getOrderRealtimeTopics = useCallback(() => {
+    if (canViewSystemOrders) {
+      return ["/topic/orders/all"];
+    }
+
+    if (canUseBranchOrders && branchRealtimeScopeId) {
+      return [`/topic/orders/branch/${branchRealtimeScopeId}`];
+    }
+
+    return [];
+  }, [branchRealtimeScopeId, canUseBranchOrders, canViewSystemOrders]);
 
   const disconnect = useCallback(() => {
     subscriptionsRef.current.forEach((s) => { try { s.unsubscribe(); } catch {} });
@@ -52,7 +86,8 @@ export function useWebSocket() {
       clientRef.current.deactivate();
     }
     clientRef.current = null;
-  }, []);
+    resetOrderRealtimeState();
+  }, [resetOrderRealtimeState]);
 
   const attemptsRef = useRef(0);
 
@@ -110,13 +145,27 @@ export function useWebSocket() {
     if (clientRef.current?.connected) return;
 
     attemptsRef.current = 0;
+    const orderTopics = getOrderRealtimeTopics();
+    markOrderRealtimeConnecting(orderTopics);
+    logOrderRealtimeDebug("Opening order WebSocket connection", {
+      brokerURL: buildWsUrl(SOCKET_URL),
+      orderTopics,
+      userId: user.id,
+    });
 
     const client = new Client({
       brokerURL: buildWsUrl(SOCKET_URL),
       connectHeaders: { Authorization: `Bearer ${accessToken}` },
       reconnectDelay: 10000,
+      heartbeatIncoming: ORDER_REALTIME_HEARTBEAT_MS,
+      heartbeatOutgoing: ORDER_REALTIME_HEARTBEAT_MS,
       onConnect: () => {
         attemptsRef.current = 0;
+        markOrderRealtimeConnected(orderTopics);
+        logOrderRealtimeDebug("Order WebSocket connected", {
+          orderTopics,
+          userId: user.id,
+        });
         const msgSub = client.subscribe(
           `/user/queue/messages`,
           (frame) => {
@@ -202,6 +251,13 @@ export function useWebSocket() {
             try {
               const event: OrderRealtimeEvent = JSON.parse(frame.body);
               if (event?.orderId) {
+                markOrderRealtimeEventReceived(event);
+                logOrderRealtimeDebug("Received system order realtime event", {
+                  eventType: event.eventType,
+                  orderId: event.orderId,
+                  orderCode: event.orderCode ?? undefined,
+                  branchIds: event.branchIds ?? [],
+                });
                 queueOrderRefresh(event);
               }
             } catch {}
@@ -214,6 +270,13 @@ export function useWebSocket() {
               try {
                 const event: OrderRealtimeEvent = JSON.parse(frame.body);
                 if (event?.orderId) {
+                  markOrderRealtimeEventReceived(event);
+                  logOrderRealtimeDebug("Received branch order realtime event", {
+                    eventType: event.eventType,
+                    orderId: event.orderId,
+                    orderCode: event.orderCode ?? undefined,
+                    branchIds: event.branchIds ?? [],
+                  });
                   queueOrderRefresh(event);
                 }
               } catch {}
@@ -224,26 +287,70 @@ export function useWebSocket() {
 
         subscriptionsRef.current = subs;
       },
+      onHeartbeatReceived: () => {
+        markOrderRealtimeHeartbeatReceived();
+      },
+      onHeartbeatLost: () => {
+        markOrderRealtimeReconnecting(orderTopics);
+        logOrderRealtimeDebug("Order WebSocket heartbeat lost", {
+          orderTopics,
+          userId: user.id,
+        });
+      },
       onDisconnect: () => {
         subscriptionsRef.current = [];
+        markOrderRealtimeDisconnected(orderTopics);
+        logOrderRealtimeDebug("Order WebSocket disconnected", {
+          orderTopics,
+          userId: user.id,
+        });
+      },
+      onWebSocketClose: (event) => {
+        subscriptionsRef.current = [];
+        markOrderRealtimeReconnecting(orderTopics);
+        logOrderRealtimeDebug("Order WebSocket closed", {
+          code: event.code,
+          reason: event.reason || "unknown",
+          orderTopics,
+          userId: user.id,
+        });
       },
       onWebSocketError: () => {
         attemptsRef.current += 1;
+        markOrderRealtimeReconnecting(orderTopics);
+        logOrderRealtimeDebug("Order WebSocket error", {
+          attempts: attemptsRef.current,
+          orderTopics,
+          userId: user.id,
+        });
       },
       onStompError: (frame) => {
         attemptsRef.current += 1;
+        markOrderRealtimeReconnecting(orderTopics);
         console.warn("STOMP error", frame.headers?.message);
+        logOrderRealtimeDebug("Order STOMP error", {
+          message: frame.headers?.message ?? "unknown",
+          attempts: attemptsRef.current,
+          orderTopics,
+          userId: user.id,
+        });
       },
     });
 
     clientRef.current = client;
     client.activate();
-  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage, markConvRead, canUseBranchOrders, canViewSystemOrders, branchRealtimeScopeId, queueOrderRefresh]);
+  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage, markConvRead, canUseBranchOrders, canViewSystemOrders, branchRealtimeScopeId, queueOrderRefresh, getOrderRealtimeTopics, markOrderRealtimeConnecting, markOrderRealtimeConnected, markOrderRealtimeReconnecting, markOrderRealtimeDisconnected, markOrderRealtimeHeartbeatReceived, markOrderRealtimeEventReceived, user?.id]);
 
   useEffect(() => {
     connect();
     return () => { disconnect(); };
   }, [connect, disconnect]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || !accessToken) {
+      resetOrderRealtimeState();
+    }
+  }, [accessToken, isAuthenticated, resetOrderRealtimeState, user?.id]);
 
   const sendMessage = useCallback((destination: string, body: any) => {
     if (clientRef.current?.connected) {
