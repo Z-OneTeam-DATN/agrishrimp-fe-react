@@ -23,11 +23,11 @@ import { MyOrder } from "@/app/types/order.types";
 import { getFriendlyError } from "@/app/utils/apiError";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useOrderRealtimeSync } from "@/hooks/useOrderRealtimeSync";
 import { formatDate } from "@/lib/dateUtils";
 import { canUseBranchOrderRoutes, resolveOrderRouteAccess } from "@/lib/order-routing";
 import {
   readAdminOrdersRefreshSignal,
-  subscribeToOrderRefresh,
 } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
@@ -46,6 +46,7 @@ import {
   PaymentStatusBadge,
   canRequestReplenishmentAction,
 } from "./OrderStateBadges";
+import { OrderRealtimeStatusIndicator } from "./OrderRealtimeStatusIndicator";
 import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
 import {
   ORDER_LIST_HEADER_CLASS,
@@ -85,6 +86,7 @@ export default function AdminOrderDetailView({
   const { user, warehouseId } = useAuthStore();
   const [order, setOrder] = useState<MyOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState<"replenishment" | "advance" | null>(
     null,
   );
@@ -122,12 +124,17 @@ export default function AdminOrderDetailView({
     router,
   ]);
 
-  const fetchOrder = useCallback(async () => {
+  const fetchOrder = useCallback(async (options?: { background?: boolean }) => {
     if (!canViewSystemOrders) {
       return;
     }
 
-    setIsLoading(true);
+    const background = options?.background ?? false;
+    if (background) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
     try {
       const data = await orderService.getAdminOrderById(orderId);
       setOrder(data);
@@ -136,10 +143,16 @@ export default function AdminOrderDetailView({
         readAdminOrdersRefreshSignal(),
       );
     } catch {
+      if (!background) {
       toast.error("Không thể tải chi tiết đơn hàng.");
       router.push(orderRouteAccess.defaultOrderListPath);
+      }
     } finally {
-      setIsLoading(false);
+      if (background) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [canViewSystemOrders, orderId, orderRouteAccess.defaultOrderListPath, router]);
 
@@ -151,42 +164,11 @@ export default function AdminOrderDetailView({
     void fetchOrder();
   }, [canViewSystemOrders, fetchOrder, isLoadingAuth]);
 
-  const refreshOrderIfNeeded = useCallback(() => {
-    const nextSignal = readAdminOrdersRefreshSignal();
-    if (nextSignal <= lastRefreshSignalRef.current) {
-      return;
-    }
-
-    lastRefreshSignalRef.current = nextSignal;
-    void fetchOrder();
-  }, [fetchOrder]);
-
-  useEffect(() => {
-    if (isLoadingAuth || !canViewSystemOrders) {
-      return;
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        refreshOrderIfNeeded();
-      }
-    };
-
-    const unsubscribe = subscribeToOrderRefresh(() => {
-      refreshOrderIfNeeded();
-    });
-
-    window.addEventListener("focus", refreshOrderIfNeeded);
-    window.addEventListener("pageshow", refreshOrderIfNeeded);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener("focus", refreshOrderIfNeeded);
-      window.removeEventListener("pageshow", refreshOrderIfNeeded);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [canViewSystemOrders, isLoadingAuth, refreshOrderIfNeeded]);
+  useOrderRealtimeSync({
+    enabled: !isLoadingAuth && canViewSystemOrders,
+    lastRefreshSignalRef,
+    onBackgroundRefresh: () => fetchOrder({ background: true }),
+  });
 
   const shortageItems = useMemo(
     () =>
@@ -309,6 +291,16 @@ export default function AdminOrderDetailView({
                 <span className="font-semibold text-blue-700">{getOrderCode(order)}</span>
               </p>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <OrderRealtimeStatusIndicator />
+            {isRefreshing ? (
+              <div className="flex items-center gap-2 text-[12px] font-medium text-blue-600">
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                Äang Ä‘á»“ng bá»™ chi tiáº¿t Ä‘Æ¡n hĂ ng...
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

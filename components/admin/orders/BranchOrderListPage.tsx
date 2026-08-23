@@ -38,17 +38,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useOrderRealtimeSync } from "@/hooks/useOrderRealtimeSync";
 import { ADMIN_ORDER_STATUS_PAGES } from "@/lib/admin-order-status-pages";
 import { formatDate, getCurrentDayDateTimeRange } from "@/lib/dateUtils";
 import { getOrderListPath } from "@/lib/order-routing";
 import {
   readAdminOrdersRefreshSignal,
-  subscribeToOrderRefresh,
 } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import { OrderWorkflowBadge, PaymentStatusBadge } from "./OrderStateBadges";
+import { OrderRealtimeStatusIndicator } from "./OrderRealtimeStatusIndicator";
 import {
   ORDER_LIST_BADGE_CLASS,
   ORDER_LIST_EXPANDED_ROW_CLASS,
@@ -397,38 +398,11 @@ export default function BranchOrderListPage({
     void fetchOrders();
   }, [fetchOrders]);
 
-  const refreshOrdersIfNeeded = useCallback(() => {
-    const nextSignal = readAdminOrdersRefreshSignal();
-    if (nextSignal <= lastRefreshSignalRef.current) {
-      return;
-    }
-
-    lastRefreshSignalRef.current = nextSignal;
-    void fetchOrders({ background: true });
-  }, [fetchOrders]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        refreshOrdersIfNeeded();
-      }
-    };
-
-    const unsubscribe = subscribeToOrderRefresh(() => {
-      refreshOrdersIfNeeded();
-    });
-
-    window.addEventListener("focus", refreshOrdersIfNeeded);
-    window.addEventListener("pageshow", refreshOrdersIfNeeded);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener("focus", refreshOrdersIfNeeded);
-      window.removeEventListener("pageshow", refreshOrdersIfNeeded);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [refreshOrdersIfNeeded]);
+  useOrderRealtimeSync({
+    enabled: true,
+    lastRefreshSignalRef,
+    onBackgroundRefresh: () => fetchOrders({ background: true }),
+  });
 
   const orders = useMemo(() => {
     if (hasStatusGroups) {
@@ -1049,6 +1023,10 @@ export default function BranchOrderListPage({
             Làm mới
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <OrderRealtimeStatusIndicator />
       </div>
 
       <div className={ORDER_LIST_SHELL_CLASS}>
