@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -10,7 +9,6 @@ import {
   MapPin,
   Package,
   Phone,
-  RefreshCw,
   Truck,
   UserRound,
   Wallet,
@@ -33,6 +31,7 @@ import {
 } from "@/lib/order-refresh";
 import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
+import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
   DeliveryStatusBadge,
@@ -43,11 +42,32 @@ import {
   getOrderMissingSkuCount,
   getOrderMissingUnitCount,
   InventoryStatusBadge,
-  canRequestReplenishmentAction,
   OrderWorkflowBadge,
   PaymentStatusBadge,
+  canRequestReplenishmentAction,
 } from "./OrderStateBadges";
 import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
+import {
+  ORDER_LIST_HEADER_CLASS,
+  ORDER_LIST_IMAGE_FRAME_CLASS,
+  ORDER_LIST_NOTE_CLASS,
+  ORDER_LIST_PANEL_CLASS,
+  ORDER_LIST_PANEL_MUTED_CLASS,
+  ORDER_LIST_PRIMARY_ACTION_CLASS,
+  ORDER_LIST_PRODUCT_CARD_CLASS,
+  ORDER_LIST_SECONDARY_ACTION_CLASS,
+  ORDER_LIST_SUBTABLE_CLASS,
+} from "./orderListStyles";
+
+const BADGE_VARIANT = "order-list-monochrome";
+const DETAIL_TABLE_HEAD_CLASS =
+  "px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500";
+const DETAIL_EMPTY_STATE_CLASS = cn(
+  ORDER_LIST_PANEL_MUTED_CLASS,
+  "text-[13px] leading-6 text-slate-600",
+);
+const DETAIL_QUANTITY_BADGE_CLASS =
+  "inline-flex min-w-8 items-center justify-center rounded-none border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700";
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -116,7 +136,7 @@ export default function AdminOrderDetailView({
         readAdminOrdersRefreshSignal(),
       );
     } catch {
-      toast.error("KhĂ´ng thá»ƒ táº£i chi tiáº¿t Ä‘Æ¡n hĂ ng.");
+      toast.error("Không thể tải chi tiết đơn hàng.");
       router.push(orderRouteAccess.defaultOrderListPath);
     } finally {
       setIsLoading(false);
@@ -176,17 +196,17 @@ export default function AdminOrderDetailView({
 
   const shortageSummary = useMemo(() => {
     if (!order) {
-      return "Äang táº£i...";
+      return "Đang tải...";
     }
 
     const missingSkuCount = getOrderMissingSkuCount(order);
     const missingUnitCount = getOrderMissingUnitCount(order);
 
     if (!missingSkuCount) {
-      return "Äá»§ hĂ ng";
+      return "Đủ hàng";
     }
 
-    return `${missingSkuCount} SKU thiáº¿u / ${missingUnitCount} Ä‘Æ¡n vá»‹`;
+    return `${missingSkuCount} SKU thiếu / ${missingUnitCount} đơn vị`;
   }, [order]);
 
   const handleRequestReplenishment = async () => {
@@ -237,10 +257,10 @@ export default function AdminOrderDetailView({
     try {
       setIsSubmitting("advance");
       await orderService.updateOrderStatus(order.id, nextAction.nextStatus);
-      toast.success(`ÄÆ¡n hĂ ng ${getOrderCode(order)} Ä‘Ă£ Ä‘Æ°á»£c cáº­p nháº­t tráº¡ng thĂ¡i.`);
+      toast.success(`Đơn hàng ${getOrderCode(order)} đã được cập nhật trạng thái.`);
       await fetchOrder();
     } catch {
-      toast.error("KhĂ´ng thá»ƒ cáº­p nháº­t tráº¡ng thĂ¡i Ä‘Æ¡n hĂ ng.");
+      toast.error("Không thể cập nhật trạng thái đơn hàng.");
     } finally {
       setIsSubmitting(null);
     }
@@ -248,11 +268,9 @@ export default function AdminOrderDetailView({
 
   if (isLoading || !order) {
     return (
-      <div className="rounded-[4px] border border-slate-200 bg-white p-10 text-center shadow-sm">
+      <div className={cn(ORDER_LIST_PANEL_CLASS, "py-10 text-center")}>
         <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-        <p className="mt-4 text-[13px] text-slate-500">
-          Äang táº£i chi tiáº¿t Ä‘Æ¡n hĂ ng...
-        </p>
+        <p className="mt-4 text-[13px] text-slate-500">Đang tải chi tiết đơn hàng...</p>
       </div>
     );
   }
@@ -270,53 +288,39 @@ export default function AdminOrderDetailView({
     hasReplenishmentDocuments || Boolean(order.replenishmentRequested);
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="space-y-5 pb-[100px] text-slate-800">
+      <section className={ORDER_LIST_PANEL_CLASS}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
+          <div className="space-y-4">
             <Button
               type="button"
-              variant="ghost"
-              className="h-auto px-0 text-blue-600 hover:bg-transparent hover:text-blue-700"
+              variant="outline"
+              className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
               onClick={() => router.push(orderRouteAccess.defaultOrderListPath)}
             >
-              <ArrowLeft className="mr-1" />
-              Quay láº¡i danh sĂ¡ch
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Quay lại danh sách
             </Button>
 
-            <div>
-              <h1 className="text-[22px] font-bold text-slate-900">
-                Chi tiáº¿t Ä‘Æ¡n hĂ ng
-              </h1>
-              <p className="mt-1 text-[13px] text-slate-500">
-                MĂ£ Ä‘Æ¡n:{" "}
-                <span className="font-semibold text-blue-700">
-                  {getOrderCode(order)}
-                </span>
+            <div className="space-y-1">
+              <h1 className="text-[22px] font-bold text-slate-900">Chi tiết đơn hàng</h1>
+              <p className="text-[13px] text-slate-500">
+                Mã đơn:{" "}
+                <span className="font-semibold text-blue-700">{getOrderCode(order)}</span>
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="hidden border-slate-200 bg-white"
-              onClick={() => void fetchOrder()}
-              disabled={isLoading}
-            >
-              <RefreshCw className={isLoading ? "animate-spin" : ""} />
-              LĂ m má»›i
-            </Button>
-
             {canCreateReplenishment ? (
               <Button
                 type="button"
-                className={
+                className={cn(
                   isReplenishmentRequested
-                    ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-rose-600 hover:bg-rose-700"
-                }
+                    ? ORDER_LIST_SECONDARY_ACTION_CLASS
+                    : ORDER_LIST_PRIMARY_ACTION_CLASS,
+                  "px-3",
+                )}
                 onClick={() =>
                   isReplenishmentRequested && hasReplenishmentDocuments
                     ? handleShowReplenishmentDocuments()
@@ -324,142 +328,138 @@ export default function AdminOrderDetailView({
                 }
                 disabled={isSubmitting !== null}
               >
-                <Package className="mr-1" />
+                <Package className="mr-1.5 h-4 w-4" />
                 {isSubmitting === "replenishment"
-                  ? "Äang xá»­ lĂ½ thiáº¿u hĂ ng..."
+                  ? "Đang xử lý thiếu hàng..."
                   : isReplenishmentRequested
-                    ? "ÄĂ£ xá»­ lĂ½ thiáº¿u hĂ ng"
-                    : "Xá»­ lĂ½ thiáº¿u hĂ ng"}
+                    ? "Đã xử lý thiếu hàng"
+                    : "Xử lý thiếu hàng"}
               </Button>
             ) : null}
 
             {nextAction ? (
               <Button
                 type="button"
-                className="bg-blue-600 hover:bg-blue-700"
+                className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
                 onClick={() => void handleAdvanceStatus()}
                 disabled={isSubmitting !== null}
               >
                 {isSubmitting === "advance"
-                  ? "Äang chuyá»ƒn tráº¡ng thĂ¡i..."
+                  ? "Đang chuyển trạng thái..."
                   : nextAction.label}
               </Button>
             ) : null}
           </div>
         </div>
-      </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DetailMetricCard
-          label="GiĂ¡ trá»‹ Ä‘Æ¡n"
+          label="Giá trị đơn"
           value={formatCurrency(order.finalAmount ?? order.totalAmount)}
-          hint={`Tiá»n hĂ ng: ${formatCurrency(order.totalAmount)}`}
-          icon={<Wallet size={18} className="text-emerald-700" />}
-          accent="bg-emerald-50"
+          hint={`Tiền hàng: ${formatCurrency(order.totalAmount)}`}
+          icon={<Wallet size={18} />}
         />
         <DetailMetricCard
-          label="Thá»i gian Ä‘áº·t"
+          label="Thời gian đặt"
           value={formatDate(order.createdAt, "dd/MM/yyyy HH:mm")}
-          hint="Theo thá»i Ä‘iá»ƒm khĂ¡ch xĂ¡c nháº­n Ä‘áº·t Ä‘Æ¡n."
-          icon={<Box size={18} className="text-blue-700" />}
-          accent="bg-blue-50"
+          hint="Theo thời điểm khách xác nhận đặt đơn."
+          icon={<Box size={18} />}
         />
         <DetailMetricCard
-          label="Chi nhĂ¡nh phá»¥ trĂ¡ch"
+          label="Chi nhánh phụ trách"
           value={getOrderBranchNames(order)[0] ?? getOrderBranchSummary(order)}
-          hint={order.branchAddress || "ChÆ°a cĂ³ Ä‘á»‹a chá»‰ chi nhĂ¡nh chĂ­nh."}
-          icon={<MapPin size={18} className="text-violet-700" />}
-          accent="bg-violet-50"
+          hint={order.branchAddress || "Chưa có địa chỉ chi nhánh chính."}
+          icon={<MapPin size={18} />}
         />
         <DetailMetricCard
-          label="TĂ¬nh tráº¡ng hĂ ng"
+          label="Tình trạng hàng"
           value={shortageSummary}
-          hint="DĂ¹ng Ä‘á»ƒ xĂ¡c Ä‘á»‹nh Ä‘Æ¡n cĂ³ cáº§n Ä‘iá»u chuyá»ƒn hay khĂ´ng."
-          icon={<AlertTriangle size={18} className="text-rose-700" />}
-          accent="bg-rose-50"
+          hint="Dùng để xác định đơn có cần điều chuyển hay không."
+          icon={<AlertTriangle size={18} />}
         />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <DetailPanel title="KhĂ¡ch hĂ ng vĂ  giao hĂ ng">
+        <DetailPanel title="Khách hàng và giao hàng">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
               <InfoLine
-                icon={<UserRound size={15} className="text-slate-400" />}
-                label="KhĂ¡ch hĂ ng"
+                icon={<UserRound size={15} className="text-blue-500" />}
+                label="Khách hàng"
                 value={order.customerName}
               />
               <InfoLine
-                icon={<Phone size={15} className="text-slate-400" />}
-                label="Sá»‘ Ä‘iá»‡n thoáº¡i"
+                icon={<Phone size={15} className="text-blue-500" />}
+                label="Số điện thoại"
                 value={order.customerPhone}
               />
               <InfoLine
-                icon={<UserRound size={15} className="text-slate-400" />}
-                label="NgÆ°á»i nháº­n"
+                icon={<UserRound size={15} className="text-blue-500" />}
+                label="Người nhận"
                 value={order.receiverName || order.customerName}
               />
               <InfoLine
-                icon={<Phone size={15} className="text-slate-400" />}
-                label="Äiá»‡n thoáº¡i nháº­n"
+                icon={<Phone size={15} className="text-blue-500" />}
+                label="Điện thoại nhận"
                 value={order.receiverPhone || order.customerPhone}
               />
             </div>
 
             <div className="space-y-3">
               <InfoLine
-                icon={<MapPin size={15} className="text-slate-400" />}
-                label="Äá»‹a chá»‰ giao hĂ ng"
+                icon={<MapPin size={15} className="text-blue-500" />}
+                label="Địa chỉ giao hàng"
                 value={order.shippingAddress}
                 multiline
               />
               <InfoLine
-                icon={<Wallet size={15} className="text-slate-400" />}
-                label="PhÆ°Æ¡ng thá»©c thanh toĂ¡n"
+                icon={<Wallet size={15} className="text-blue-500" />}
+                label="Phương thức thanh toán"
                 value={order.paymentMethod}
               />
               <InfoLine
-                icon={<Truck size={15} className="text-slate-400" />}
-                label="PhĂ­ giao hĂ ng"
+                icon={<Truck size={15} className="text-blue-500" />}
+                label="Phí giao hàng"
                 value={formatCurrency(order.totalShippingFee ?? order.shippingFee ?? 0)}
               />
             </div>
           </div>
         </DetailPanel>
 
-        <DetailPanel title="Tráº¡ng thĂ¡i xá»­ lĂ½">
+        <DetailPanel title="Trạng thái xử lý">
           <div className="grid gap-4 md:grid-cols-2">
             <StatusItem
-              label="TĂ¬nh tráº¡ng hĂ ng"
-              value={<InventoryStatusBadge order={order} />}
+              label="Tình trạng hàng"
+              value={<InventoryStatusBadge order={order} variant={BADGE_VARIANT} />}
             />
             <StatusItem
-              label="Thanh toĂ¡n"
-              value={<PaymentStatusBadge status={order.paymentStatus} />}
+              label="Thanh toán"
+              value={
+                <PaymentStatusBadge status={order.paymentStatus} variant={BADGE_VARIANT} />
+              }
             />
             <StatusItem
-              label="Tráº¡ng thĂ¡i Ä‘Æ¡n"
-              value={<OrderWorkflowBadge status={order.status} />}
+              label="Trạng thái đơn"
+              value={<OrderWorkflowBadge status={order.status} variant={BADGE_VARIANT} />}
             />
             <StatusItem
-              label="Giao hĂ ng"
-              value={<DeliveryStatusBadge status={order.status} />}
+              label="Giao hàng"
+              value={<DeliveryStatusBadge status={order.status} variant={BADGE_VARIANT} />}
             />
           </div>
 
           {order.note ? (
-            <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[12px] font-semibold text-slate-700">Ghi chĂº</p>
-              <p className="mt-1 text-[13px] leading-6 text-slate-600">
-                {order.note}
-              </p>
+            <div className={cn("mt-4", ORDER_LIST_NOTE_CLASS)}>
+              <p className="text-[12px] font-semibold">Ghi chú</p>
+              <p className="mt-1 text-[13px] leading-6 text-blue-900">{order.note}</p>
             </div>
           ) : null}
 
           {order.cancelReasonDisplay ? (
-            <div className="mt-4 rounded-[4px] border border-rose-200 bg-rose-50 p-3">
-              <p className="text-[12px] font-semibold text-rose-700">LÄ‚Â½ do hĂ¡Â»Â§y</p>
-              <p className="mt-1 text-[13px] leading-6 text-rose-700">
+            <div className={cn("mt-4", ORDER_LIST_PANEL_MUTED_CLASS)}>
+              <p className="text-[12px] font-semibold text-blue-800">Lý do hủy</p>
+              <p className="mt-1 text-[13px] leading-6 text-blue-900">
                 {order.cancelReasonDisplay}
               </p>
             </div>
@@ -467,179 +467,175 @@ export default function AdminOrderDetailView({
         </DetailPanel>
       </div>
 
-      <DetailPanel title="Danh sĂ¡ch sáº£n pháº©m">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Sáº£n pháº©m</th>
-                <th className="px-3 py-2 font-semibold">SKU</th>
-                <th className="px-3 py-2 font-semibold text-center">Sá»‘ lÆ°á»£ng</th>
-                <th className="px-3 py-2 font-semibold text-center">Thiáº¿u</th>
-                <th className="px-3 py-2 font-semibold text-right">ÄÆ¡n giĂ¡</th>
-                <th className="px-3 py-2 font-semibold text-right">ThĂ nh tiá»n</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items.map((item) => (
-                <tr key={item.id} className="border-t border-slate-100 text-[13px]">
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-slate-50">
-                        {item.image ? (
-                          <img
-                            src={resolveImageUrl(item.image)}
-                            alt={item.productName}
-                            className="h-full w-full object-cover"
-                            onError={(event) => {
-                              event.currentTarget.onerror = null;
-                              event.currentTarget.src = "/placeholder.png";
-                            }}
-                          />
-                        ) : (
-                          <Package size={16} className="text-slate-300" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-800">
-                          {item.productName}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-slate-600">{item.sku}</td>
-                  <td className="px-3 py-3 text-center text-slate-700">
-                    {item.quantity}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {(item.missingQuantity ?? 0) > 0 ? (
-                      <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
-                        {item.missingQuantity}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">0</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-right text-slate-700">
-                    {formatCurrency(item.price ?? 0)}
-                  </td>
-                  <td className="px-3 py-3 text-right font-semibold text-slate-900">
-                    {formatCurrency(item.totalPrice ?? 0)}
-                  </td>
+      <DetailPanel title="Danh sách sản phẩm">
+        <div className={ORDER_LIST_SUBTABLE_CLASS}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left">
+              <thead className={ORDER_LIST_HEADER_CLASS}>
+                <tr>
+                  <th className={DETAIL_TABLE_HEAD_CLASS}>Sản phẩm</th>
+                  <th className={DETAIL_TABLE_HEAD_CLASS}>SKU</th>
+                  <th className={cn(DETAIL_TABLE_HEAD_CLASS, "text-center")}>Số lượng</th>
+                  <th className={cn(DETAIL_TABLE_HEAD_CLASS, "text-center")}>Thiếu</th>
+                  <th className={cn(DETAIL_TABLE_HEAD_CLASS, "text-right")}>Đơn giá</th>
+                  <th className={cn(DETAIL_TABLE_HEAD_CLASS, "text-right")}>Thành tiền</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(order.items ?? []).map((item) => (
+                  <tr key={item.id} className="border-b border-blue-100 text-[13px] last:border-b-0">
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={ORDER_LIST_IMAGE_FRAME_CLASS}>
+                          {item.image ? (
+                            <img
+                              src={resolveImageUrl(item.image)}
+                              alt={item.productName}
+                              className="h-full w-full object-cover"
+                              onError={(event) => {
+                                event.currentTarget.onerror = null;
+                                event.currentTarget.src = "/placeholder.png";
+                              }}
+                            />
+                          ) : (
+                            <Package size={16} className="text-slate-300" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800">{item.productName}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">{item.sku}</td>
+                    <td className="px-3 py-3 text-center text-slate-700">{item.quantity}</td>
+                    <td className="px-3 py-3 text-center">
+                      {(item.missingQuantity ?? 0) > 0 ? (
+                        <span className={DETAIL_QUANTITY_BADGE_CLASS}>
+                          {item.missingQuantity}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-right text-slate-700">
+                      {formatCurrency(item.price ?? 0)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-semibold text-slate-900">
+                      {formatCurrency(item.totalPrice ?? 0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </DetailPanel>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-        <DetailPanel title="Chi nhĂ¡nh xá»­ lĂ½ vĂ  bĂ n giao">
+        <DetailPanel title="Chi nhánh xử lý và bàn giao">
           {(order.subOrders ?? []).length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left">
-                <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Chi nhĂ¡nh</th>
-                    <th className="px-3 py-2 font-semibold text-center">
-                      Tráº¡ng thĂ¡i Ä‘Æ¡n
-                    </th>
-                    <th className="px-3 py-2 font-semibold text-center">
-                      Giao hĂ ng
-                    </th>
-                    <th className="px-3 py-2 font-semibold text-right">
-                      PhĂ­ ship
-                    </th>
-                    <th className="px-3 py-2 font-semibold">ÄÆ¡n vá»‹ VC</th>
-                    <th className="px-3 py-2 font-semibold">Dá»± kiáº¿n</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.subOrders?.map((subOrder) => (
-                    <tr
-                      key={subOrder.subOrderId}
-                      className="border-t border-slate-100 text-[13px]"
-                    >
-                      <td className="px-3 py-3 font-medium text-slate-800">
-                        {subOrder.branchName || "ChÆ°a gĂ¡n chi nhĂ¡nh"}
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <OrderWorkflowBadge status={subOrder.status} />
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <DeliveryStatusBadge status={subOrder.status} />
-                      </td>
-                      <td className="px-3 py-3 text-right text-slate-700">
-                        {formatCurrency(subOrder.shippingFee ?? 0)}
-                      </td>
-                      <td className="px-3 py-3 text-slate-600">
-                        {subOrder.carrier || "ChÆ°a cáº­p nháº­t"}
-                      </td>
-                      <td className="px-3 py-3 text-slate-600">
-                        {subOrder.estimatedDays || "ChÆ°a cĂ³ dá»¯ liá»‡u"}
-                      </td>
+            <div className={ORDER_LIST_SUBTABLE_CLASS}>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left">
+                  <thead className={ORDER_LIST_HEADER_CLASS}>
+                    <tr>
+                      <th className={DETAIL_TABLE_HEAD_CLASS}>Chi nhánh</th>
+                      <th className={cn(DETAIL_TABLE_HEAD_CLASS, "text-center")}>
+                        Trạng thái đơn
+                      </th>
+                      <th className={cn(DETAIL_TABLE_HEAD_CLASS, "text-center")}>
+                        Giao hàng
+                      </th>
+                      <th className={cn(DETAIL_TABLE_HEAD_CLASS, "text-right")}>Phí ship</th>
+                      <th className={DETAIL_TABLE_HEAD_CLASS}>Đơn vị vận chuyển</th>
+                      <th className={DETAIL_TABLE_HEAD_CLASS}>Dự kiến</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {order.subOrders?.map((subOrder) => (
+                      <tr
+                        key={subOrder.subOrderId}
+                        className="border-b border-blue-100 text-[13px] last:border-b-0"
+                      >
+                        <td className="px-3 py-3 font-medium text-slate-800">
+                          {subOrder.branchName || "Chưa gán chi nhánh"}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <OrderWorkflowBadge
+                            status={subOrder.status}
+                            variant={BADGE_VARIANT}
+                          />
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <DeliveryStatusBadge
+                            status={subOrder.status}
+                            variant={BADGE_VARIANT}
+                          />
+                        </td>
+                        <td className="px-3 py-3 text-right text-slate-700">
+                          {formatCurrency(subOrder.shippingFee ?? 0)}
+                        </td>
+                        <td className="px-3 py-3 text-slate-600">
+                          {subOrder.carrier || "Chưa cập nhật"}
+                        </td>
+                        <td className="px-3 py-3 text-slate-600">
+                          {subOrder.estimatedDays || "Chưa có dữ liệu"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
-            <div className="rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4 text-[13px] text-slate-500">
-              ÄÆ¡n nĂ y hiá»‡n chÆ°a cĂ³ sub-order theo chi nhĂ¡nh. Há»‡ thá»‘ng Ä‘ang xá»­ lĂ½
-              theo Ä‘Æ¡n tá»•ng.
+            <div className={DETAIL_EMPTY_STATE_CLASS}>
+              Đơn này hiện chưa có sub-order theo chi nhánh. Hệ thống đang xử lý theo
+              đơn tổng.
             </div>
           )}
         </DetailPanel>
 
-        <DetailPanel title="Thiáº¿u hĂ ng vĂ  ghi chĂº Ä‘iá»u phá»‘i">
+        <DetailPanel title="Thiếu hàng và ghi chú điều phối">
           {shortageItems.length > 0 ? (
             <div className="space-y-3">
               {shortageItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-[4px] border border-rose-100 bg-rose-50 p-3"
-                >
-                  <p className="text-[13px] font-semibold text-rose-800">
-                    {item.productName}
-                  </p>
-                  <p className="mt-1 text-[12px] text-rose-700">
-                    SKU: {item.sku} â€¢ Thiáº¿u {item.missingQuantity} / cáº§n{" "}
-                    {item.quantity}
-                  </p>
+                <div key={item.id} className={ORDER_LIST_PRODUCT_CARD_CLASS}>
+                  <div className="space-y-1">
+                    <p className="text-[13px] font-semibold text-slate-900">{item.productName}</p>
+                    <p className="text-[12px] text-slate-600">
+                      SKU: {item.sku} • Thiếu {item.missingQuantity} / cần {item.quantity}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-[4px] border border-emerald-100 bg-emerald-50 p-4 text-[13px] text-emerald-800">
-              ÄÆ¡n nĂ y hiá»‡n khĂ´ng cĂ³ sáº£n pháº©m thiáº¿u.
-            </div>
+            <div className={DETAIL_EMPTY_STATE_CLASS}>Đơn này hiện không có sản phẩm thiếu.</div>
           )}
 
           <div id="order-replenishment-documents" className="mt-4">
             {hasReplenishmentDocuments ? (
-              <ReplenishmentDocumentLinks documents={replenishmentDocuments} />
+              <ReplenishmentDocumentLinks
+                documents={replenishmentDocuments}
+                variant="order-detail-monochrome"
+              />
             ) : (
-              <div className="rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4 text-[13px] leading-6 text-slate-500">
-                Sau khi báº¥m Xá»­ lĂ½ thiáº¿u hĂ ng, cĂ¡c phiáº¿u Ä‘iá»u chuyá»ƒn hoáº·c yĂªu
-                cáº§u NCC Ä‘Æ°á»£c táº¡o cho Ä‘Æ¡n nĂ y sáº½ hiá»ƒn thá»‹ táº¡i Ä‘Ă¢y.
+              <div className={DETAIL_EMPTY_STATE_CLASS}>
+                Sau khi bấm Xử lý thiếu hàng, các phiếu điều chuyển hoặc yêu cầu NCC
+                được tạo cho đơn này sẽ hiển thị tại đây.
               </div>
             )}
           </div>
 
           <div className="hidden">
             <p className="text-[12px] font-semibold text-slate-700">
-              Dá»¯ liá»‡u nĂ¢ng cao sáº½ bá»• sung khi backend sáºµn sĂ ng
+              Dữ liệu nâng cao sẽ bổ sung khi backend sẵn sàng
             </p>
             <p className="mt-2 text-[13px] leading-6 text-slate-500">
-              Tá»“n kho tá»«ng chi nhĂ¡nh, gá»£i Ă½ chi nhĂ¡nh tá»‘i Æ°u, khoáº£ng cĂ¡ch giao
-              hĂ ng, lá»‹ch sá»­ xá»­ lĂ½ vĂ  nhĂ¢n viĂªn phá»¥ trĂ¡ch váº«n chÆ°a Ä‘Æ°á»£c API hiá»‡n
-              táº¡i tráº£ vá» Ä‘áº§y Ä‘á»§.
+              Tồn kho từng chi nhánh, gợi ý chi nhánh tối ưu, khoảng cách giao hàng,
+              lịch sử xử lý và nhân viên phụ trách vẫn chưa được API hiện tại trả về đầy
+              đủ.
             </p>
-            <div className="mt-3">
-              <Button asChild variant="outline" size="sm" className="border-slate-200">
-                <Link href="/admin/transfers">Má»Ÿ trang Ä‘iá»u chuyá»ƒn kho</Link>
-              </Button>
-            </div>
           </div>
         </DetailPanel>
       </div>
@@ -655,8 +651,10 @@ function DetailPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-4 text-[16px] font-bold text-slate-900">{title}</h2>
+    <section className={ORDER_LIST_PANEL_CLASS}>
+      <div className="mb-4 border-b border-blue-100 pb-3">
+        <h2 className="text-[16px] font-bold text-slate-900">{title}</h2>
+      </div>
       {children}
     </section>
   );
@@ -667,17 +665,17 @@ function DetailMetricCard({
   value,
   hint,
   icon,
-  accent,
 }: {
   label: string;
   value: string;
   hint: string;
   icon: ReactNode;
-  accent: string;
 }) {
   return (
-    <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-      <div className={`inline-flex rounded-[4px] p-2 ${accent}`}>{icon}</div>
+    <div className={ORDER_LIST_PANEL_CLASS}>
+      <div className="inline-flex border border-blue-100 bg-blue-50/40 p-2 text-blue-700">
+        {icon}
+      </div>
       <p className="mt-3 text-[12px] font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
@@ -704,9 +702,10 @@ function InfoLine({
       <div className="min-w-0">
         <p className="text-[12px] font-semibold text-slate-500">{label}</p>
         <p
-          className={`mt-1 text-[13px] text-slate-800 ${
-            multiline ? "leading-6" : ""
-          }`}
+          className={cn(
+            "mt-1 text-[13px] text-slate-800",
+            multiline && "leading-6",
+          )}
         >
           {value}
         </p>
@@ -723,7 +722,7 @@ function StatusItem({
   value: ReactNode;
 }) {
   return (
-    <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+    <div className={ORDER_LIST_PANEL_MUTED_CLASS}>
       <p className="text-[12px] font-semibold text-slate-500">{label}</p>
       <div className="mt-2">{value}</div>
     </div>

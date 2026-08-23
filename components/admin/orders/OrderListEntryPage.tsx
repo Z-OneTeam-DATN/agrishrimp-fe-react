@@ -7,17 +7,24 @@ import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import AdminOrderListPage from "./AdminOrderListPage";
 import BranchOrderListPage from "./BranchOrderListPage";
+import type { OrderQuickFilterGroup, OrderQuickFilterId } from "./orderQuickFilters";
 
 type OrderListEntryPageProps = {
   title: string;
   subtitle?: string;
   fixedStatusQuery?: string;
+  layoutVariant?: "default" | "incomplete";
+  quickFilterGroups?: OrderQuickFilterGroup[];
+  defaultQuickFilterId?: OrderQuickFilterId;
 };
 
 export default function OrderListEntryPage({
   title,
   subtitle,
   fixedStatusQuery,
+  layoutVariant = "default",
+  quickFilterGroups,
+  defaultQuickFilterId,
 }: OrderListEntryPageProps) {
   const { hasPermission } = usePermissions();
   const { user, warehouseId } = useAuthStore();
@@ -31,6 +38,9 @@ export default function OrderListEntryPage({
         title={title}
         subtitle={subtitle}
         fixedStatusQuery={fixedStatusQuery}
+        layoutVariant={layoutVariant}
+        quickFilterGroups={quickFilterGroups}
+        defaultQuickFilterId={defaultQuickFilterId}
       />
     );
   }
@@ -41,6 +51,8 @@ export default function OrderListEntryPage({
         title={title}
         subtitle={subtitle}
         fixedStatusQuery={fixedStatusQuery}
+        quickFilterGroups={quickFilterGroups}
+        defaultQuickFilterId={defaultQuickFilterId}
       />
     );
   }

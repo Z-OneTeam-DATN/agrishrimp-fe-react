@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -62,9 +62,26 @@ import {
   getOrderCode,
   hasOrderShortage,
   InventoryStatusBadge,
+  PaymentStatusBadge,
   canRequestReplenishmentAction,
   OrderWorkflowBadge,
 } from "./OrderStateBadges";
+import {
+  ORDER_LIST_EXPANDED_ROW_CLASS,
+  ORDER_LIST_HEADER_CLASS,
+  ORDER_LIST_IMAGE_FRAME_CLASS,
+  ORDER_LIST_NOTE_CLASS,
+  ORDER_LIST_PANEL_CLASS,
+  ORDER_LIST_PANEL_MUTED_CLASS,
+  ORDER_LIST_PRIMARY_ACTION_CLASS,
+  ORDER_LIST_ROW_CLASS,
+  ORDER_LIST_ROW_ACTIVE_CLASS,
+  ORDER_LIST_ROW_SELECTED_CLASS,
+  ORDER_LIST_SECONDARY_ACTION_CLASS,
+  ORDER_LIST_SHELL_CLASS,
+  ORDER_LIST_SUBTABLE_CLASS,
+} from "./orderListStyles";
+import type { OrderQuickFilterGroup, OrderQuickFilterId } from "./orderQuickFilters";
 import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
 
 export type AdminOrderStatusGroup = {
@@ -81,6 +98,9 @@ type AdminOrderListPageProps = {
   statusGroups?: AdminOrderStatusGroup[];
   defaultStatusGroupId?: string;
   subtitle?: string;
+  layoutVariant?: "default" | "incomplete";
+  quickFilterGroups?: OrderQuickFilterGroup[];
+  defaultQuickFilterId?: OrderQuickFilterId;
 };
 
 type PaymentFilter = "ALL" | "PAID" | "UNPAID";
@@ -114,12 +134,19 @@ export default function AdminOrderListPage({
   statusGroups,
   defaultStatusGroupId,
   subtitle,
+  layoutVariant = "default",
+  quickFilterGroups,
+  defaultQuickFilterId,
 }: AdminOrderListPageProps) {
+  const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { hasPermission, isLoadingAuth } = usePermissions();
   const { user, warehouseId } = useAuthStore();
   const defaultDateRange = useMemo(() => getCurrentDayDateTimeRange(), []);
   const statusGroupItems = useMemo(() => statusGroups ?? [], [statusGroups]);
+  const quickFilterItems = useMemo(() => quickFilterGroups ?? [], [quickFilterGroups]);
+  const hasQuickFilters = quickFilterItems.length > 0;
   const [activeGroupId, setActiveGroupId] = useState(
     () => defaultStatusGroupId ?? statusGroups?.[0]?.id ?? "",
   );
@@ -137,6 +164,7 @@ export default function AdminOrderListPage({
   const [orderSummary, setOrderSummary] =
     useState<AdminOrderSummaryResponse | null>(null);
   const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
+  const [quickFilterCounts, setQuickFilterCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
@@ -164,9 +192,34 @@ export default function AdminOrderListPage({
       null,
     [activeGroupId, statusGroupItems],
   );
+  const requestedQuickFilterId = useMemo(
+    () => searchParams.get("quickFilter")?.trim().toLowerCase() ?? null,
+    [searchParams],
+  );
+  const fallbackQuickFilterId = defaultQuickFilterId ?? quickFilterItems[0]?.id ?? "all";
+  const activeQuickFilter = useMemo(
+    () =>
+      !hasQuickFilters
+        ? null
+        : quickFilterItems.find((group) => group.id === requestedQuickFilterId) ??
+          quickFilterItems.find((group) => group.id === fallbackQuickFilterId) ??
+          quickFilterItems[0] ??
+          null,
+    [fallbackQuickFilterId, hasQuickFilters, quickFilterItems, requestedQuickFilterId],
+  );
   const selectedFixedStatus =
-    activeStatusGroup?.status ?? fixedStatusQuery ?? fixedStatus;
-  const isAllOrdersPage = !selectedFixedStatus;
+    activeStatusGroup?.status ??
+    activeQuickFilter?.statusQuery ??
+    fixedStatusQuery ??
+    fixedStatus;
+  const isIncompleteLayout = layoutVariant === "incomplete";
+  const useCompactIncompleteTable = isIncompleteLayout && !hasQuickFilters;
+  const isAllOrdersPage = !selectedFixedStatus && !hasQuickFilters;
+  const shouldShowSummaryCards = isAllOrdersPage || useCompactIncompleteTable;
+  const searchPlaceholder = hasQuickFilters || useCompactIncompleteTable
+    ? "Tìm mã đơn hoặc tên khách hàng..."
+    : "Tìm mã đơn, tên khách hàng, số điện thoại...";
+  const tableColSpan = useCompactIncompleteTable ? 8 : TABLE_COL_SPAN;
 
   useEffect(() => {
     if (statusGroupItems.length === 0) {
@@ -177,6 +230,18 @@ export default function AdminOrderListPage({
       setActiveGroupId(defaultStatusGroupId ?? statusGroupItems[0].id);
     }
   }, [activeGroupId, defaultStatusGroupId, statusGroupItems]);
+
+  useEffect(() => {
+    if (!hasQuickFilters || !activeQuickFilter) {
+      return;
+    }
+
+    if (requestedQuickFilterId === activeQuickFilter.id) {
+      return;
+    }
+
+    router.replace(`${pathname}?quickFilter=${activeQuickFilter.id}`);
+  }, [activeQuickFilter, hasQuickFilters, pathname, requestedQuickFilterId, router]);
 
   useEffect(() => {
     if (isLoadingAuth) {
@@ -246,8 +311,9 @@ export default function AdminOrderListPage({
       statusFilter,
     ],
   );
-  const activeStatusFilter =
-    selectedFixedStatus ?? (statusFilter === "ALL" ? null : statusFilter);
+  const activeStatusFilter = hasQuickFilters
+    ? null
+    : selectedFixedStatus ?? (statusFilter === "ALL" ? null : statusFilter);
   const shouldKeepOrderInCurrentView = useCallback(
     (nextStatus: OrderStatus) =>
       !activeStatusFilter || activeStatusFilter === nextStatus,
@@ -267,13 +333,13 @@ export default function AdminOrderListPage({
       setDetailCache({});
     }
     try {
-      const [data, summary, groupCountEntries] = await Promise.all([
+      const [data, summary, groupCountEntries, quickFilterCountEntries] = await Promise.all([
         orderService.getAdminOrders({
           ...adminOrderFilters,
           page: currentPage,
           size: PAGE_SIZE,
         }),
-        isAllOrdersPage
+        shouldShowSummaryCards
           ? orderService.getAdminOrderSummary(adminOrderFilters)
           : Promise.resolve(null),
         statusGroupItems.length > 0
@@ -282,6 +348,18 @@ export default function AdminOrderListPage({
                 const groupSummary = await orderService.getAdminOrderSummary({
                   ...baseAdminOrderFilters,
                   status: group.status,
+                });
+
+                return [group.id, groupSummary.totalOrders] as const;
+              }),
+            )
+          : Promise.resolve(null),
+        hasQuickFilters
+          ? Promise.all(
+              quickFilterItems.map(async (group) => {
+                const groupSummary = await orderService.getAdminOrderSummary({
+                  ...baseAdminOrderFilters,
+                  status: group.statusQuery,
                 });
 
                 return [group.id, groupSummary.totalOrders] as const;
@@ -303,6 +381,17 @@ export default function AdminOrderListPage({
           ),
         );
       }
+      if (quickFilterCountEntries) {
+        setQuickFilterCounts(
+          quickFilterCountEntries.reduce<Record<string, number>>(
+            (nextCounts, [groupId, count]) => ({
+              ...nextCounts,
+              [groupId]: count,
+            }),
+            {},
+          ),
+        );
+      }
       lastRefreshSignalRef.current = Math.max(
         lastRefreshSignalRef.current,
         readAdminOrdersRefreshSignal(),
@@ -312,6 +401,7 @@ export default function AdminOrderListPage({
       if (!background) {
         setOrderSummary(null);
         setGroupCounts({});
+        setQuickFilterCounts({});
       }
       toast.error("Không thể tải danh sách đơn hàng toàn hệ thống.");
     } finally {
@@ -326,7 +416,9 @@ export default function AdminOrderListPage({
     baseAdminOrderFilters,
     canViewSystemOrders,
     currentPage,
-    isAllOrdersPage,
+    hasQuickFilters,
+    quickFilterItems,
+    shouldShowSummaryCards,
     statusGroupItems,
   ]);
 
@@ -556,6 +648,14 @@ export default function AdminOrderListPage({
     );
   };
 
+  const handleQuickFilterChange = (filterId: string) => {
+    if (!hasQuickFilters) {
+      return;
+    }
+
+    router.replace(`${pathname}?quickFilter=${filterId}`);
+  };
+
   const resetFilters = () => {
     setSearchInput("");
     setSearch("");
@@ -563,6 +663,9 @@ export default function AdminOrderListPage({
     setPaymentFilter("ALL");
     setStartDateFilter(defaultDateRange.start);
     setEndDateFilter(defaultDateRange.end);
+    if (hasQuickFilters) {
+      router.replace(`${pathname}?quickFilter=${fallbackQuickFilterId}`);
+    }
   };
 
   const totalOrders =
@@ -576,10 +679,11 @@ export default function AdminOrderListPage({
   const totalPages = Math.max(ordersPage?.totalPages ?? 0, 1);
   const hasActiveFilters = Boolean(
     searchInput.trim() ||
-      paymentFilter !== "ALL" ||
+      (!hasQuickFilters && !useCompactIncompleteTable && paymentFilter !== "ALL") ||
       startDateFilter !== defaultDateRange.start ||
       endDateFilter !== defaultDateRange.end ||
-      (isAllOrdersPage && statusFilter !== "ALL"),
+      (isAllOrdersPage && statusFilter !== "ALL") ||
+      (hasQuickFilters && activeQuickFilter?.id !== fallbackQuickFilterId),
   );
   const summaryCards = useMemo(
     () => [
@@ -605,6 +709,43 @@ export default function AdminOrderListPage({
       },
     ],
     [shortageCount, totalFilteredValue, totalOrders, unpaidCount],
+  );
+  const quickFilterCards = useMemo(
+    () =>
+      quickFilterItems.map((group) => ({
+        ...group,
+        value: (quickFilterCounts[group.id] ?? 0).toLocaleString("vi-VN"),
+        isActive: activeQuickFilter?.id === group.id,
+      })),
+    [activeQuickFilter?.id, quickFilterCounts, quickFilterItems],
+  );
+  const displayedSummaryCards = useMemo(
+    () =>
+      useCompactIncompleteTable
+        ? [
+            {
+              label: "Tổng đơn",
+              value: totalOrders.toLocaleString("vi-VN"),
+              note: "Số đơn toàn hệ thống khớp với bộ lọc hiện tại",
+            },
+            {
+              label: "Thiếu hàng",
+              value: shortageCount.toLocaleString("vi-VN"),
+              note: "Đơn thiếu hàng toàn hệ thống khớp với bộ lọc hiện tại",
+            },
+            {
+              label: "Chưa thanh toán",
+              value: unpaidCount.toLocaleString("vi-VN"),
+              note: "Đơn toàn hệ thống chưa hoàn tất thanh toán",
+            },
+            {
+              label: "Giá trị lọc",
+              value: formatCurrency(totalFilteredValue),
+              note: "Tổng giá trị đơn toàn hệ thống khớp với bộ lọc hiện tại",
+            },
+          ]
+        : summaryCards,
+    [shortageCount, summaryCards, totalFilteredValue, totalOrders, unpaidCount, useCompactIncompleteTable],
   );
   const visibleFrom = totalOrders === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const visibleTo =
@@ -662,6 +803,55 @@ export default function AdminOrderListPage({
         </div>
       ) : null}
 
+      {hasQuickFilters ? (
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {quickFilterCards.map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => handleQuickFilterChange(card.id)}
+              className={cn(
+                "rounded-[4px] border bg-white p-3 text-left shadow-sm transition-colors",
+                card.isActive
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-[#dcdcdc] text-slate-700 hover:border-blue-300 hover:bg-slate-50",
+              )}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.02em] text-slate-400">
+                {card.label}
+              </p>
+              <p className="mt-1 truncate text-[18px] font-semibold leading-6 text-slate-900">
+                {card.value}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                {card.description}
+              </p>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {useCompactIncompleteTable && shouldShowSummaryCards ? (
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {displayedSummaryCards.map((card) => (
+            <div
+              key={card.label}
+              className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+            >
+              <p className="text-[11px] font-semibold text-slate-400">
+                {card.label}
+              </p>
+              <p className="mt-1 truncate text-[18px] font-semibold leading-6 text-slate-900">
+                {card.value}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                {card.note}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-2 xl:flex-row xl:flex-nowrap xl:items-center xl:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:min-w-0 xl:flex-nowrap">
           <div className="relative w-full sm:w-[300px] xl:w-[280px]">
@@ -672,12 +862,12 @@ export default function AdminOrderListPage({
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Tìm mã đơn, tên khách hàng, số điện thoại..."
+              placeholder={searchPlaceholder}
               className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
             />
           </div>
 
-          {isAllOrdersPage ? (
+          {isAllOrdersPage && !hasQuickFilters ? (
             <Select
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value as StatusFilter)}
@@ -699,6 +889,7 @@ export default function AdminOrderListPage({
             </Select>
           ) : null}
 
+          {!hasQuickFilters && !useCompactIncompleteTable ? (
           <Select
             value={paymentFilter}
             onValueChange={(value) => setPaymentFilter(value as PaymentFilter)}
@@ -718,6 +909,7 @@ export default function AdminOrderListPage({
               </SelectItem>
             </SelectContent>
           </Select>
+          ) : null}
 
           <Input
             type="datetime-local"
@@ -750,9 +942,9 @@ export default function AdminOrderListPage({
         ) : null}
       </div>
 
-      {isAllOrdersPage ? (
+      {isAllOrdersPage && !useCompactIncompleteTable ? (
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map((card) => (
+          {displayedSummaryCards.map((card) => (
             <div
               key={card.label}
               className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
@@ -778,11 +970,40 @@ export default function AdminOrderListPage({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
+      <div className={ORDER_LIST_SHELL_CLASS}>
         <div className="w-full overflow-x-auto">
           <Table className="min-w-max [&_th]:whitespace-nowrap">
-            <TableHeader className="bg-slate-50">
-              <TableRow className="border-b border-slate-200">
+            {useCompactIncompleteTable ? (
+              <TableHeader className={ORDER_LIST_HEADER_CLASS}>
+                <TableRow className="border-b border-blue-100">
+                  <TableHead className="w-[52px] pl-4" />
+                  <TableHead className="text-[12px] font-bold text-slate-800">
+                    Mã đơn hàng
+                  </TableHead>
+                  <TableHead className="text-[12px] font-bold text-slate-800">
+                    Ngày đặt
+                  </TableHead>
+                  <TableHead className="text-[12px] font-bold text-slate-800">
+                    Khách hàng
+                  </TableHead>
+                  <TableHead className="text-center text-[12px] font-bold text-slate-800">
+                    Trạng thái
+                  </TableHead>
+                  <TableHead className="text-center text-[12px] font-bold text-slate-800">
+                    Thanh toán
+                  </TableHead>
+                  <TableHead className="text-right text-[12px] font-bold text-slate-800">
+                    Tiền hàng
+                  </TableHead>
+                  <TableHead className="text-right text-[12px] font-bold text-slate-800">
+                    Phí ship
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+            ) : null}
+            {!useCompactIncompleteTable ? (
+            <TableHeader className={ORDER_LIST_HEADER_CLASS}>
+              <TableRow className="border-b border-blue-100">
                 <TableHead className="w-[42px] pl-4">
                   <Settings size={14} className="text-slate-400" />
                 </TableHead>
@@ -822,11 +1043,12 @@ export default function AdminOrderListPage({
                 </TableHead>
               </TableRow>
             </TableHeader>
+            ) : null}
             <TableBody>
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={TABLE_COL_SPAN}
+                    colSpan={tableColSpan}
                     className="h-32 text-center text-slate-400"
                   >
                     Đang tải dữ liệu...
@@ -835,10 +1057,15 @@ export default function AdminOrderListPage({
               ) : orders.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={TABLE_COL_SPAN}
-                    className="h-32 text-center text-slate-500"
+                    colSpan={tableColSpan}
+                    className={cn(
+                      "text-center text-slate-500",
+                      useCompactIncompleteTable ? "h-36" : "h-32",
+                    )}
                   >
-                    Không có đơn hàng phù hợp với bộ lọc hiện tại.
+                    {useCompactIncompleteTable
+                      ? "Không có đơn hàng chưa hoàn tất."
+                      : "Không có đơn hàng phù hợp với bộ lọc hiện tại."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -872,9 +1099,9 @@ export default function AdminOrderListPage({
                     <React.Fragment key={orderId}>
                       <TableRow
                         className={cn(
-                          "cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50",
-                          selectedItems.includes(orderId) && "bg-blue-50/20",
-                          isExpanded && "bg-blue-50/30",
+                          ORDER_LIST_ROW_CLASS,
+                          selectedItems.includes(orderId) && ORDER_LIST_ROW_SELECTED_CLASS,
+                          isExpanded && ORDER_LIST_ROW_ACTIVE_CLASS,
                         )}
                         onClick={() => void handleToggleRow(orderId)}
                       >
@@ -885,6 +1112,51 @@ export default function AdminOrderListPage({
                             <ChevronsRight size={14} />
                           )}
                         </TableCell>
+                        {useCompactIncompleteTable ? (
+                          <>
+                            <TableCell>
+                              <Link
+                                href={`/admin/orders/${order.id}`}
+                                onClick={(event) => event.stopPropagation()}
+                                className="text-[13px] font-semibold text-blue-700 hover:underline"
+                              >
+                                {orderCode}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="text-[13px] text-slate-700">
+                              {formatDate(order.createdAt, "dd/MM/yyyy HH:mm")}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-[13px] font-medium text-slate-800">
+                                  {order.customerName}
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  {order.customerPhone}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <OrderWorkflowBadge
+                                status={order.status}
+                                variant="order-list-monochrome"
+                              />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <PaymentStatusBadge
+                                status={order.paymentStatus}
+                                variant="order-list-monochrome"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right text-[13px] font-semibold text-slate-800">
+                              {formatCurrency(order.finalAmount ?? order.totalAmount)}
+                            </TableCell>
+                            <TableCell className="text-right text-[13px] font-semibold text-slate-800">
+                              {formatCurrency(order.totalShippingFee ?? order.shippingFee ?? 0)}
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <Checkbox
                             className="border-slate-300 data-[state=checked]:bg-blue-600"
@@ -921,12 +1193,15 @@ export default function AdminOrderListPage({
                           {getOrderBranchNames(order)[0] ?? getOrderBranchSummary(order)}
                         </TableCell>
                         <TableCell className="text-center">
-                          <InventoryStatusBadge order={order} variant="monochrome" />
+                          <InventoryStatusBadge
+                            order={order}
+                            variant="order-list-monochrome"
+                          />
                         </TableCell>
                         <TableCell className="text-center">
                           <OrderWorkflowBadge
                             status={order.status}
-                            variant="monochrome"
+                            variant="order-list-monochrome"
                           />
                         </TableCell>
                         <TableCell
@@ -937,7 +1212,10 @@ export default function AdminOrderListPage({
                             {nextAction ? (
                               <Button
                                 size="sm"
-                                className="h-8 w-[124px] justify-center bg-blue-600 text-[12px] hover:bg-blue-700"
+                                className={cn(
+                                  ORDER_LIST_PRIMARY_ACTION_CLASS,
+                                  "w-[132px] justify-center",
+                                )}
                                 disabled={advancingOrderId === orderId}
                                 onClick={(event) => void handleAdvanceStatus(event, orderDetail)}
                               >
@@ -954,10 +1232,8 @@ export default function AdminOrderListPage({
                               <Button
                                 size="sm"
                                 className={cn(
-                                  "h-8 w-[132px] justify-center text-[12px]",
-                                  hasReplenishmentDocuments
-                                    ? "bg-emerald-600 hover:bg-emerald-700"
-                                    : "bg-rose-600 hover:bg-rose-700",
+                                  ORDER_LIST_SECONDARY_ACTION_CLASS,
+                                  "w-[168px] justify-center",
                                 )}
                                 disabled={replenishingOrderId === orderId}
                                 onClick={(event) =>
@@ -980,17 +1256,19 @@ export default function AdminOrderListPage({
                             ) : null}
                           </div>
                         </TableCell>
+                          </>
+                        )}
                       </TableRow>
 
                       {isExpanded ? (
-                        <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
+                        <TableRow className={ORDER_LIST_EXPANDED_ROW_CLASS}>
                           <TableCell
-                            colSpan={TABLE_COL_SPAN}
-                            className="border-b border-slate-100 p-0"
+                            colSpan={tableColSpan}
+                            className="border-b border-blue-100 p-0"
                           >
                             <div className="grid gap-4 p-4 xl:grid-cols-[0.9fr_1.1fr]">
                               <div className="space-y-4">
-                                <div className="rounded-[4px] border border-slate-200 bg-white p-4">
+                                <div className={ORDER_LIST_PANEL_CLASS}>
                                   <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
                                     Giao hàng và khách nhận
                                   </p>
@@ -1032,12 +1310,12 @@ export default function AdminOrderListPage({
                                   </div>
                                 </div>
 
-                                <div className="rounded-[4px] border border-slate-200 bg-white p-4">
+                                <div className={ORDER_LIST_PANEL_CLASS}>
                                   <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
                                     Tình trạng xử lý
                                   </p>
                                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                    <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+                                    <div className={ORDER_LIST_PANEL_MUTED_CLASS}>
                                       <p className="text-[11px] font-semibold text-slate-500">
                                         Chi nhánh phụ trách
                                       </p>
@@ -1046,42 +1324,42 @@ export default function AdminOrderListPage({
                                           getOrderBranchSummary(orderDetail)}
                                       </p>
                                     </div>
-                                    <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+                                    <div className={ORDER_LIST_PANEL_MUTED_CLASS}>
                                       <p className="text-[11px] font-semibold text-slate-500">
                                         Tình trạng hàng
                                       </p>
                                       <div className="mt-2">
                                         <InventoryStatusBadge
                                           order={orderDetail}
-                                          variant="monochrome"
+                                          variant="order-list-monochrome"
                                         />
                                       </div>
                                     </div>
-                                    <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+                                    <div className={ORDER_LIST_PANEL_MUTED_CLASS}>
                                       <p className="text-[11px] font-semibold text-slate-500">
                                         Trạng thái đơn
                                       </p>
                                       <div className="mt-2">
                                         <OrderWorkflowBadge
                                           status={order.status}
-                                          variant="monochrome"
+                                          variant="order-list-monochrome"
                                         />
                                       </div>
                                     </div>
-                                    <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+                                    <div className={ORDER_LIST_PANEL_MUTED_CLASS}>
                                       <p className="text-[11px] font-semibold text-slate-500">
                                         Giao hàng
                                       </p>
                                       <div className="mt-2">
                                         <DeliveryStatusBadge
                                           status={order.status}
-                                          variant="monochrome"
+                                          variant="order-list-monochrome"
                                         />
                                       </div>
                                     </div>
                                   </div>
                                   {order.note ? (
-                                    <div className="mt-3 rounded-[4px] border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-600">
+                                    <div className={cn("mt-3", ORDER_LIST_NOTE_CLASS)}>
                                       <span className="font-semibold text-slate-800">
                                         Ghi chú:
                                       </span>{" "}
@@ -1096,7 +1374,7 @@ export default function AdminOrderListPage({
                                 </div>
                               </div>
 
-                              <div className="rounded-[4px] border border-slate-200 bg-white p-4">
+                              <div className={ORDER_LIST_PANEL_CLASS}>
                                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                   <div>
                                     <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
@@ -1110,7 +1388,7 @@ export default function AdminOrderListPage({
                                     asChild
                                     size="sm"
                                     variant="outline"
-                                    className="border-slate-200"
+                                    className={ORDER_LIST_SECONDARY_ACTION_CLASS}
                                   >
                                     <Link href={`/admin/orders/${order.id}`}>
                                       Mở chi tiết đầy đủ
@@ -1118,9 +1396,9 @@ export default function AdminOrderListPage({
                                   </Button>
                                 </div>
 
-                                <div className="overflow-hidden rounded-[4px] border border-slate-200">
+                                <div className={ORDER_LIST_SUBTABLE_CLASS}>
                                   <table className="w-full text-left">
-                                    <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                                    <thead className="bg-blue-50/50 text-[11px] uppercase tracking-wide text-slate-500">
                                       <tr>
                                         <th className="px-3 py-2 font-semibold">
                                           Sản phẩm
@@ -1150,11 +1428,11 @@ export default function AdminOrderListPage({
                                         orderDetail.items.map((item) => (
                                           <tr
                                             key={item.id}
-                                            className="border-t border-slate-100 text-[13px]"
+                                            className="border-t border-blue-100 text-[13px]"
                                           >
                                             <td className="px-3 py-3">
                                               <div className="flex items-start gap-3.5">
-                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[6px] border border-slate-200 bg-slate-50">
+                                                <div className={ORDER_LIST_IMAGE_FRAME_CLASS}>
                                                   {item.image ? (
                                                     <img
                                                       src={resolveImageUrl(item.image)}
@@ -1190,7 +1468,7 @@ export default function AdminOrderListPage({
                                             </td>
                                             <td className="px-3 py-3 text-center">
                                               {(item.missingQuantity ?? 0) > 0 ? (
-                                                <span className="rounded-full border border-blue-200 bg-white px-2 py-1 text-[11px] font-semibold text-blue-700">
+                                                <span className="rounded-none border border-blue-200 bg-white px-2 py-1 text-[11px] font-semibold text-blue-700">
                                                   {item.missingQuantity}
                                                 </span>
                                               ) : (
@@ -1241,6 +1519,7 @@ export default function AdminOrderListPage({
           </Table>
         </div>
 
+        {!useCompactIncompleteTable || totalOrders > 0 ? (
         <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-[13px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div>
             Hiển thị {visibleFrom}-{visibleTo} / {totalOrders} đơn hàng
@@ -1271,6 +1550,7 @@ export default function AdminOrderListPage({
             </Button>
           </div>
         </div>
+        ) : null}
       </div>
     </div>
   );

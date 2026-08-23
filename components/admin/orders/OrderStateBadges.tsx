@@ -1,13 +1,14 @@
 import { BranchOrder, MyOrder, OrderStatus } from "@/app/types/order.types";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
+import { ORDER_LIST_BADGE_CLASS } from "./orderListStyles";
 
 type BadgeTone = {
   label: string;
   styles: string;
 };
 
-type BadgeVariant = "default" | "monochrome";
+type BadgeVariant = "default" | "monochrome" | "order-list-monochrome";
 
 type DeliveryState =
   | "NOT_STARTED"
@@ -173,7 +174,11 @@ const renderBadge = (
   <span
     className={cn(
       "inline-flex w-fit whitespace-nowrap items-center rounded-[10px] border px-2.5 py-0.5 text-[11px] font-medium",
-      variant === "monochrome" ? MONOCHROME_BADGE_STYLES : tone.styles,
+      variant === "monochrome"
+        ? MONOCHROME_BADGE_STYLES
+        : variant === "order-list-monochrome"
+          ? ORDER_LIST_BADGE_CLASS
+          : tone.styles,
     )}
   >
     {tone.label}
