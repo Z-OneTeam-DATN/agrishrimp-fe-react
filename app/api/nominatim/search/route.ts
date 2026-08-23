@@ -28,6 +28,76 @@ async function searchNominatim(query: string) {
   return Array.isArray(results) ? results : [];
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildInputVariants(input: string) {
+  const variants = new Set<string>();
+  const trimmed = input.trim();
+  variants.add(trimmed);
+
+  const withoutAdminTail = trimmed
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)[0];
+  if (withoutAdminTail) {
+    variants.add(withoutAdminTail);
+  }
+
+  for (const value of Array.from(variants)) {
+    const withoutLeadingHouseNumber = value
+      .replace(/^[0-9a-zA-Z/-]+\s+/, "")
+      .trim();
+    if (withoutLeadingHouseNumber.length >= 3) {
+      variants.add(withoutLeadingHouseNumber);
+    }
+
+    const withoutExtension = value
+      .replace(/\b(noi dai|noi dai\.|extended)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (withoutExtension.length >= 3) {
+      variants.add(withoutExtension);
+    }
+
+    const withoutHouseNumberAndExtension = withoutLeadingHouseNumber
+      .replace(/\b(noi dai|noi dai\.|extended)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (withoutHouseNumberAndExtension.length >= 3) {
+      variants.add(withoutHouseNumberAndExtension);
+    }
+  }
+
+  return Array.from(variants).filter((value) => value.length >= 3);
+}
+
+function scoreByScope(item: any, province: string, district: string, ward: string) {
+  const label = normalizeSearchText(item.label || "");
+  const expectedProvince = normalizeSearchText(province);
+  const expectedDistrict = normalizeSearchText(district);
+  const expectedWard = normalizeSearchText(ward);
+
+  let score = 0;
+  if (expectedProvince && label.includes(expectedProvince)) {
+    score += 1;
+  }
+  if (expectedDistrict && label.includes(expectedDistrict)) {
+    score += 2;
+  }
+  if (expectedWard && label.includes(expectedWard)) {
+    score += 4;
+  }
+  return score;
+}
+
 export async function GET(request: NextRequest) {
   const input = request.nextUrl.searchParams.get("input")?.trim() ?? "";
   const province = request.nextUrl.searchParams.get("province")?.trim() ?? "";
@@ -38,11 +108,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json([]);
   }
 
-  const queryCandidates = [
-    [input, ward, district, province, "Vietnam"],
-    [input, district, province, "Vietnam"],
-    [input, province, "Vietnam"],
-  ]
+  const inputVariants = buildInputVariants(input);
+  const queryCandidates = inputVariants
+    .flatMap((inputVariant) => [
+      [inputVariant, ward, district, province, "Vietnam"],
+      [inputVariant, district, province, "Vietnam"],
+      [inputVariant, province, "Vietnam"],
+    ])
     .map((parts) => parts.filter(Boolean).join(", "))
     .filter((query, index, queries) => queries.indexOf(query) === index);
 
@@ -77,6 +149,11 @@ export async function GET(request: NextRequest) {
                 current.label === item.label ||
                 `${current.lat},${current.lng}` === `${item.lat},${item.lng}`,
             ) === index,
+        )
+        .sort(
+          (left: any, right: any) =>
+            scoreByScope(right, province, district, ward) -
+            scoreByScope(left, province, district, ward),
         )
         .slice(0, 5),
     );
