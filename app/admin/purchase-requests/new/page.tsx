@@ -493,6 +493,28 @@ export default function NewPurchaseRequestPage() {
     });
   };
 
+  const visibleSupplierProductSkus = filteredSupplierProducts.map(
+    (product) => product.sku,
+  );
+  const areAllVisibleSupplierProductsSelected =
+    visibleSupplierProductSkus.length > 0 &&
+    visibleSupplierProductSkus.every((sku) =>
+      selectedProductSkus.includes(sku),
+    );
+
+  const toggleAllVisibleSupplierProducts = () => {
+    if (visibleSupplierProductSkus.length === 0) return;
+
+    setSelectedProductSkus((prev) => {
+      if (areAllVisibleSupplierProductsSelected) {
+        const visibleSkuSet = new Set(visibleSupplierProductSkus);
+        return prev.filter((sku) => !visibleSkuSet.has(sku));
+      }
+
+      return Array.from(new Set([...prev, ...visibleSupplierProductSkus]));
+    });
+  };
+
   const applySelectedProducts = () => {
     const existingBySku = new Map(
       watchedItems
@@ -1052,6 +1074,26 @@ export default function NewPurchaseRequestPage() {
                 className="h-9 w-full border border-slate-200 pl-9 pr-3 text-[12px] outline-none focus:border-emerald-300"
               />
             </div>
+            {filteredSupplierProducts.length > 0 && (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-[4px] border border-blue-100 bg-blue-50/50 px-3 py-2">
+                <span className="text-[11px] font-medium text-slate-600">
+                  {"Hi\u1EC3n th\u1ECB "}
+                  {filteredSupplierProducts.length}
+                  {" m\u1EB7t h\u00E0ng"}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAllVisibleSupplierProducts}
+                  className="h-7 rounded-[4px] border-blue-200 bg-white px-3 text-[11px] font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  {areAllVisibleSupplierProductsSelected
+                    ? "B\u1ECF ch\u1ECDn t\u1EA5t c\u1EA3"
+                    : "Ch\u1ECDn t\u1EA5t c\u1EA3"}
+                </Button>
+              </div>
+            )}
             {lowStockSupplierProductCount > 0 && (
               <div className="mt-3 inline-flex items-center gap-2 rounded-[4px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-700">
                 <AlertTriangle size={13} />
