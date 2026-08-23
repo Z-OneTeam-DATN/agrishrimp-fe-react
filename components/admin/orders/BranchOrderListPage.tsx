@@ -13,12 +13,11 @@ import {
   Search,
   Truck,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
 import {
   type BranchOrder,
-  type OrderPaymentStatus,
   type OrderStatus,
 } from "@/app/types/order.types";
 import { Button } from "@/components/ui/button";
@@ -50,6 +49,19 @@ import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import { OrderWorkflowBadge, PaymentStatusBadge } from "./OrderStateBadges";
+import {
+  ORDER_LIST_BADGE_CLASS,
+  ORDER_LIST_EXPANDED_ROW_CLASS,
+  ORDER_LIST_HEADER_CLASS,
+  ORDER_LIST_NOTE_CLASS,
+  ORDER_LIST_PRIMARY_ACTION_CLASS,
+  ORDER_LIST_PRODUCT_CARD_CLASS,
+  ORDER_LIST_ROW_ACTIVE_CLASS,
+  ORDER_LIST_ROW_CLASS,
+  ORDER_LIST_SECONDARY_ACTION_CLASS,
+  ORDER_LIST_SHELL_CLASS,
+} from "./orderListStyles";
+import type { OrderQuickFilterGroup, OrderQuickFilterId } from "./orderQuickFilters";
 
 export type BranchOrderStatusGroup = {
   id: string;
@@ -65,6 +77,8 @@ type BranchOrderListPageProps = {
   statusGroups?: BranchOrderStatusGroup[];
   defaultStatusGroupId?: string;
   enableProcessingActions?: boolean;
+  quickFilterGroups?: OrderQuickFilterGroup[];
+  defaultQuickFilterId?: OrderQuickFilterId;
 };
 
 type FetchBranchOrdersOptions = {
@@ -75,15 +89,6 @@ type BranchStatusFilter = "ALL" | "INCOMPLETE" | OrderStatus;
 
 const TABLE_COL_SPAN = 8;
 const BRANCH_PROCESSING_BASE_PATH = "/admin/orders-processing";
-const INCOMPLETE_PAYMENT_STATUSES = new Set<OrderPaymentStatus>([
-  "UNPAID",
-  "PENDING",
-  "PENDING_VERIFICATION",
-  "PARTIALLY_PAID",
-  "FAILED",
-  "EXPIRED",
-]);
-
 const ORDER_STATUS_FILTER_OPTIONS: Array<{
   label: string;
   value: BranchStatusFilter;
@@ -129,11 +134,15 @@ function getPrimaryStatusSelection(status?: string | null) {
 }
 
 function isIncompleteOrder(order: BranchOrder) {
-  return (
-    order.orderStatus === "AWAITING_PAYMENT" ||
-    order.orderStatus === "CANCELLED" ||
-    INCOMPLETE_PAYMENT_STATUSES.has(order.paymentStatus)
-  );
+  if (order.orderStatus === "COMPLETED" || order.orderStatus === "RETURNED") {
+    return false;
+  }
+
+  if (order.orderStatus === "CANCELLED" && order.paymentStatus === "REFUNDED") {
+    return false;
+  }
+
+  return true;
 }
 
 function matchesSubOrderStatus(order: BranchOrder, statusSelection?: string | null) {
@@ -153,16 +162,36 @@ function hasShortage(order: Pick<BranchOrder, "items" | "subOrderStatus">) {
   );
 }
 
+function matchesIncompleteQuickFilter(
+  order: BranchOrder,
+  quickFilterId: OrderQuickFilterId | string | null | undefined,
+) {
+  if (!isIncompleteOrder(order)) {
+    return false;
+  }
+
+  if (!quickFilterId || quickFilterId === "all") {
+    return true;
+  }
+
+  if (quickFilterId === "shortage") {
+    return hasShortage(order);
+  }
+
+  if (quickFilterId === "unpaid") {
+    return order.paymentStatus !== "PAID";
+  }
+
+  if (quickFilterId === "cancelled") {
+    return order.orderStatus === "CANCELLED" && order.paymentStatus !== "REFUNDED";
+  }
+
+  return true;
+}
+
 function InventoryBadge({ shortage }: { shortage: boolean }) {
   return (
-    <span
-      className={cn(
-        "inline-flex w-fit whitespace-nowrap items-center rounded-[10px] border px-2.5 py-0.5 text-[11px] font-medium",
-        shortage
-          ? "border-rose-200 bg-rose-50 text-rose-600"
-          : "border-emerald-200 bg-emerald-50 text-emerald-700",
-      )}
-    >
+    <span className={ORDER_LIST_BADGE_CLASS}>
       {shortage ? "Thiếu hàng" : "Đủ hàng"}
     </span>
   );
@@ -192,13 +221,18 @@ export default function BranchOrderListPage({
   statusGroups,
   defaultStatusGroupId,
   enableProcessingActions = false,
+  quickFilterGroups,
+  defaultQuickFilterId,
 }: BranchOrderListPageProps) {
+  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
   const defaultDateRange = useMemo(() => getCurrentDayDateTimeRange(), []);
   const statusGroupItems = useMemo(() => statusGroups ?? [], [statusGroups]);
   const hasStatusGroups = statusGroupItems.length > 0;
+  const quickFilterItems = useMemo(() => quickFilterGroups ?? [], [quickFilterGroups]);
+  const hasQuickFilters = quickFilterItems.length > 0;
   const fixedStatus = useMemo(
     () => normalizeStatus(fixedStatusQuery),
     [fixedStatusQuery],
@@ -211,6 +245,11 @@ export default function BranchOrderListPage({
     () => searchParams.get("status")?.trim().toUpperCase() ?? null,
     [searchParams],
   );
+  const requestedQuickFilterId = useMemo(
+    () => searchParams.get("quickFilter")?.trim().toLowerCase() ?? null,
+    [searchParams],
+  );
+  const fallbackQuickFilterId = defaultQuickFilterId ?? quickFilterItems[0]?.id ?? "all";
   const [activeGroupId, setActiveGroupId] = useState(
     () => defaultStatusGroupId ?? statusGroupItems[0]?.id ?? "",
   );
@@ -236,9 +275,21 @@ export default function BranchOrderListPage({
       null,
     [activeGroupId, statusGroupItems],
   );
+  const activeQuickFilter = useMemo(
+    () =>
+      !hasQuickFilters
+        ? null
+        : quickFilterItems.find((group) => group.id === requestedQuickFilterId) ??
+          quickFilterItems.find((group) => group.id === fallbackQuickFilterId) ??
+          quickFilterItems[0] ??
+          null,
+    [fallbackQuickFilterId, hasQuickFilters, quickFilterItems, requestedQuickFilterId],
+  );
 
   const selectedStatusSelection = hasStatusGroups
     ? activeGroup?.status ?? statusGroupItems[0]?.status ?? "ALL"
+    : hasQuickFilters
+      ? "ALL"
     : fixedStatusQuery
       ? fixedStatus
       : requestedStatus;
@@ -259,6 +310,18 @@ export default function BranchOrderListPage({
       matchedGroup?.id ?? defaultStatusGroupId ?? statusGroupItems[0]?.id ?? "",
     );
   }, [defaultStatusGroupId, hasStatusGroups, requestedGroupStatus, statusGroupItems]);
+
+  useEffect(() => {
+    if (!hasQuickFilters || !activeQuickFilter) {
+      return;
+    }
+
+    if (requestedQuickFilterId === activeQuickFilter.id) {
+      return;
+    }
+
+    router.replace(`${pathname}?quickFilter=${activeQuickFilter.id}`);
+  }, [activeQuickFilter, hasQuickFilters, pathname, requestedQuickFilterId, router]);
 
   useEffect(() => {
     if (fixedStatusQuery || requestedStatus === "ALL" || hasStatusGroups) {
@@ -298,7 +361,8 @@ export default function BranchOrderListPage({
       }
 
       try {
-        const shouldFetchAllOrders = hasStatusGroups || selectedStatusSelection === "INCOMPLETE";
+        const shouldFetchAllOrders =
+          hasStatusGroups || hasQuickFilters || selectedStatusSelection === "INCOMPLETE";
         const serverStatus =
           shouldFetchAllOrders || selectedStatusSelection === "ALL"
             ? undefined
@@ -326,7 +390,7 @@ export default function BranchOrderListPage({
         }
       }
     },
-    [endDateFilter, hasStatusGroups, search, selectedStatusSelection, startDateFilter],
+    [endDateFilter, hasQuickFilters, hasStatusGroups, search, selectedStatusSelection, startDateFilter],
   );
 
   useEffect(() => {
@@ -373,12 +437,18 @@ export default function BranchOrderListPage({
       );
     }
 
+    if (hasQuickFilters) {
+      return sourceOrders.filter((order) =>
+        matchesIncompleteQuickFilter(order, activeQuickFilter?.id),
+      );
+    }
+
     if (selectedStatusSelection === "INCOMPLETE") {
       return sourceOrders.filter(isIncompleteOrder);
     }
 
     return sourceOrders;
-  }, [hasStatusGroups, selectedStatusSelection, sourceOrders]);
+  }, [activeQuickFilter?.id, hasQuickFilters, hasStatusGroups, selectedStatusSelection, sourceOrders]);
 
   const groupCounts = useMemo(() => {
     if (!hasStatusGroups) {
@@ -392,10 +462,23 @@ export default function BranchOrderListPage({
       return counts;
     }, {});
   }, [hasStatusGroups, sourceOrders, statusGroupItems]);
+  const quickFilterCounts = useMemo(() => {
+    if (!hasQuickFilters) {
+      return {};
+    }
+
+    return quickFilterItems.reduce<Record<string, number>>((counts, group) => {
+      counts[group.id] = sourceOrders.filter((order) =>
+        matchesIncompleteQuickFilter(order, group.id),
+      ).length;
+      return counts;
+    }, {});
+  }, [hasQuickFilters, quickFilterItems, sourceOrders]);
 
   const activeProcessingStatus = hasStatusGroups
     ? getPrimaryStatusSelection(selectedStatusSelection)
     : null;
+  const tableColSpan = hasQuickFilters ? TABLE_COL_SPAN + 1 : TABLE_COL_SPAN;
 
   const handleStatusChange = (value: string) => {
     const nextStatus = value as BranchStatusFilter;
@@ -481,12 +564,24 @@ export default function BranchOrderListPage({
     setSearch("");
     setStartDateFilter(defaultDateRange.start);
     setEndDateFilter(defaultDateRange.end);
+    if (hasQuickFilters) {
+      router.replace(`${pathname}?quickFilter=${fallbackQuickFilterId}`);
+    }
+  };
+
+  const handleQuickFilterChange = (filterId: string) => {
+    if (!hasQuickFilters) {
+      return;
+    }
+
+    router.replace(`${pathname}?quickFilter=${filterId}`);
   };
 
   const hasActiveFilters = Boolean(
     searchInput.trim() ||
       startDateFilter !== defaultDateRange.start ||
-      endDateFilter !== defaultDateRange.end,
+      endDateFilter !== defaultDateRange.end ||
+      (hasQuickFilters && activeQuickFilter?.id !== fallbackQuickFilterId),
   );
   const shortageCount = useMemo(
     () => orders.filter(hasShortage).length,
@@ -525,6 +620,15 @@ export default function BranchOrderListPage({
     ],
     [orders.length, shortageCount, totalFilteredValue, unpaidCount],
   );
+  const quickFilterCards = useMemo(
+    () =>
+      quickFilterItems.map((group) => ({
+        ...group,
+        value: (quickFilterCounts[group.id] ?? 0).toLocaleString("vi-VN"),
+        isActive: activeQuickFilter?.id === group.id,
+      })),
+    [activeQuickFilter?.id, quickFilterCounts, quickFilterItems],
+  );
 
   const renderProcessingActions = (
     order: BranchOrder,
@@ -541,7 +645,7 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             disabled={isMutatingOrder}
-            className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
+            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
             onClick={(event) => {
               event.stopPropagation();
               void handleRequestReplenishment(order);
@@ -557,7 +661,7 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className="h-[32px] bg-emerald-600 text-[12px] font-bold text-white shadow-sm hover:bg-emerald-700"
+          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
           onClick={(event) => {
             event.stopPropagation();
             void handleUpdateStatus(order, "CONFIRMED");
@@ -574,7 +678,7 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
+          className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
           onClick={(event) => {
             event.stopPropagation();
             void handleRequestReplenishment(order);
@@ -591,7 +695,7 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className="h-[32px] bg-blue-600 text-[12px] font-bold text-white shadow-sm hover:bg-blue-700"
+          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
           onClick={(event) => {
             event.stopPropagation();
             void handleUpdateStatus(order, "PROCESSING");
@@ -609,7 +713,7 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             variant="outline"
-            className="h-[32px] border-slate-300 bg-white text-[12px] font-bold"
+            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
             onClick={(event) => {
               event.stopPropagation();
               window.print();
@@ -621,7 +725,7 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             disabled={isMutatingOrder}
-            className="h-[32px] bg-emerald-600 text-[12px] font-bold text-white shadow-sm hover:bg-emerald-700"
+            className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
             onClick={(event) => {
               event.stopPropagation();
               void handleUpdateStatus(order, "READY_FOR_PICKUP");
@@ -638,7 +742,135 @@ export default function BranchOrderListPage({
       return (
         <Button
           size="sm"
-          className="h-[32px] bg-blue-600 text-[12px] font-bold text-white shadow-sm hover:bg-blue-700"
+          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          onClick={(event) => {
+            event.stopPropagation();
+            openHandoverCreate(order.subOrderId);
+          }}
+        >
+          <Truck size={15} className="mr-1.5" />
+          Tạo phiếu bàn giao
+        </Button>
+      );
+    }
+
+    return null;
+  };
+  const renderIncompleteActions = (
+    order: BranchOrder,
+    hasMissingItems: boolean,
+    isMutatingOrder: boolean,
+  ) => {
+    if (!hasQuickFilters || !canUpdateBranchOrders) {
+      return null;
+    }
+
+    const status = String(order.subOrderStatus).toUpperCase();
+
+    if (status === "PENDING") {
+      if (hasMissingItems) {
+        return (
+          <Button
+            size="sm"
+            disabled={isMutatingOrder}
+            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleRequestReplenishment(order);
+            }}
+          >
+            <PackageCheck size={15} className="mr-1.5" />
+            Xử lý thiếu hàng
+          </Button>
+        );
+      }
+
+      return (
+        <Button
+          size="sm"
+          disabled={isMutatingOrder}
+          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleUpdateStatus(order, "CONFIRMED");
+          }}
+        >
+          <CheckCircle2 size={15} className="mr-1.5" />
+          Xác nhận đơn
+        </Button>
+      );
+    }
+
+    if (status === "AWAITING_REPLENISHMENT") {
+      return (
+        <Button
+          size="sm"
+          disabled={isMutatingOrder}
+          className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleRequestReplenishment(order);
+          }}
+        >
+          <PackageCheck size={15} className="mr-1.5" />
+          Xử lý thiếu hàng
+        </Button>
+      );
+    }
+
+    if (status === "CONFIRMED") {
+      return (
+        <Button
+          size="sm"
+          disabled={isMutatingOrder}
+          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleUpdateStatus(order, "PROCESSING");
+          }}
+        >
+          <Printer size={15} className="mr-1.5" />
+          Bắt đầu chuẩn bị
+        </Button>
+      );
+    }
+
+    if (status === "PROCESSING") {
+      return (
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+            onClick={(event) => {
+              event.stopPropagation();
+              window.print();
+            }}
+          >
+            <Printer size={15} className="mr-1.5" />
+            In vận đơn
+          </Button>
+          <Button
+            size="sm"
+            disabled={isMutatingOrder}
+            className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleUpdateStatus(order, "READY_FOR_PICKUP");
+            }}
+          >
+            <PackageCheck size={15} className="mr-1.5" />
+            Chờ bàn giao
+          </Button>
+        </div>
+      );
+    }
+
+    if (status === "READY_FOR_PICKUP") {
+      return (
+        <Button
+          size="sm"
+          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
           onClick={(event) => {
             event.stopPropagation();
             openHandoverCreate(order.subOrderId);
@@ -694,6 +926,32 @@ export default function BranchOrderListPage({
             );
           })}
         </div>
+      ) : hasQuickFilters ? (
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {quickFilterCards.map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => handleQuickFilterChange(card.id)}
+              className={cn(
+                "rounded-[4px] border bg-white p-3 text-left shadow-sm transition-colors",
+                card.isActive
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-[#dcdcdc] text-slate-700 hover:border-blue-300 hover:bg-slate-50",
+              )}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.02em] text-slate-400">
+                {card.label}
+              </p>
+              <p className="mt-1 truncate text-[18px] font-semibold leading-6 text-slate-900">
+                {card.value}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                {card.description}
+              </p>
+            </button>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((card) => (
@@ -728,7 +986,7 @@ export default function BranchOrderListPage({
             />
           </div>
 
-          {!fixedStatusQuery && !hasStatusGroups ? (
+          {!fixedStatusQuery && !hasStatusGroups && !hasQuickFilters ? (
             <Select value={selectedStatusSelection} onValueChange={handleStatusChange}>
               <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 sm:w-[190px] xl:w-[190px]">
                 <SelectValue placeholder="Tất cả trạng thái" />
@@ -793,11 +1051,11 @@ export default function BranchOrderListPage({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
+      <div className={ORDER_LIST_SHELL_CLASS}>
         <div className="w-full overflow-x-auto">
           <Table>
-            <TableHeader className="bg-slate-50">
-              <TableRow className="border-b border-slate-100">
+            <TableHeader className={ORDER_LIST_HEADER_CLASS}>
+              <TableRow className="border-b border-blue-100">
                 <TableHead className="w-[52px] pl-4" />
                 <TableHead>Mã đơn hàng</TableHead>
                 <TableHead>Ngày đặt</TableHead>
@@ -806,13 +1064,16 @@ export default function BranchOrderListPage({
                 <TableHead>Thanh toán</TableHead>
                 <TableHead className="text-right">Tiền hàng</TableHead>
                 <TableHead className="text-right">Phí ship</TableHead>
+                {hasQuickFilters ? (
+                  <TableHead className="text-center">Thao tác</TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={TABLE_COL_SPAN}
+                    colSpan={tableColSpan}
                     className="h-32 text-center text-slate-400"
                   >
                     Đang tải dữ liệu...
@@ -821,7 +1082,7 @@ export default function BranchOrderListPage({
               ) : orders.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={TABLE_COL_SPAN}
+                    colSpan={tableColSpan}
                     className="h-36 text-center text-slate-500"
                   >
                     <div className="flex flex-col items-center justify-center text-slate-400">
@@ -848,8 +1109,8 @@ export default function BranchOrderListPage({
                     <React.Fragment key={order.orderId}>
                       <TableRow
                         className={cn(
-                          "cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50",
-                          isExpanded && "bg-blue-50/30",
+                          ORDER_LIST_ROW_CLASS,
+                          isExpanded && ORDER_LIST_ROW_ACTIVE_CLASS,
                         )}
                         onClick={() => void handleToggleRow(order)}
                       >
@@ -884,10 +1145,16 @@ export default function BranchOrderListPage({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <OrderWorkflowBadge status={order.subOrderStatus} />
+                          <OrderWorkflowBadge
+                            status={order.subOrderStatus}
+                            variant="order-list-monochrome"
+                          />
                         </TableCell>
                         <TableCell>
-                          <PaymentStatusBadge status={order.paymentStatus} />
+                          <PaymentStatusBadge
+                            status={order.paymentStatus}
+                            variant="order-list-monochrome"
+                          />
                         </TableCell>
                         <TableCell className="text-right text-[13px] font-semibold text-slate-800">
                           {formatCurrency(order.subtotal)}
@@ -895,13 +1162,18 @@ export default function BranchOrderListPage({
                         <TableCell className="text-right text-[13px] text-slate-600">
                           {formatCurrency(order.shippingFee)}
                         </TableCell>
+                        {hasQuickFilters ? (
+                          <TableCell className="text-center">
+                            {renderIncompleteActions(detail, hasMissingItems, isMutatingOrder)}
+                          </TableCell>
+                        ) : null}
                       </TableRow>
 
                       {isExpanded ? (
-                        <TableRow className="bg-white hover:bg-white">
-                          <TableCell colSpan={TABLE_COL_SPAN} className="p-0">
-                            <div className="grid gap-6 border-b border-slate-100 p-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-                              <div className="space-y-4 border-r border-slate-100 pr-0 lg:pr-6">
+                        <TableRow className={ORDER_LIST_EXPANDED_ROW_CLASS}>
+                          <TableCell colSpan={tableColSpan} className="p-0">
+                            <div className="grid gap-6 border-b border-blue-100 p-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+                              <div className="space-y-4 border-r border-blue-100 pr-0 lg:pr-6">
                                 <div>
                                   <h3 className="mb-1 text-[11px] font-bold uppercase text-slate-400">
                                     Địa chỉ giao hàng
@@ -916,19 +1188,28 @@ export default function BranchOrderListPage({
                                     <span className="text-[12px] text-slate-500">
                                       Trạng thái chi nhánh
                                     </span>
-                                    <OrderWorkflowBadge status={detail.subOrderStatus} />
+                                    <OrderWorkflowBadge
+                                      status={detail.subOrderStatus}
+                                      variant="order-list-monochrome"
+                                    />
                                   </div>
                                   <div className="flex items-center justify-between gap-3">
                                     <span className="text-[12px] text-slate-500">
                                       Trạng thái đơn tổng
                                     </span>
-                                    <OrderWorkflowBadge status={detail.orderStatus} />
+                                    <OrderWorkflowBadge
+                                      status={detail.orderStatus}
+                                      variant="order-list-monochrome"
+                                    />
                                   </div>
                                   <div className="flex items-center justify-between gap-3">
                                     <span className="text-[12px] text-slate-500">
                                       Thanh toán
                                     </span>
-                                    <PaymentStatusBadge status={detail.paymentStatus} />
+                                    <PaymentStatusBadge
+                                      status={detail.paymentStatus}
+                                      variant="order-list-monochrome"
+                                    />
                                   </div>
                                   <div className="flex items-center justify-between gap-3">
                                     <span className="text-[12px] text-slate-500">
@@ -971,7 +1252,7 @@ export default function BranchOrderListPage({
                                 </div>
 
                                 {enableProcessingActions && hasMissingItems ? (
-                                  <div className="rounded-[4px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] text-amber-800">
+                                  <div className={ORDER_LIST_NOTE_CLASS}>
                                     Đơn này đang có phần hàng thiếu. Hệ thống sẽ điều chuyển hoặc gom nội bộ
                                     trước khi chuyển sang bước bàn giao vận chuyển.
                                   </div>
@@ -991,9 +1272,9 @@ export default function BranchOrderListPage({
                                       return (
                                         <div
                                           key={item.id}
-                                          className="flex items-start gap-3 rounded-[4px] border border-slate-100 bg-slate-50 p-3"
+                                          className={ORDER_LIST_PRODUCT_CARD_CLASS}
                                         >
-                                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
+                                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-none border border-blue-100 bg-white">
                                             {itemImage ? (
                                               <img
                                                 src={itemImage}
