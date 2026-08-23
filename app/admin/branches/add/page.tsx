@@ -665,7 +665,11 @@ export default function AddBranchPage() {
         )
       : undefined;
 
-    const nextDistrict = matchedDistrict ? String(getDistId(matchedDistrict)) : "";
+    const nextDistrict = matchedDistrict
+      ? String(getDistId(matchedDistrict))
+      : watchedDistrict && watchedDistrict !== NO_DISTRICT_VALUE
+        ? watchedDistrict
+        : "";
     const wardList = nextDistrict
       ? await loadDistrictWardScopes(nextDistrict, districtList)
       : [];
@@ -681,14 +685,36 @@ export default function AddBranchPage() {
         )
       : undefined;
 
-    setValue("district", nextDistrict, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-    setValue("ward", matchedWard ? String(getWardId(matchedWard)) : "", {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
+    if (nextDistrict) {
+      setValue("district", nextDistrict, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    if (matchedWard) {
+      setValue("ward", String(getWardId(matchedWard)), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  };
+
+  const resolveTypedAddressLocation = async (input?: string) => {
+    const detail = (input ?? addressDetailValue ?? "").trim();
+    if (!detail || !currentProvince) return null;
+
+    const suggestions = await fetchScopedAddressSuggestions(detail);
+    const bestSuggestion = suggestions[0];
+    if (!bestSuggestion) return null;
+
+    syncSelectedMapLocation(bestSuggestion);
+    await syncSelectedAdministrativeScope(bestSuggestion);
+    setAddressSuggestions(suggestions);
+    setShowSuggestions(false);
+    return {
+      lat: bestSuggestion.lat as number,
+      lng: bestSuggestion.lng as number,
+    };
   };
 
   const resetSelectedMapLocation = () => {
@@ -814,6 +840,20 @@ export default function AddBranchPage() {
       setIsLoading(true);
 
       if (
+        (typeof data.lat !== "number" ||
+          typeof data.lng !== "number" ||
+          !Number.isFinite(data.lat) ||
+          !Number.isFinite(data.lng)) &&
+        data.addressDetail?.trim()
+      ) {
+        const resolvedLocation = await resolveTypedAddressLocation(data.addressDetail);
+        if (resolvedLocation) {
+          data.lat = resolvedLocation.lat;
+          data.lng = resolvedLocation.lng;
+        }
+      }
+
+      if (
         typeof data.lat !== "number" ||
         typeof data.lng !== "number" ||
         !Number.isFinite(data.lat) ||
@@ -837,6 +877,18 @@ export default function AddBranchPage() {
       const resolvedWardCode = selectedWardObj
         ? String(getWardId(selectedWardObj))
         : String(data.ward || "");
+
+      if (!resolvedDistrictId) {
+        toast.error("Vui long chon Quan/Huyen GHN de tinh phi giao hang.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!resolvedWardCode) {
+        toast.error("Vui long chon Phuong/Xa GHN de tinh phi giao hang.");
+        setIsLoading(false);
+        return;
+      }
 
       if (resolvedDistrictId && !selectedDistrictObj) {
         toast.error("Vui lòng chọn Quận/Huyện từ danh sách GHN hoặc bỏ trống để tính theo tỉnh.");
@@ -947,6 +999,12 @@ export default function AddBranchPage() {
     if (!isFormInitialized) return [];
 
     const missing: string[] = [];
+    if (!watchedDistrict || watchedDistrict === NO_DISTRICT_VALUE) {
+      missing.push("Quan/Huyen GHN");
+    }
+    if (!watchedWard) {
+      missing.push("Phuong/Xa GHN");
+    }
     if (!watchedProvince) missing.push("Tỉnh/Thành GHN");
     if (
       typeof watchedLat !== "number" ||
@@ -966,9 +1024,7 @@ export default function AddBranchPage() {
     watchedLng,
   ]);
 
-  const usesProvinceOnlyShippingFallback =
-    Boolean(watchedProvince) &&
-    (!watchedDistrict || watchedDistrict === NO_DISTRICT_VALUE);
+  const usesProvinceOnlyShippingFallback = false;
 
   const availableStaffs = useMemo(() => {
     const selectedManagerId = Number(watchedManagerId);
@@ -1185,9 +1241,6 @@ export default function AddBranchPage() {
                       <SelectContent className="z-[1000] p-0">
                         {renderSearchInput("Tìm huyện...")}
                         <div className="max-h-[200px] overflow-y-auto">
-                          <SelectItem value={NO_DISTRICT_VALUE}>
-                            Chỉ tính theo tỉnh
-                          </SelectItem>
                           {filteredDistricts.map((d) => (
                             <SelectItem
                               key={getDistId(d)}
@@ -1288,6 +1341,18 @@ export default function AddBranchPage() {
                       if (addressSuggestions.length > 0) {
                         setShowSuggestions(true);
                       }
+                    }}
+                    onBlur={() => {
+                      window.setTimeout(() => {
+                        const hasCoordinates =
+                          typeof watch("lat") === "number" &&
+                          typeof watch("lng") === "number" &&
+                          Number.isFinite(watch("lat")) &&
+                          Number.isFinite(watch("lng"));
+                        if (!hasCoordinates) {
+                          void resolveTypedAddressLocation();
+                        }
+                      }, 150);
                     }}
                     placeholder={
                       currentProvince
