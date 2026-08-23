@@ -817,7 +817,7 @@ export default function AddBranchPage() {
       } finally {
         setIsLoadingAddressSuggestions(false);
       }
-    }, 350);
+    }, 900);
 
     return () => {
       if (addressSuggestionTimeoutRef.current) {
@@ -844,31 +844,31 @@ export default function AddBranchPage() {
   }, []);
 
   const normalizeText = normalizeAddressText;
+  const toFiniteCoordinate = (value: unknown) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   const onSubmit = async (data: AdminBranchForm) => {
     try {
       setIsLoading(true);
+      let resolvedLat = toFiniteCoordinate(data.lat);
+      let resolvedLng = toFiniteCoordinate(data.lng);
 
       if (
-        (typeof data.lat !== "number" ||
-          typeof data.lng !== "number" ||
-          !Number.isFinite(data.lat) ||
-          !Number.isFinite(data.lng)) &&
+        (resolvedLat === null || resolvedLng === null) &&
         data.addressDetail?.trim()
       ) {
         const resolvedLocation = await resolveTypedAddressLocation(data.addressDetail);
         if (resolvedLocation) {
+          resolvedLat = resolvedLocation.lat;
+          resolvedLng = resolvedLocation.lng;
           data.lat = resolvedLocation.lat;
           data.lng = resolvedLocation.lng;
         }
       }
 
-      if (
-        typeof data.lat !== "number" ||
-        typeof data.lng !== "number" ||
-        !Number.isFinite(data.lat) ||
-        !Number.isFinite(data.lng)
-      ) {
+      if (resolvedLat === null || resolvedLng === null) {
         toast.error("Vui lòng chọn vị trí trên bản đồ");
         setIsLoading(false);
         return;
@@ -944,10 +944,10 @@ export default function AddBranchPage() {
         status: data.status.toUpperCase(),
         managerId: data.managerId ? Number(data.managerId) : null,
         managerIds: data.managerId ? [Number(data.managerId)] : [],
-        lat: data.lat,
-        lng: data.lng,
-        latitude: data.lat,
-        longitude: data.lng,
+        lat: resolvedLat,
+        lng: resolvedLng,
+        latitude: resolvedLat,
+        longitude: resolvedLng,
         mapDisplayName,
       };
 
@@ -1017,10 +1017,8 @@ export default function AddBranchPage() {
     }
     if (!watchedProvince) missing.push("Tỉnh/Thành GHN");
     if (
-      typeof watchedLat !== "number" ||
-      typeof watchedLng !== "number" ||
-      !Number.isFinite(watchedLat) ||
-      !Number.isFinite(watchedLng)
+      toFiniteCoordinate(watchedLat) === null ||
+      toFiniteCoordinate(watchedLng) === null
     ) {
       missing.push("tọa độ bản đồ");
     }
@@ -1355,10 +1353,8 @@ export default function AddBranchPage() {
                     onBlur={() => {
                       window.setTimeout(() => {
                         const hasCoordinates =
-                          typeof watch("lat") === "number" &&
-                          typeof watch("lng") === "number" &&
-                          Number.isFinite(watch("lat")) &&
-                          Number.isFinite(watch("lng"));
+                          toFiniteCoordinate(watch("lat")) !== null &&
+                          toFiniteCoordinate(watch("lng")) !== null;
                         if (!hasCoordinates) {
                           void resolveTypedAddressLocation();
                         }

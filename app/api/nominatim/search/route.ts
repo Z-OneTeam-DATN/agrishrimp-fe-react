@@ -40,40 +40,43 @@ function normalizeSearchText(value: string) {
 
 function buildInputVariants(input: string) {
   const variants = new Set<string>();
+  const addVariant = (value: string) => {
+    const normalizedValue = value.trim();
+    if (normalizedValue.length < 3) return;
+    variants.add(normalizedValue);
+    const asciiValue = normalizeSearchText(normalizedValue);
+    if (asciiValue.length >= 3) {
+      variants.add(asciiValue);
+    }
+  };
   const trimmed = input.trim();
-  variants.add(trimmed);
+  addVariant(trimmed);
 
   const withoutAdminTail = trimmed
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean)[0];
   if (withoutAdminTail) {
-    variants.add(withoutAdminTail);
+    addVariant(withoutAdminTail);
   }
 
   for (const value of Array.from(variants)) {
     const withoutLeadingHouseNumber = value
-      .replace(/^[0-9a-zA-Z/-]+\s+/, "")
+      .replace(/^([0-9][0-9a-zA-Z/-]*\s*)+/, "")
       .trim();
-    if (withoutLeadingHouseNumber.length >= 3) {
-      variants.add(withoutLeadingHouseNumber);
-    }
+    addVariant(withoutLeadingHouseNumber);
 
     const withoutExtension = value
       .replace(/\b(noi dai|noi dai\.|extended)\b/gi, "")
       .replace(/\s+/g, " ")
       .trim();
-    if (withoutExtension.length >= 3) {
-      variants.add(withoutExtension);
-    }
+    addVariant(withoutExtension);
 
     const withoutHouseNumberAndExtension = withoutLeadingHouseNumber
       .replace(/\b(noi dai|noi dai\.|extended)\b/gi, "")
       .replace(/\s+/g, " ")
       .trim();
-    if (withoutHouseNumberAndExtension.length >= 3) {
-      variants.add(withoutHouseNumberAndExtension);
-    }
+    addVariant(withoutHouseNumberAndExtension);
   }
 
   return Array.from(variants).filter((value) => value.length >= 3);
@@ -108,15 +111,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json([]);
   }
 
-  const inputVariants = buildInputVariants(input);
+  const inputVariants = buildInputVariants(input)
+    .sort((left, right) => left.length - right.length)
+    .slice(0, 4);
+  const provinceAscii = normalizeSearchText(province);
+  const districtAscii = normalizeSearchText(district);
   const queryCandidates = inputVariants
     .flatMap((inputVariant) => [
-      [inputVariant, ward, district, province, "Vietnam"],
       [inputVariant, district, province, "Vietnam"],
+      [inputVariant, districtAscii, provinceAscii, "Vietnam"],
       [inputVariant, province, "Vietnam"],
+      [inputVariant, provinceAscii, "Vietnam"],
     ])
     .map((parts) => parts.filter(Boolean).join(", "))
-    .filter((query, index, queries) => queries.indexOf(query) === index);
+    .filter((query, index, queries) => queries.indexOf(query) === index)
+    .slice(0, 8);
 
   try {
     const mergedResults: any[] = [];
