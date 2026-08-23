@@ -536,6 +536,36 @@ export default function NewTransferPage() {
     );
   };
 
+  const visibleTransferProductIds = searchResults.map((variant) => variant.id);
+  const areAllVisibleTransferProductsSelected =
+    visibleTransferProductIds.length > 0 &&
+    visibleTransferProductIds.every((productId) =>
+      selectedProductIds.some((id) => String(id) === String(productId)),
+    );
+
+  const toggleAllVisibleTransferProducts = () => {
+    if (visibleTransferProductIds.length === 0) return;
+
+    setSelectedProductIds((prev) => {
+      if (areAllVisibleTransferProductsSelected) {
+        const visibleIdSet = new Set(
+          visibleTransferProductIds.map((productId) => String(productId)),
+        );
+        return prev.filter((id) => !visibleIdSet.has(String(id)));
+      }
+
+      const selectedIdSet = new Set(prev.map((id) => String(id)));
+      const next = [...prev];
+      visibleTransferProductIds.forEach((productId) => {
+        if (!selectedIdSet.has(String(productId))) {
+          next.push(productId);
+          selectedIdSet.add(String(productId));
+        }
+      });
+      return next;
+    });
+  };
+
   const handleAddSelectedProducts = () => {
     const selectedVariants = searchResults.filter((variant) =>
       selectedProductIds.some((id) => String(id) === String(variant.id)),
@@ -921,7 +951,7 @@ export default function NewTransferPage() {
                 {showDropdown && currentSourceBranch && (
                   <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[320px] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl">
                     {searchResults.length > 0 && (
-                      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-slate-50 px-3 py-2 text-xs">
                         <span className="text-slate-500">
                           Đã chọn{" "}
                           <span className="font-bold text-slate-700">
@@ -929,6 +959,18 @@ export default function NewTransferPage() {
                           </span>{" "}
                           sản phẩm
                         </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 rounded-md border-blue-200 bg-white px-3 text-[11px] font-semibold text-blue-700 hover:bg-blue-50"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={toggleAllVisibleTransferProducts}
+                        >
+                          {areAllVisibleTransferProductsSelected
+                            ? "B\u1ECF ch\u1ECDn t\u1EA5t c\u1EA3"
+                            : "Ch\u1ECDn t\u1EA5t c\u1EA3"}
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
