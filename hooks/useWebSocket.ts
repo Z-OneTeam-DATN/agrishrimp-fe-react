@@ -45,23 +45,13 @@ export function useWebSocket() {
     canUseBranchOrderRoutes(user, warehouseId) &&
     !canViewSystemOrders;
   const branchRealtimeScopeId = user?.branch?.id ?? warehouseId ?? null;
-  const {
-    markConnecting: markOrderRealtimeConnecting,
-    markConnected: markOrderRealtimeConnected,
-    markReconnecting: markOrderRealtimeReconnecting,
-    markDisconnected: markOrderRealtimeDisconnected,
-    markHeartbeatReceived: markOrderRealtimeHeartbeatReceived,
-    markOrderEventReceived: markOrderRealtimeEventReceived,
-    reset: resetOrderRealtimeState,
-  } = useOrderRealtimeStore((state) => ({
-    markConnecting: state.markConnecting,
-    markConnected: state.markConnected,
-    markReconnecting: state.markReconnecting,
-    markDisconnected: state.markDisconnected,
-    markHeartbeatReceived: state.markHeartbeatReceived,
-    markOrderEventReceived: state.markOrderEventReceived,
-    reset: state.reset,
-  }));
+  const markOrderRealtimeConnecting = useOrderRealtimeStore((state) => state.markConnecting);
+  const markOrderRealtimeConnected = useOrderRealtimeStore((state) => state.markConnected);
+  const markOrderRealtimeReconnecting = useOrderRealtimeStore((state) => state.markReconnecting);
+  const markOrderRealtimeDisconnected = useOrderRealtimeStore((state) => state.markDisconnected);
+  const markOrderRealtimeHeartbeatReceived = useOrderRealtimeStore((state) => state.markHeartbeatReceived);
+  const markOrderRealtimeEventReceived = useOrderRealtimeStore((state) => state.markOrderEventReceived);
+  const resetOrderRealtimeState = useOrderRealtimeStore((state) => state.reset);
 
   const getOrderRealtimeTopics = useCallback(() => {
     if (canViewSystemOrders) {

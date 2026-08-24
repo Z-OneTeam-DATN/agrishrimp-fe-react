@@ -15,17 +15,10 @@ type OrderRealtimeStatusIndicatorProps = {
 export function OrderRealtimeStatusIndicator({
   className,
 }: OrderRealtimeStatusIndicatorProps) {
-  const {
-    connectionState,
-    lastConnectedAt,
-    lastHeartbeatAt,
-    lastOrderEventAt,
-  } = useOrderRealtimeStore((state) => ({
-    connectionState: state.connectionState,
-    lastConnectedAt: state.lastConnectedAt,
-    lastHeartbeatAt: state.lastHeartbeatAt,
-    lastOrderEventAt: state.lastOrderEventAt,
-  }));
+  const connectionState = useOrderRealtimeStore((state) => state.connectionState);
+  const lastConnectedAt = useOrderRealtimeStore((state) => state.lastConnectedAt);
+  const lastHeartbeatAt = useOrderRealtimeStore((state) => state.lastHeartbeatAt);
+  const lastOrderEventAt = useOrderRealtimeStore((state) => state.lastOrderEventAt);
 
   const fallbackActive = isOrderRealtimeFallbackActive(
     {
