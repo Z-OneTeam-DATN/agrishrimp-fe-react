@@ -8,6 +8,7 @@ import { Notification, NotificationType } from "@/app/types/chat.types";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 function NotificationIcon({ type }: { type: NotificationType }) {
   if (type === "CHAT") return <MessageCircle className="w-4 h-4 text-blue-500" />;
@@ -45,6 +46,7 @@ function NotificationMedia({ notification }: { notification: Notification }) {
 }
 
 export default function NotificationBell() {
+  const accessToken = useAuthStore((state) => state.accessToken);
   const {
     notifications, unreadCount, isOpen,
     setNotifications, setUnreadCount, markRead, markAllRead, toggleOpen, closeDropdown,
@@ -54,6 +56,12 @@ export default function NotificationBell() {
 
   // Load initial notifications
   useEffect(() => {
+    if (!accessToken) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
     const load = async () => {
       try {
         const [page, count] = await Promise.all([
@@ -65,7 +73,7 @@ export default function NotificationBell() {
       } catch {}
     };
     load();
-  }, [setNotifications, setUnreadCount]);
+  }, [accessToken, setNotifications, setUnreadCount]);
 
   // Close on outside click
   useEffect(() => {
