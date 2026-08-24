@@ -26,6 +26,25 @@ let isRefreshing = false;
 let failedQueue: FailedQueueItem[] = [];
 
 const isClient = () => typeof window !== "undefined";
+const clearClientAuthPersistence = () => {
+  if (!isClient()) return;
+
+  try {
+    sessionStorage.removeItem("_u");
+    sessionStorage.removeItem("_p");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+  } catch {}
+
+  try {
+    document.cookie = "hasSession=; Max-Age=0; path=/";
+    document.cookie = "hasSession=; Max-Age=0; path=/; domain=.agrishrimp.io.vn";
+
+    if (window.location.hostname) {
+      document.cookie = `hasSession=; Max-Age=0; path=/; domain=${window.location.hostname}`;
+    }
+  } catch {}
+};
 const isDev = process.env.NODE_ENV === "development";
 const DEFAULT_PUBLIC_API_BASE_URL = "https://api.agrishrimp.io.vn/api";
 const DEFAULT_SERVER_API_BASE_URL =
@@ -328,6 +347,7 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
               processQueue(null, token);
             } catch (refreshError) {
               processQueue(refreshError, null);
+              clearClientAuthPersistence();
               const { useAuthStore } = await import("@/stores/useAuthStore");
               useAuthStore.getState().clearAuth();
             } finally {
@@ -342,6 +362,7 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
         }
       } catch (e) {
         console.warn("Lỗi giải mã token trong request interceptor", e);
+        clearClientAuthPersistence();
         const { useAuthStore } = await import("@/stores/useAuthStore");
         useAuthStore.getState().clearAuth();
         token = null;
@@ -426,6 +447,7 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
             processQueue(err, null);
             
             // 3. Force logout on refresh failure
+            clearClientAuthPersistence();
             const { useAuthStore } = await import("@/stores/useAuthStore");
             useAuthStore.getState().clearAuth();
             
