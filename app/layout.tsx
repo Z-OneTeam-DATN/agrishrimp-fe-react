@@ -23,6 +23,59 @@ export const metadata: Metadata = {
   },
 };
 
+const thirdPartyErrorShield = `
+(function () {
+  function isBenignInjectedScriptError(message, source) {
+    var text = String(message || "");
+    var file = String(source || "");
+
+    return (
+      file.indexOf("share-modal.js") !== -1 ||
+      (text.indexOf("Cannot read properties of null") !== -1 &&
+        text.indexOf("addEventListener") !== -1)
+    );
+  }
+
+  window.addEventListener(
+    "error",
+    function (event) {
+      if (isBenignInjectedScriptError(event.message, event.filename)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return true;
+      }
+    },
+    true
+  );
+
+  window.addEventListener(
+    "unhandledrejection",
+    function (event) {
+      var reason = event.reason || {};
+      if (isBenignInjectedScriptError(reason.message || reason, reason.fileName || reason.sourceURL)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return true;
+      }
+    },
+    true
+  );
+
+  var previousOnError = window.onerror;
+  window.onerror = function (message, source) {
+    if (isBenignInjectedScriptError(message, source)) {
+      return true;
+    }
+
+    if (typeof previousOnError === "function") {
+      return previousOnError.apply(this, arguments);
+    }
+
+    return false;
+  };
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,7 +83,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning className={inter.variable}>
-      <head />
+      <head>
+        <script
+          id="third-party-error-shield"
+          dangerouslySetInnerHTML={{ __html: thirdPartyErrorShield }}
+        />
+      </head>
       <body>
         <LayoutClient>{children}</LayoutClient>
       </body>
