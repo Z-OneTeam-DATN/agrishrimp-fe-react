@@ -137,6 +137,7 @@ export default function LayoutClient({
   const siteHeaderRef = useRef<HTMLDivElement | null>(null);
   const {
     user,
+    accessToken,
     setUser,
     setAccessToken,
     setRefreshToken,
@@ -192,10 +193,9 @@ export default function LayoutClient({
   );
 
   const fetchFreshAuthSnapshot = useCallback(async () => {
-    const [tokenResult, userResult, permissionsResult] = await Promise.allSettled([
+    const [tokenResult, userResult] = await Promise.allSettled([
       AuthService.meTokenNext(),
       AuthService.meNext(),
-      AuthService.getMyPermissionsNext(),
     ]);
 
     if (tokenResult.status === "fulfilled") {
@@ -206,8 +206,14 @@ export default function LayoutClient({
       throw userResult.reason;
     }
 
-    const permissions =
-      permissionsResult.status === "fulfilled" ? permissionsResult.value : [];
+    let permissions: string[] = [];
+    try {
+      permissions = await AuthService.getMyPermissionsNext();
+    } catch (permissionsError) {
+      if (isUnauthorizedAuthError(permissionsError)) {
+        throw permissionsError;
+      }
+    }
 
     writeCache(userResult.value);
     writePermissionsCache(permissions);
@@ -466,7 +472,7 @@ export default function LayoutClient({
               <>{children}</>
             ) : (
               <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
-                {user ? <WebSocketProvider /> : null}
+                {user && accessToken ? <WebSocketProvider /> : null}
                 <Header />
                 <div ref={siteHeaderRef} className="sticky top-0 z-50">
                   <Navbar />
