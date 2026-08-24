@@ -100,7 +100,32 @@ const clearCache = () => {
   try {
     sessionStorage.removeItem(CACHE_KEY);
     sessionStorage.removeItem(PERMS_CACHE_KEY);
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
   } catch {}
+};
+
+const isUnauthorizedAuthError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const status =
+    "response" in error &&
+    error.response &&
+    typeof error.response === "object" &&
+    "status" in error.response
+      ? Number(error.response.status)
+      : null;
+
+  if (status === 401 || status === 403) return true;
+
+  const code =
+    "code" in error && typeof error.code === "string" ? error.code : "";
+  const message =
+    "message" in error && typeof error.message === "string"
+      ? error.message.toLowerCase()
+      : "";
+
+  return code === "ERR_BAD_REQUEST" && message.includes("401");
 };
 
 export default function LayoutClient({
@@ -149,6 +174,7 @@ export default function LayoutClient({
 
   const clearClientAuth = useCallback(() => {
     clearCache();
+    Cookies.remove("hasSession", { path: "/" });
     clearAuth();
     setLoadingAuth(false);
   }, [clearAuth, setLoadingAuth]);
@@ -280,7 +306,7 @@ export default function LayoutClient({
           lastHydratedAtRef.current = Date.now();
         } catch (error) {
           console.warn("Auth hydration failed:", error);
-          if (!cachedUser) {
+          if (!cachedUser || isUnauthorizedAuthError(error)) {
             clearClientAuth();
           }
         } finally {
