@@ -22,6 +22,8 @@ export default function CreateAddressPage() {
         provinceId: Number(data.provinceId),
         districtId: Number(data.districtId),
         wardCode: data.wardCode,
+        lat: data.lat ?? null,
+        lng: data.lng ?? null,
         isDefault: data.isDefault,
       };
 

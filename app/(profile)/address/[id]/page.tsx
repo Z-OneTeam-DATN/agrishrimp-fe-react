@@ -37,6 +37,8 @@ export default function EditAddressPage({ params }: { params: Promise<{ id: stri
           districtId: String(currentAddress.districtId || ""),
           wardCode: String(currentAddress.wardCode ?? currentAddress.wardId ?? ""),
           specificAddress: currentAddress.addressDetail,
+          lat: Number.isFinite(Number(currentAddress.lat)) ? Number(currentAddress.lat) : null,
+          lng: Number.isFinite(Number(currentAddress.lng)) ? Number(currentAddress.lng) : null,
           isDefault: currentAddress.isDefault ?? false,
           addressType: currentAddress.addressType || "Home",
         });
@@ -67,6 +69,8 @@ export default function EditAddressPage({ params }: { params: Promise<{ id: stri
         provinceId: Number(data.provinceId),
         districtId: Number(data.districtId),
         wardCode: data.wardCode,
+        lat: data.lat ?? null,
+        lng: data.lng ?? null,
         isDefault: data.isDefault,
         addressType: data.addressType,
       };

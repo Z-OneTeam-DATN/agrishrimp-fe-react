@@ -53,6 +53,8 @@ const SHIPPING_UNAVAILABLE_MESSAGES: Record<string, string> = {
     GHN_API_FAILED: "GHN đang không trả về phí vận chuyển thật. Hãy thử lại sau ít phút.",
     ORDER_PREPARE_NO_ACTIVE_BRANCHES: "Hiện chưa có chi nhánh hoạt động có thể phục vụ đơn hàng của bạn. Vui lòng thử lại sau.",
     ORDER_PREPARE_NO_DELIVERY_BRANCHES: "Chưa có chi nhánh phù hợp cho địa chỉ giao hàng này. Hãy kiểm tra hoặc chọn địa chỉ khác.",
+    ORDER_PREPARE_NO_BRANCH_IN_REGION: "Vùng giao hàng của địa chỉ này hiện chưa có chi nhánh active để phục vụ trực tiếp. Hãy chọn địa chỉ khác để test hoặc bổ sung chi nhánh trong vùng.",
+    ORDER_PREPARE_UNSUPPORTED_REGION: "Hệ thống chưa xác định được vùng giao hàng của địa chỉ này. Hãy cập nhật lại địa chỉ chi tiết hơn.",
 }
 
 type SavedAddress = {
@@ -60,6 +62,8 @@ type SavedAddress = {
     addressDetail: string
     districtId: number | null
     wardCode: string
+    lat: number | null
+    lng: number | null
     receiverName: string
     receiverPhone: string
     isDefault?: boolean
@@ -71,6 +75,8 @@ type SavedAddressApi = {
     districtId?: number | string | null
     wardId?: string | number | null
     wardCode?: string | number | null
+    lat?: number | string | null
+    lng?: number | string | null
     receiverName?: string | null
     receiverPhone?: string | null
     isDefault?: boolean | null
@@ -93,6 +99,8 @@ type AddressFormValues = {
     provinceId: string | number
     districtId: string | number
     wardCode: string
+    lat?: number | null
+    lng?: number | null
     isDefault: boolean
     addressType: string
 }
@@ -107,6 +115,14 @@ const normalizeNumber = (value: unknown) => {
 const normalizeWardCode = (value: unknown) => {
     const normalized = String(value ?? "").trim()
     return normalized && normalized !== "undefined" && normalized !== "null" ? normalized : ""
+}
+
+const normalizeCoordinate = (value: unknown) => {
+    if (value === null || value === undefined || value === "") {
+        return null
+    }
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
 }
 
 const getVoucherLabel = (voucher: Voucher) => {
@@ -132,6 +148,8 @@ const normalizeSavedAddress = (raw: SavedAddressApi): SavedAddress | null => {
         addressDetail: String(raw.addressDetail ?? "").trim(),
         districtId: normalizeNumber(raw.districtId),
         wardCode: normalizeWardCode(raw.wardCode ?? raw.wardId),
+        lat: normalizeCoordinate(raw.lat),
+        lng: normalizeCoordinate(raw.lng),
         receiverName: String(raw.receiverName ?? "").trim(),
         receiverPhone: String(raw.receiverPhone ?? "").trim(),
         isDefault: Boolean(raw.isDefault),
@@ -142,6 +160,8 @@ const buildDeliveryInfoFromAddress = (addr: SavedAddress): DeliveryInfo => ({
     address: addr.addressDetail,
     districtId: addr.districtId ?? 0,
     wardCode: addr.wardCode,
+    lat: addr.lat,
+    lng: addr.lng,
     districtName: "",
     wardName: "",
     receiverName: addr.receiverName,
@@ -397,15 +417,23 @@ export default function CheckoutPage() {
         currentCart: CartItem[] = cartItems,
         nextVoucherCode?: string
     ) => {
+        const selectedAddress = addresses.find((addr) => addr.id === userAddressId)
+        const selectedDeliveryInfo = deliveryInfo?.userAddressId === userAddressId ? deliveryInfo : null
         prepareMutation.mutate({
             userAddressId,
+            ...(selectedAddress?.lat != null || selectedDeliveryInfo?.lat != null
+                ? { userLat: Number(selectedAddress?.lat ?? selectedDeliveryInfo?.lat) }
+                : {}),
+            ...(selectedAddress?.lng != null || selectedDeliveryInfo?.lng != null
+                ? { userLng: Number(selectedAddress?.lng ?? selectedDeliveryInfo?.lng) }
+                : {}),
             cart: currentCart.map((item) => ({
                 productVariantId: item.productVariantId,
                 quantity: item.quantity,
             })),
             ...(nextVoucherCode ? { voucherCode: nextVoucherCode } : {}),
         })
-    }, [cartItems, prepareMutation])
+    }, [addresses, cartItems, deliveryInfo, prepareMutation])
 
     const syncVisibleCartItems = useCallback((nextItems: CartItem[]) => {
         setCartItems((currentItems) =>
@@ -806,6 +834,8 @@ export default function CheckoutPage() {
                 provinceId: Number(data.provinceId),
                 districtId: Number(data.districtId),
                 wardCode: data.wardCode,
+                lat: data.lat ?? null,
+                lng: data.lng ?? null,
                 isDefault: data.isDefault,
                 addressType: data.addressType,
             }

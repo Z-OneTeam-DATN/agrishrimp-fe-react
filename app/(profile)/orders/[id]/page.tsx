@@ -417,7 +417,7 @@ export default function OrderDetailPage({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#1965a2]">
-                  Cửa hàng xử lý
+                  Chi nhánh xử lý
                 </p>
                 <p className="text-sm font-semibold text-gray-900">{order.branchName || "AgriShrimp"}</p>
                 {order.branchPhone && <p className="text-sm text-gray-500">{order.branchPhone}</p>}
