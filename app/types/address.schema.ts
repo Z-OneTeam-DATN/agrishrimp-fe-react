@@ -14,6 +14,15 @@ export const addressSchema = z.object({
 
   specificAddress: z.string().min(5, "Địa chỉ cụ thể phải chi tiết hơn"),
 
+  lat: z.preprocess(
+    (value) => (value === "" || value == null ? null : Number(value)),
+    z.number().min(-90).max(90).nullable().optional(),
+  ),
+  lng: z.preprocess(
+    (value) => (value === "" || value == null ? null : Number(value)),
+    z.number().min(-180).max(180).nullable().optional(),
+  ),
+
   addressType: z.enum(["Home", "Office"], {
     errorMap: () => ({ message: "Vui lòng chọn loại địa chỉ" }),
   }),

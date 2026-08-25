@@ -13,6 +13,8 @@ export interface DeliveryInfo {
   address: string
   districtId: number
   wardCode: string
+  lat?: number | null
+  lng?: number | null
   districtName?: string
   wardName?: string
   receiverName?: string
@@ -47,6 +49,8 @@ export interface SubOrderDraft {
   branchAddress: string
   distanceKm: number
   durationMinutes: number
+  distanceSource?: string | null
+  branchRegion?: string | null
   items: OrderItemDetail[]
   subtotal: number
   shippingFee: number
@@ -75,6 +79,8 @@ export interface PreparePrimaryBranch {
   id: number
   name: string
   distanceKm: number
+  distanceSource?: string | null
+  region?: string | null
 }
 
 export interface SuggestedTransfer {
@@ -83,10 +89,14 @@ export interface SuggestedTransfer {
   toBranchId: number
   productVariantId: number
   quantity: number
+  fromRegion?: string | null
+  toRegion?: string | null
 }
 
 export interface PrepareOrderPayload {
   userAddressId: number
+  userLat?: number
+  userLng?: number
   voucherCode?: string
   cart?: Array<{ productVariantId: number; quantity: number }>
 }
@@ -105,6 +115,9 @@ export interface PrepareOrderResponse {
   requiresManualApproval?: boolean
   voucherCode?: string | null
   stockStatus?: PrepareStockStatus
+  customerRegion?: string | null
+  servingBranchRegion?: string | null
+  adjacentRegionUsed?: string | null
   primaryBranch?: PreparePrimaryBranch | null
   suggestedTransfers?: SuggestedTransfer[]
   subOrders: SubOrderDraft[]

@@ -67,6 +67,8 @@ export default function AddressForm({
       districtId: "",
       wardCode: "",
       specificAddress: "",
+      lat: null,
+      lng: null,
       addressType: "Home",
       isDefault: false,
     },
@@ -206,6 +208,8 @@ export default function AddressForm({
 
       setValue("wardCode", matchedWard.code, { shouldValidate: true });
       setValue("specificAddress", suggestion.label, { shouldValidate: true });
+      setValue("lat", suggestion.lat ?? null, { shouldValidate: false });
+      setValue("lng", suggestion.lng ?? null, { shouldValidate: false });
     } catch (err) {
       console.error("Lỗi auto-fill địa chỉ:", err);
       toast.error("Không thể áp dụng gợi ý địa chỉ lúc này.");
@@ -299,6 +303,8 @@ export default function AddressForm({
                   if (!autoFillRef.current) {
                     setValue("districtId", "");
                     setValue("wardCode", "");
+                    setValue("lat", null, { shouldValidate: false });
+                    setValue("lng", null, { shouldValidate: false });
                   }
                 },
               })}
@@ -318,7 +324,11 @@ export default function AddressForm({
             <select
               {...register("districtId", {
                 onChange: () => {
-                  if (!autoFillRef.current) setValue("wardCode", "");
+                  if (!autoFillRef.current) {
+                    setValue("wardCode", "");
+                    setValue("lat", null, { shouldValidate: false });
+                    setValue("lng", null, { shouldValidate: false });
+                  }
                 },
               })}
               disabled={!provinceId}
