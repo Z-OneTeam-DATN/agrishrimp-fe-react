@@ -15,6 +15,7 @@ import {
   Save,
   DollarSign,
   Loader2,
+  Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DriverNameSelect } from "@/components/admin/shared/DriverNameSelect";
@@ -100,6 +101,7 @@ export default function NewTransferPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
+  const [internalPriceAdjustmentPercent, setInternalPriceAdjustmentPercent] = useState("0");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hasPrefilledRef = useRef(false);
 
@@ -122,6 +124,7 @@ export default function NewTransferPage() {
     handleSubmit,
     control,
     setValue,
+    getValues,
     setError,
     clearErrors,
     watch,
@@ -448,6 +451,56 @@ export default function NewTransferPage() {
   const selectTriggerClass =
     "h-[38px] text-[13px] font-normal text-slate-800 data-[placeholder]:text-slate-400";
 
+  const toMoneyNumber = (value: unknown) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : 0;
+  };
+
+  const resolveVariantImportPrice = (variant: any) => {
+    const batchImportPrice = (variant.batches || []).find(
+      (batch: any) => toMoneyNumber(batch?.importPrice) > 0,
+    )?.importPrice;
+
+    return toMoneyNumber(
+      variant.importPrice ?? variant.costPrice ?? batchImportPrice,
+    );
+  };
+
+  const resolveVariantSellingPrice = (variant: any) => {
+    const batchSellingPrice = (variant.batches || []).find(
+      (batch: any) => toMoneyNumber(batch?.sellingPrice) > 0,
+    )?.sellingPrice;
+
+    return toMoneyNumber(
+      variant.sellingPrice ?? variant.price ?? variant.customerPrice ?? batchSellingPrice,
+    );
+  };
+
+  const calculateInternalTransferPrice = (
+    importPrice: number,
+    sellingPrice: number,
+    adjustmentPercent = toMoneyNumber(internalPriceAdjustmentPercent),
+  ) => {
+    if (importPrice > 0 && sellingPrice > importPrice) {
+      const midpointPrice = importPrice + (sellingPrice - importPrice) / 2;
+      const adjustedPrice = midpointPrice * (1 + adjustmentPercent / 100);
+      const minPrice = importPrice + 1;
+      const maxPrice = sellingPrice - 1;
+
+      return Math.round(Math.min(maxPrice, Math.max(minPrice, adjustedPrice)));
+    }
+
+    if (importPrice > 0) {
+      return Math.round(importPrice * (1 + Math.max(1, adjustmentPercent) / 100));
+    }
+
+    if (sellingPrice > 0) {
+      return Math.round(sellingPrice * 0.8);
+    }
+
+    return 0;
+  };
+
   const openProductDropdown = () => {
     if (!currentSourceBranch) {
       setError("sourceBranch", {
@@ -501,17 +554,13 @@ export default function NewTransferPage() {
     );
   }
 
-  const handleSelectProduct = (variant: any) => {
-    const isExist = fields.some((f: any) => f.productCode === variant.sku);
-    if (isExist) {
-      toast.error("Sản phẩm này đã có trong danh sách!");
-      return;
-    }
-
+  const buildTransferItem = (variant: any) => {
     let displayName = variant.productName || "Sản phẩm";
     if (variant.sku) displayName += ` [${variant.sku}]`;
+    const importPrice = resolveVariantImportPrice(variant);
+    const sellingPrice = resolveVariantSellingPrice(variant);
 
-    append({
+    return {
       variantId: variant.id,
       productCode: variant.sku,
       productName: displayName,
@@ -519,13 +568,13 @@ export default function NewTransferPage() {
       quantity: 1,
       availableQuantity: variant.quantity || 0,
       receivedQuantity: 0,
+      importPrice,
+      sellingPrice,
+      unitTransferPrice: isInternalSale
+        ? calculateInternalTransferPrice(importPrice, sellingPrice)
+        : undefined,
       itemNote: "",
-    });
-
-    setSearchTerm("");
-    setShowDropdown(false);
-    setSelectedProductIds([]);
-    toast.success("Đã thêm biến thể thành công!");
+    };
   };
 
   const toggleSelectedProduct = (productId: number | string) => {
@@ -574,10 +623,52 @@ export default function NewTransferPage() {
       toast.warning("Vui lòng chọn ít nhất một sản phẩm");
       return;
     }
-    selectedVariants.forEach((variant) => handleSelectProduct(variant));
+
+    const currentItems = getValues("items") || [];
+    const existingProductCodes = new Set(
+      currentItems.map((item: any) => String(item.productCode || "")),
+    );
+    const variantsToAdd = selectedVariants.filter(
+      (variant) => !existingProductCodes.has(String(variant.sku || "")),
+    );
+
+    if (variantsToAdd.length === 0) {
+      toast.error("Các sản phẩm đã chọn đã có trong danh sách!");
+      return;
+    }
+
+    append(variantsToAdd.map(buildTransferItem));
     setSearchTerm("");
     setShowDropdown(false);
     setSelectedProductIds([]);
+    if (variantsToAdd.length < selectedVariants.length) {
+      toast.warning("Một số sản phẩm đã có trong danh sách nên đã được bỏ qua");
+    }
+    toast.success(`Đã thêm ${variantsToAdd.length} sản phẩm thành công!`);
+  };
+
+  const applyInternalPriceAdjustmentToAll = () => {
+    const adjustmentPercent = toMoneyNumber(internalPriceAdjustmentPercent);
+    if (!Number.isFinite(adjustmentPercent)) {
+      toast.warning("Tỷ lệ điều chỉnh không hợp lệ");
+      return;
+    }
+
+    fields.forEach((_, index) => {
+      const importPrice = toMoneyNumber(watch(`items.${index}.importPrice`));
+      const sellingPrice = toMoneyNumber(watch(`items.${index}.sellingPrice`));
+      setValue(
+        `items.${index}.unitTransferPrice`,
+        calculateInternalTransferPrice(
+          importPrice,
+          sellingPrice,
+          adjustmentPercent,
+        ),
+        { shouldDirty: true, shouldValidate: true },
+      );
+    });
+
+    toast.success("Đã áp dụng giá nội bộ cho toàn bộ mặt hàng");
   };
 
   return (
@@ -949,7 +1040,10 @@ export default function NewTransferPage() {
                 />
 
                 {showDropdown && currentSourceBranch && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[320px] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl">
+                  <div
+                    className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[320px] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl"
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
                     {searchResults.length > 0 && (
                       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-slate-50 px-3 py-2 text-xs">
                         <span className="text-slate-500">
@@ -990,12 +1084,25 @@ export default function NewTransferPage() {
                       searchResults.map((variant) => (
                         <div
                           key={variant.id}
-                          onMouseDown={() => handleSelectProduct(variant)}
-                          className="flex cursor-pointer items-center justify-between border-b border-slate-100 p-2.5 transition-colors hover:bg-sky-50"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleSelectedProduct(variant.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              toggleSelectedProduct(variant.id);
+                            }
+                          }}
+                          className={cn(
+                            "flex cursor-pointer items-center justify-between border-b border-slate-100 p-2.5 transition-colors hover:bg-sky-50 focus:bg-sky-50 focus:outline-none",
+                            selectedProductIds.some(
+                              (id) => String(id) === String(variant.id),
+                            ) && "bg-sky-50",
+                          )}
                         >
                           <div className="flex items-center gap-2">
                             <div
-                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
                               className="flex items-center"
                             >
                               <Checkbox
@@ -1044,12 +1151,66 @@ export default function NewTransferPage() {
             </div>
           </div>
 
+          {isInternalSale && fields.length > 0 && (
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-amber-100 bg-amber-50/60 px-4 py-3">
+              <div className="min-w-[220px]">
+                <Label className="mb-1.5 block text-[10.5px] font-semibold uppercase text-amber-700">
+                  Điều chỉnh giá nội bộ
+                </Label>
+                <div className="relative">
+                  <Percent
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500"
+                  />
+                  <Input
+                    type="number"
+                    step="any"
+                    value={internalPriceAdjustmentPercent}
+                    onChange={(e) =>
+                      setInternalPriceAdjustmentPercent(e.target.value)
+                    }
+                    className="h-8 w-[160px] rounded-md border-amber-200 bg-white pl-9 pr-8 text-right text-[12px] font-semibold text-amber-700"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-amber-500">
+                    %
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {[-10, 0, 10, 20].map((preset) => (
+                  <Button
+                    key={preset}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setInternalPriceAdjustmentPercent(String(preset))}
+                    className={cn(
+                      "h-8 rounded-md border-amber-200 bg-white px-2.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-100",
+                      toMoneyNumber(internalPriceAdjustmentPercent) === preset &&
+                        "bg-amber-100",
+                    )}
+                  >
+                    {preset > 0 ? `+${preset}%` : `${preset}%`}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={applyInternalPriceAdjustmentToAll}
+                  className="h-8 rounded-md bg-amber-600 px-3 text-[11px] font-semibold text-white hover:bg-amber-700"
+                >
+                  Áp dụng tất cả
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto px-3 py-3">
             <div className="overflow-hidden border border-slate-200">
               <Table
                 className={cn(
                   "table-custom table-fixed border-collapse",
-                  isInternalSale ? "min-w-[920px]" : "min-w-[760px]",
+                  isInternalSale ? "min-w-[1100px]" : "min-w-[760px]",
                 )}
               >
                 <TableHeader className="bg-slate-50">
@@ -1071,6 +1232,12 @@ export default function NewTransferPage() {
                     </TableHead>
                     {isInternalSale && (
                       <>
+                        <TableHead className="w-[86px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
+                          Giá nhập
+                        </TableHead>
+                        <TableHead className="w-[92px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
+                          Giá bán KH
+                        </TableHead>
                         <TableHead className="w-[86px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
                           Đơn giá NB
                         </TableHead>
@@ -1097,7 +1264,13 @@ export default function NewTransferPage() {
                     const hasRowError = Boolean(
                       itemErrors?.quantity || itemErrors?.unitTransferPrice,
                     );
-                    const colSpan = isInternalSale ? 9 : 7;
+                    const colSpan = isInternalSale ? 11 : 7;
+                    const importPrice = toMoneyNumber(
+                      watch(`items.${index}.importPrice`),
+                    );
+                    const sellingPrice = toMoneyNumber(
+                      watch(`items.${index}.sellingPrice`),
+                    );
 
                     return (
                       <React.Fragment key={field.id}>
@@ -1138,6 +1311,20 @@ export default function NewTransferPage() {
                           </TableCell>
                           {isInternalSale && (
                             <>
+                              <TableCell className="px-1.5 py-2 text-right text-[11px] font-semibold text-slate-500">
+                                {importPrice > 0 ? (
+                                  importPrice.toLocaleString("vi-VN")
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="px-1.5 py-2 text-right text-[11px] font-semibold text-emerald-700">
+                                {sellingPrice > 0 ? (
+                                  sellingPrice.toLocaleString("vi-VN")
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </TableCell>
                               <TableCell className="px-1.5 py-1.5 text-right">
                                 <Input
                                   type="number"

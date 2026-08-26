@@ -295,6 +295,8 @@ export const TransferItemSchema = z.object({
   receivedQuantity: z.coerce.number().min(0).default(0), // Thực nhận (chỉ đọc ở form tạo)
   itemNote: z.string().optional(),
   imageUrl: z.string().optional(),
+  importPrice: z.coerce.number().min(0).optional(),
+  sellingPrice: z.coerce.number().min(0).optional(),
   // Đơn giá điều chuyển nội bộ (chỉ bắt buộc khi INTERNAL_SALE)
   unitTransferPrice: z.coerce.number().min(0).optional(),
 });
@@ -359,6 +361,26 @@ export const TransferSchema = z.object({
             message: "Vui lòng nhập đơn giá điều chuyển nội bộ (> 0)",
             path: ["items", index, "unitTransferPrice"],
           });
+        } else if (
+          item.importPrice &&
+          item.sellingPrice &&
+          item.sellingPrice > item.importPrice
+        ) {
+          if (item.unitTransferPrice <= item.importPrice) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Đơn giá nội bộ phải cao hơn giá nhập (${item.importPrice.toLocaleString("vi-VN")})`,
+              path: ["items", index, "unitTransferPrice"],
+            });
+          }
+
+          if (item.unitTransferPrice >= item.sellingPrice) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Đơn giá nội bộ phải thấp hơn giá bán khách hàng (${item.sellingPrice.toLocaleString("vi-VN")})`,
+              path: ["items", index, "unitTransferPrice"],
+            });
+          }
         }
       }
     });
