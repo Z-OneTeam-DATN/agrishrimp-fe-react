@@ -61,14 +61,14 @@ const ExportItemSchema = z.object({
 
 const ExportCommandSchema = z.object({
   noteCode: z.string(),
-  exportType: z.enum(["INTERNAL", "RETURN"]),
+  exportType: z.enum(["RETURN", "DISPOSAL"]),
   expectedDate: z.string().min(1, "Chọn ngày"),
   referenceCode: z.string().optional().default(""),
   note: z.string().trim().min(1, "Nhập lý do"),
   branchId: z.string().min(1, "Chọn kho xuất"),
-  targetId: z.string().min(1, "Chọn đối tượng"),
-  specificReceiver: z.string().trim().min(1, "Vui lòng nhập tên người nhận"),
-  shippingAddress: z.string().trim().min(1, "Vui lòng nhập địa chỉ giao hàng"),
+  targetId: z.string().optional().default(""),
+  specificReceiver: z.string().trim().optional().default(""),
+  shippingAddress: z.string().trim().optional().default(""),
   creatorName: z.string().optional().default(""),
   items: z.array(ExportItemSchema).min(1, "Chọn ít nhất 1 SP"),
 });
@@ -717,8 +717,11 @@ function AdminExportFormContent() {
   const watchTargetId = watch("targetId");
   const watchItems = watch("items");
   const formValues = watch();
+  const isReturnExport = watchExportType === "RETURN";
+  const isDisposalExport = watchExportType === "DISPOSAL";
+  const isDefectiveExport = isReturnExport || isDisposalExport;
   const autoLoadReturnItems =
-    watchExportType === "RETURN" && !fromReceiptId && !isEditMode;
+    isReturnExport && !fromReceiptId && !isEditMode;
 
   useEffect(() => {
     if (returnSourceLocked && watchBranchId) {
@@ -735,7 +738,7 @@ function AdminExportFormContent() {
             data.referenceCode ||
             extractReceiptCodeFromText(`${data.reason || ""} ${data.note || ""}`);
           reset({
-            exportType: "RETURN",
+            exportType: data.exportType === "DISPOSAL" ? "DISPOSAL" : "RETURN",
             noteCode: data.code,
             note: data.note || "",
             expectedDate:
@@ -781,7 +784,7 @@ function AdminExportFormContent() {
       }
       setIsLoadingSearch(true);
       try {
-        if (!watchTargetId) {
+        if (isReturnExport && !watchTargetId) {
           setError("targetId", {
             type: "manual",
             message: "Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi",
@@ -789,10 +792,12 @@ function AdminExportFormContent() {
           setShowDropdown(false);
           return;
         }
-        const results = await InventoryExportApiService.getDefectiveItems(
-          Number(watchTargetId),
-          Number(watchBranchId),
-        );
+        const results = isDisposalExport
+          ? await InventoryExportApiService.getAllDefectiveItems(Number(watchBranchId))
+          : await InventoryExportApiService.getDefectiveItems(
+              Number(watchTargetId),
+              Number(watchBranchId),
+            );
         const keyword = searchTerm.trim().toLowerCase();
         const defectiveBatches = (results || [])
           .filter((item: any) => Number(item.defectiveQuantity || 0) > 0)
@@ -816,7 +821,7 @@ function AdminExportFormContent() {
     };
     const debounceTimer = setTimeout(fetchProducts, 300);
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm, showDropdown, watchBranchId, watchExportType, watchTargetId]);
+  }, [searchTerm, showDropdown, watchBranchId, watchExportType, watchTargetId, isReturnExport, isDisposalExport]);
 
   useEffect(() => {
     const loadMasterData = async () => {
@@ -885,7 +890,7 @@ function AdminExportFormContent() {
     setSearchTerm("");
     setShowDropdown(false);
     setSelectedProductIds([]);
-    if (watchExportType === "RETURN") {
+    if (isDefectiveExport) {
       replace([]);
     }
   }, [
@@ -896,6 +901,7 @@ function AdminExportFormContent() {
     isReadOnly,
     replace,
     returnSourceLocked,
+    isDefectiveExport,
   ]);
 
   useEffect(() => {
@@ -909,7 +915,7 @@ function AdminExportFormContent() {
 
   useEffect(() => {
     if (!currentUser) return;
-    if (watchExportType !== "RETURN") return;
+    if (!isDefectiveExport) return;
 
     if (!canCreateExport) {
       toast.error("Bạn không có quyền tạo phiếu xuất.");
@@ -934,6 +940,7 @@ function AdminExportFormContent() {
     isWarehouseBranch,
     router,
     watchExportType,
+    isDefectiveExport,
   ]);
 
   useEffect(() => {
@@ -1112,11 +1119,18 @@ function AdminExportFormContent() {
   }
 
   useEffect(() => {
-    if (targetInfo.name && !isEditMode) {
+    if (isDisposalExport && !isEditMode) {
+      setValue("targetId", "");
+      setValue("specificReceiver", "Bo phan tieu huy");
+      setValue("shippingAddress", "Tieu huy hang loi tai kho");
+      return;
+    }
+
+    if (isReturnExport && targetInfo.name && !isEditMode) {
       setValue("specificReceiver", targetInfo.name);
       setValue("shippingAddress", targetInfo.address);
     }
-  }, [watchTargetId, watchExportType, isEditMode, setValue, targetInfo]);
+  }, [watchTargetId, watchExportType, isEditMode, setValue, targetInfo, isReturnExport, isDisposalExport]);
 
   const addVariantToTable = (variant: any, productName: string) => {
     if (isReadOnly) return;
@@ -1178,6 +1192,15 @@ function AdminExportFormContent() {
     if (isReadOnly) return;
 
     clearErrors("items");
+    const isReturnSubmission = data.exportType === "RETURN";
+    const isDisposalSubmission = data.exportType === "DISPOSAL";
+    if (isReturnSubmission && !data.targetId) {
+      setError("targetId", {
+        type: "manual",
+        message: "Chon nha cung cap",
+      });
+      return;
+    }
     const resolvedBranchId =
       data.branchId ||
       (returnSourceLocked
@@ -1239,19 +1262,23 @@ function AdminExportFormContent() {
       note: data.note,
       expectedDate: data.expectedDate,
       branchId: parseInt(resolvedBranchId),
-      supplierId: data.exportType === "RETURN" ? parseInt(data.targetId) : null,
+      supplierId: isReturnSubmission ? parseInt(data.targetId) : null,
       targetBranchId: null,
-      specificReceiver: data.specificReceiver,
-      shippingAddress: data.shippingAddress,
+      specificReceiver: isDisposalSubmission
+        ? data.specificReceiver || "Bo phan tieu huy"
+        : data.specificReceiver,
+      shippingAddress: isDisposalSubmission
+        ? data.shippingAddress || "Tieu huy hang loi tai kho"
+        : data.shippingAddress,
       createdById: currentUserId,
       details: submissionItems.map((it) => ({
         productVariantId: it.productVariantId,
         requestedQuantity: it.quantity,
         batchNumber: it.lotNumber || null,
-        defectiveQuantity: data.exportType === "RETURN" ? it.quantity : 0,
-        plannedQuantity: data.exportType === "RETURN" ? it.quantity : null,
+        defectiveQuantity: it.quantity,
+        plannedQuantity: it.quantity,
         price: it.price,
-        note: data.exportType === "RETURN" ? it.returnReason : "",
+        note: it.returnReason || data.note,
       })),
     };
 
@@ -1262,10 +1289,10 @@ function AdminExportFormContent() {
           exportId as string,
           payload,
         );
-        toast.success("Cập nhật phiếu xuất trả thành công!");
+        toast.success(isDisposalSubmission ? "Cap nhat phieu xuat huy hang loi thanh cong!" : "Cap nhat phieu xuat tra thanh cong!");
       } else {
         await InventoryExportApiService.createExportCommand(payload);
-        toast.success("Tạo phiếu xuất trả thành công!");
+        toast.success(isDisposalSubmission ? "Tao phieu xuat huy hang loi thanh cong!" : "Tao phieu xuat tra thanh cong!");
       }
       router.push("/admin/exports");
     } catch (e: any) {
@@ -1332,12 +1359,31 @@ function AdminExportFormContent() {
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12">
               <div className="space-y-1.5 md:col-span-3">
                 <Label className={fieldLabelClass}>Loại lệnh xuất *</Label>
-                <Input
-                  value="Xuất trả nhà cung cấp"
-                  readOnly
-                  className={cn(
-                    fieldControlClass,
-                    "w-full border-slate-200 bg-slate-50 text-slate-600",
+                <Controller
+                  name="exportType"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        clearErrors("targetId");
+                      }}
+                      value={field.value}
+                      disabled={isReadOnly || returnSourceLocked}
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          selectTriggerClass,
+                          "border-slate-200 bg-slate-50",
+                        )}
+                      >
+                        <SelectValue placeholder="-- Chon loai xuat --" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        <SelectItem value="RETURN">Xuat tra nha cung cap</SelectItem>
+                        <SelectItem value="DISPOSAL">Xuat huy hang loi</SelectItem>
+                      </SelectContent>
+                    </Select>
                   )}
                 />
               </div>
@@ -1486,7 +1532,7 @@ function AdminExportFormContent() {
                 )}
               </div>
 
-              <div className="space-y-1.5 md:col-span-3">
+              <div className={cn("space-y-1.5 md:col-span-3", isDisposalExport && "hidden")}>
                 <Label className={fieldLabelClass}>Chọn đối tượng nhận *</Label>
                 <Controller
                   name="targetId"
@@ -1712,7 +1758,7 @@ function AdminExportFormContent() {
                                     <span className="font-mono text-blue-600">
                                       {variant.sku}
                                     </span>
-                                    {watchExportType === "RETURN" &&
+                                    {isDefectiveExport &&
                                     variant.batchNumber ? (
                                       <span className="ml-2">
                                         | Lô:{" "}
@@ -1735,7 +1781,7 @@ function AdminExportFormContent() {
                                 <p
                                   className={cn(
                                     "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
-                                    (watchExportType === "RETURN"
+                                    (isDefectiveExport
                                       ? variant.defectiveQuantity
                                       : variant.quantity) > 0
                                       ? "text-blue-600 bg-blue-50 border-blue-100"
@@ -1751,10 +1797,10 @@ function AdminExportFormContent() {
                         ) : (
                           <div className="p-4 text-center text-slate-500 text-[12px]">
                             {searchTerm
-                              ? watchExportType === "RETURN"
+                              ? isReturnExport
                                 ? "Không tìm thấy lô lỗi phù hợp."
                                 : "Không tìm thấy sản phẩm nào."
-                              : watchExportType === "RETURN"
+                              : isReturnExport
                                 ? "Hãy chọn nhà cung cấp và gõ mã lô lỗi hoặc SKU..."
                                 : "Hãy gõ từ khóa để tìm kiếm..."}
                           </div>
@@ -1778,7 +1824,7 @@ function AdminExportFormContent() {
                     <TableHead className="w-[220px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
                       Tên sản phẩm
                     </TableHead>
-                    {watchExportType === "RETURN" && (
+                    {isDefectiveExport && (
                       <TableHead className="w-[120px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
                         Lô lỗi
                       </TableHead>
@@ -1786,7 +1832,7 @@ function AdminExportFormContent() {
                     <TableHead className="w-[90px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
                       SL xuất
                     </TableHead>
-                    {watchExportType === "RETURN" && (
+                    {isDefectiveExport && (
                       <TableHead className="min-w-[180px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
                         Lý do trả hàng
                       </TableHead>
@@ -1803,7 +1849,7 @@ function AdminExportFormContent() {
                   {fields.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={watchExportType === "RETURN" ? 8 : 6}
+                        colSpan={isDefectiveExport ? 8 : 6}
                         className="h-[150px] text-center text-[12px] font-medium text-slate-400"
                       >
                         Chưa có sản phẩm nào được chọn
@@ -1851,7 +1897,7 @@ function AdminExportFormContent() {
                               </div>
                             </TableCell>
 
-                            {watchExportType === "RETURN" && (
+                            {isDefectiveExport && (
                               <TableCell className="px-1.5 py-2 font-mono text-[11px] text-amber-700">
                                 {currentItem?.lotNumber || "---"}
                               </TableCell>
@@ -1860,7 +1906,7 @@ function AdminExportFormContent() {
                             <TableCell className="px-1.5 py-1.5">
                               <Input
                                 readOnly={
-                                  isReadOnly || watchExportType === "RETURN"
+                                  isReadOnly || isReturnExport
                                 }
                                 type="number"
                                 {...register(`items.${index}.quantity`)}
@@ -1870,7 +1916,7 @@ function AdminExportFormContent() {
                                     currentItem?.quantity > currentItem?.stock
                                     ? "border-rose-500"
                                     : "border-blue-200",
-                                  isReadOnly || watchExportType === "RETURN"
+                                  isReadOnly || isReturnExport
                                     ? "bg-slate-50 border-transparent"
                                     : "",
                                 )}
@@ -1884,7 +1930,7 @@ function AdminExportFormContent() {
                                 )}
                             </TableCell>
 
-                            {watchExportType === "RETURN" && (
+                            {isDefectiveExport && (
                               <TableCell className="px-1.5 py-1.5">
                                 <Input
                                   readOnly={isReadOnly}
@@ -1915,7 +1961,7 @@ function AdminExportFormContent() {
                           {(hasQtyError || hasReasonError) && (
                             <TableRow className="bg-rose-50">
                               <TableCell
-                                colSpan={watchExportType === "RETURN" ? 8 : 6}
+                                colSpan={isDefectiveExport ? 8 : 6}
                                 className="p-1 px-4 text-[11px] text-rose-500 font-bold"
                               >
                                 {hasQtyError && (
