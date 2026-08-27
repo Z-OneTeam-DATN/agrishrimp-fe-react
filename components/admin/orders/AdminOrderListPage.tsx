@@ -66,7 +66,6 @@ import {
   canRequestReplenishmentAction,
   OrderWorkflowBadge,
 } from "./OrderStateBadges";
-import { OrderRealtimeStatusIndicator } from "./OrderRealtimeStatusIndicator";
 import {
   ORDER_LIST_EXPANDED_ROW_CLASS,
   ORDER_LIST_HEADER_CLASS,
@@ -939,10 +938,6 @@ export default function AdminOrderListPage({
           Đang đồng bộ danh sách đơn hàng...
         </div>
       ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <OrderRealtimeStatusIndicator />
-      </div>
 
       <div className={ORDER_LIST_SHELL_CLASS}>
         <div className="w-full overflow-x-auto">

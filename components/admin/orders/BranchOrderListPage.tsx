@@ -49,7 +49,6 @@ import { P } from "@/lib/permissions";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import { OrderWorkflowBadge, PaymentStatusBadge } from "./OrderStateBadges";
-import { OrderRealtimeStatusIndicator } from "./OrderRealtimeStatusIndicator";
 import {
   ORDER_LIST_BADGE_CLASS,
   ORDER_LIST_EXPANDED_ROW_CLASS,
@@ -1023,10 +1022,6 @@ export default function BranchOrderListPage({
             Làm mới
           </Button>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <OrderRealtimeStatusIndicator />
       </div>
 
       <div className={ORDER_LIST_SHELL_CLASS}>
