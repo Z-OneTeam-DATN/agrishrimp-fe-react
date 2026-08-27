@@ -22,7 +22,7 @@ import { branchService } from "@/app/services/branchService";
 import { EmployeeService } from "@/app/services/employee.service";
 import { normalizeRoleSlug } from "@/lib/roles";
 
-const NO_DISTRICT_VALUE = "__province_direct__";
+const PROVINCE_OPEN_API_PROXY = "/api/provinces-openapi";
 
 const AddressMapPicker = dynamic(
   () => import("@/components/admin/AddressMapPicker"),
@@ -41,10 +41,6 @@ const getProvId = (item: any) =>
   item?.ProvinceID ?? item?.province_id ?? item?.code ?? item?.id ?? "";
 const getProvName = (item: any) =>
   item?.ProvinceName ?? item?.province_name ?? item?.full_name ?? item?.name ?? "";
-const getDistId = (item: any) =>
-  item?.DistrictID ?? item?.district_id ?? item?.code ?? item?.id ?? "";
-const getDistName = (item: any) =>
-  item?.DistrictName ?? item?.district_name ?? item?.full_name ?? item?.name ?? "";
 const getWardId = (item: any) =>
   item?.WardCode ??
   item?.ward_code ??
@@ -54,17 +50,6 @@ const getWardId = (item: any) =>
   "";
 const getWardName = (item: any) =>
   item?.WardName ?? item?.ward_name ?? item?.full_name ?? item?.name ?? "";
-const getWardDistrictId = (item: any) =>
-  item?.districtId ?? item?.DistrictID ?? item?.district_id ?? item?.__districtId ?? "";
-const getWardDistrictName = (item: any) =>
-  item?.districtName ?? item?.DistrictName ?? item?.district_name ?? item?.__districtName ?? "";
-const withDistrictScope = (ward: any, district: any) => ({
-  ...ward,
-  districtId: getDistId(district),
-  districtName: getDistName(district),
-  __districtId: getDistId(district),
-  __districtName: getDistName(district),
-});
 
 const toFiniteCoordinate = (value: unknown) => {
   if (
@@ -176,7 +161,7 @@ const isBranchManagerCandidate = (staff: any) => {
   return Boolean(roleSlug) && roleSlug !== "CUSTOMER" && roleSlug !== "AGRONOMIST";
 };
 
-const fetchGhnLocation = async (url: string, errorMessage: string) => {
+const fetchLocation = async (url: string, errorMessage: string) => {
   const response = await fetch(url, { method: "GET", cache: "no-store" });
   if (!response.ok) {
     throw new Error(errorMessage);
@@ -184,39 +169,32 @@ const fetchGhnLocation = async (url: string, errorMessage: string) => {
   return response.json();
 };
 
-const fetchGhnProvinces = async () =>
-  extractArray(await fetchGhnLocation("/api/ghn/province", "Failed to fetch GHN provinces"));
+const fetchProvinceOpenApi = async (path = "/") => {
+  const params = new URLSearchParams({ path });
+  return fetchLocation(
+    `${PROVINCE_OPEN_API_PROXY}?${params.toString()}`,
+    "Failed to fetch merged administrative addresses",
+  );
+};
 
-const fetchGhnDistricts = async (provinceValue: string) => {
+const fetchMergedProvinces = async () => extractArray(await fetchProvinceOpenApi("/"));
+
+const fetchMergedWards = async (provinceValue: string) => {
   if (!provinceValue) return [];
-  return extractArray(
-    await fetchGhnLocation(
-      `/api/ghn/district?province_id=${encodeURIComponent(provinceValue)}`,
-      "Failed to fetch GHN districts",
-    ),
-  );
-};
-
-const fetchGhnWards = async (districtValue: string, district?: any) => {
-  if (!districtValue || districtValue === NO_DISTRICT_VALUE) return [];
-  const districtScope = district ?? { id: districtValue, DistrictID: districtValue };
-  const wards = extractArray(
-    await fetchGhnLocation(
-      `/api/ghn/ward?district_id=${encodeURIComponent(districtValue)}`,
-      "Failed to fetch GHN wards",
-    ),
-  );
-  return wards.map((ward: any) => withDistrictScope(ward, districtScope));
-};
-
-const loadProvinceAddressScopes = async (provinceValue: string) => {
-  const districtList = await fetchGhnDistricts(provinceValue);
-  return { districtList, wardList: [] };
-};
-
-const loadDistrictWardScopes = async (districtValue: string, districtList: any[] = []) => {
-  const district = districtList.find((item) => String(getDistId(item)) === districtValue);
-  return fetchGhnWards(districtValue, district);
+  const provinceDetail = await fetchProvinceOpenApi(`/p/${provinceValue}?depth=2`);
+  const provinceName = getProvName(provinceDetail);
+  return extractArray(provinceDetail?.wards)
+    .map((ward: any) => ({
+      ...ward,
+      wardId: ward?.wardId ?? ward?.WardID ?? ward?.code ?? ward?.id,
+      code: ward?.code ?? ward?.WardCode ?? ward?.ward_code ?? ward?.id,
+      name: ward?.name ?? ward?.WardName ?? ward?.ward_name,
+      provinceId: getProvId(provinceDetail),
+      provinceName,
+    }))
+    .sort((left: any, right: any) =>
+      getWardName(left).localeCompare(getWardName(right), "vi"),
+    );
 };
 
 export default function AddBranchPage() {
@@ -237,7 +215,6 @@ export default function AddBranchPage() {
   const [isFormInitialized, setIsFormInitialized] = useState(false);
 
   const [provinces, setProvinces] = useState<any[]>([]);
-  const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -252,18 +229,15 @@ export default function AddBranchPage() {
   > | null>(null);
   const addressSuggestionRequestRef = useRef(0);
   const pendingEditLocationRef = useRef<{
-    district: string;
     ward: string;
   } | null>(null);
   const loadedProvinceRef = useRef("");
-  const loadedDistrictRef = useRef("");
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
-    getValues,
     clearErrors,
     reset,
     watch,
@@ -286,7 +260,6 @@ export default function AddBranchPage() {
   });
 
   const watchedProvince = watch("province");
-  const watchedDistrict = watch("district");
   const watchedWard = watch("ward");
   const watchedManagerId = watch("managerId");
   const addressDetailValue = watch("addressDetail");
@@ -301,22 +274,6 @@ export default function AddBranchPage() {
     () => wards.find((w) => String(getWardId(w)) === watchedWard),
     [wards, watchedWard],
   );
-  const currentDistrict = useMemo(() => {
-    const explicitDistrict = districts.find(
-      (d) => String(getDistId(d)) === watchedDistrict,
-    );
-    if (explicitDistrict) return explicitDistrict;
-
-    const wardDistrictId = currentWard ? String(getWardDistrictId(currentWard)) : "";
-    return wardDistrictId
-      ? districts.find((d) => String(getDistId(d)) === wardDistrictId)
-      : undefined;
-  }, [districts, watchedDistrict, currentWard]);
-  const districtNameForAddress = currentDistrict
-    ? getDistName(currentDistrict)
-    : currentWard
-      ? getWardDistrictName(currentWard)
-    : "";
 
   const resolveWardSelectValue = (
     wardList: any[],
@@ -344,29 +301,6 @@ export default function AddBranchPage() {
     return matchedWard ? String(getWardId(matchedWard)) : candidates[0];
   };
 
-  const resolveDistrictSelectValue = (
-    districtList: any[],
-    values: Array<string | number | null | undefined>,
-  ) => {
-    const candidates = values
-      .filter(
-        (value) =>
-          value !== null && value !== undefined && String(value).trim() !== "",
-      )
-      .map((value) => String(value));
-
-    if (candidates.length === 0) {
-      return "";
-    }
-
-    const matchedDistrict = districtList.find((district: any) => {
-      const districtId = String(getDistId(district));
-      return candidates.includes(districtId);
-    });
-
-    return matchedDistrict ? String(getDistId(matchedDistrict)) : candidates[0];
-  };
-
   // --- 1. KHỞI TẠO DỮ LIỆU ---
   useEffect(() => {
     const initData = async () => {
@@ -376,7 +310,7 @@ export default function AddBranchPage() {
             size: 500,
             status: "ACTIVE",
           }),
-          fetchGhnProvinces(),
+          fetchMergedProvinces(),
           branchService.getAll(),
         ]);
 
@@ -418,7 +352,6 @@ export default function AddBranchPage() {
         try {
           setIsLoading(true);
           const data = await branchService.getById(branchId);
-          let districtValue = String(data.districtId ?? "");
           let wardValue = String(data.wardCode ?? data.wardId ?? "");
           const managerIds = Array.isArray(data.managerIds)
             ? data.managerIds
@@ -433,7 +366,7 @@ export default function AddBranchPage() {
             ),
           );
 
-          // Fetch districts/wards trước để reset form không bị mất label
+          // Fetch merged province/ward list before reset so edit mode keeps labels.
           const matchedProvince = resolveLocationOption(
             provinces,
             [data.provinceId, data.provinceCode],
@@ -444,21 +377,7 @@ export default function AddBranchPage() {
           const provinceValue = matchedProvince ? String(getProvId(matchedProvince)) : "";
 
           if (provinceValue) {
-            const { districtList, wardList } =
-              await loadProvinceAddressScopes(provinceValue);
-            const matchedDistrict = resolveLocationOption(
-              districtList,
-              [data.districtId, data.districtCode],
-              [data.districtName],
-              getDistId,
-              getDistName,
-            );
-            const resolvedDistrictValue = matchedDistrict
-              ? String(getDistId(matchedDistrict))
-              : "";
-            const scopedWardList = resolvedDistrictValue
-              ? await loadDistrictWardScopes(resolvedDistrictValue, districtList)
-              : wardList;
+            const scopedWardList = await fetchMergedWards(provinceValue);
             const matchedWard = resolveLocationOption(
               scopedWardList,
               [data.wardCode, data.wardId],
@@ -467,17 +386,12 @@ export default function AddBranchPage() {
               getWardName,
             );
 
-            districtValue = resolvedDistrictValue;
             wardValue = matchedWard ? String(getWardId(matchedWard)) : "";
-            setDistricts(districtList);
             setWards(scopedWardList);
             loadedProvinceRef.current = provinceValue;
-            loadedDistrictRef.current = districtValue;
           } else {
-            setDistricts([]);
             setWards([]);
             loadedProvinceRef.current = "";
-            loadedDistrictRef.current = "";
           }
 
           reset({
@@ -488,7 +402,7 @@ export default function AddBranchPage() {
             email: data.email || "",
             addressDetail: confirmedAddressDetail,
             province: provinceValue,
-            district: districtValue,
+            district: "",
             ward: wardValue,
             status: (data.status || "active").toLowerCase(),
             managerId: data.managerIds?.[0] ? String(data.managerIds[0]) : "",
@@ -497,10 +411,9 @@ export default function AddBranchPage() {
           });
           setMapDisplayName(data.mapDisplayName || data.fullAddress || "");
           pendingEditLocationRef.current = {
-            district: districtValue,
             ward: wardValue,
           };
-          setValue("district", districtValue, { shouldDirty: false });
+          setValue("district", "", { shouldDirty: false });
           setValue("ward", wardValue, { shouldDirty: false });
           setIsFormInitialized(true);
         } catch (error) {
@@ -514,18 +427,6 @@ export default function AddBranchPage() {
       setValue("id", "CN-" + Math.floor(1000 + Math.random() * 9000));
     }
   }, [isEditMode, branchId, isInitialLoaded, reset, setValue]);
-
-  useEffect(() => {
-    const pending = pendingEditLocationRef.current;
-    if (!isEditMode || !pending?.district || districts.length === 0) return;
-
-    const exists = districts.some(
-      (district) => String(getDistId(district)) === pending.district,
-    );
-    if (exists) {
-      setValue("district", pending.district, { shouldDirty: false });
-    }
-  }, [districts, isEditMode, setValue]);
 
   useEffect(() => {
     const pending = pendingEditLocationRef.current;
@@ -544,87 +445,25 @@ export default function AddBranchPage() {
       if (loadedProvinceRef.current === watchedProvince) {
         return;
       }
-      loadProvinceAddressScopes(watchedProvince)
-        .then(({ districtList, wardList }) => {
-          setDistricts(districtList);
+      fetchMergedWards(watchedProvince)
+        .then((wardList) => {
           setWards(wardList);
           loadedProvinceRef.current = watchedProvince;
-          loadedDistrictRef.current = "";
-          setValue("district", "", {
-            shouldDirty: true,
-            shouldValidate: true,
-          });
+          setValue("district", "", { shouldDirty: true });
           setValue("ward", "", { shouldDirty: true, shouldValidate: true });
         })
         .catch(() => {
-          setDistricts([]);
           setWards([]);
           loadedProvinceRef.current = "";
-          loadedDistrictRef.current = "";
           setValue("district", "", { shouldDirty: true });
           setValue("ward", "", { shouldDirty: true, shouldValidate: true });
         });
     }
   }, [watchedProvince, isInitialLoaded, isFormInitialized, isLoading, setValue]);
 
-  useEffect(() => {
-    if (
-      !watchedDistrict ||
-      watchedDistrict === NO_DISTRICT_VALUE ||
-      !isInitialLoaded ||
-      !isFormInitialized ||
-      isLoading
-    ) {
-      if (!watchedDistrict) {
-        setWards([]);
-        loadedDistrictRef.current = "";
-      }
-      return;
-    }
-
-    if (loadedDistrictRef.current === watchedDistrict) {
-      return;
-    }
-
-    loadDistrictWardScopes(watchedDistrict, districts)
-      .then((wardList) => {
-        const selectedWard = String(getValues("ward") || "");
-        const wardStillBelongsToDistrict = wardList.some(
-          (ward: any) => String(getWardId(ward)) === selectedWard,
-        );
-
-        setWards(wardList);
-        loadedDistrictRef.current = watchedDistrict;
-        if (selectedWard && wardStillBelongsToDistrict) {
-          setValue("ward", selectedWard, {
-            shouldDirty: false,
-            shouldValidate: true,
-          });
-          clearErrors("ward");
-        } else if (selectedWard) {
-          setValue("ward", "", { shouldDirty: true, shouldValidate: true });
-        }
-      })
-      .catch(() => {
-        setWards([]);
-        loadedDistrictRef.current = "";
-        setValue("ward", "", { shouldDirty: true, shouldValidate: true });
-      });
-  }, [
-    watchedDistrict,
-    districts,
-    isInitialLoaded,
-    isFormInitialized,
-    isLoading,
-    setValue,
-    getValues,
-    clearErrors,
-  ]);
-
   const getScopedAddressDetail = (label: string) => {
     const ignoredScopes = [
       currentWard ? normalizeText(getWardName(currentWard)) : "",
-      currentDistrict ? normalizeText(getDistName(currentDistrict)) : "",
       currentProvince ? normalizeText(getProvName(currentProvince)) : "",
       normalizeText("Vietnam"),
     ].filter(Boolean);
@@ -654,7 +493,6 @@ export default function AddBranchPage() {
     [
       detail,
       currentWard ? getWardName(currentWard) : "",
-      districtNameForAddress,
       currentProvince ? getProvName(currentProvince) : "",
       "Vietnam",
     ]
@@ -692,7 +530,7 @@ export default function AddBranchPage() {
     const bestSuggestion = suggestions[0];
     if (!bestSuggestion) return null;
 
-    // Province/district/ward are authoritative GHN shipping fields. Geocoding
+    // Province/ward are authoritative address fields. Geocoding
     // only resolves map coordinates and must never overwrite those selections.
     syncSelectedMapLocation(bestSuggestion, false);
     setAddressSuggestions(suggestions);
@@ -714,10 +552,8 @@ export default function AddBranchPage() {
 
     const provinceName = getProvName(currentProvince);
     const wardName = currentWard ? getWardName(currentWard) : "";
-    const districtName = districtNameForAddress;
     const params = new URLSearchParams({ input });
     params.set("province", provinceName);
-    if (districtName) params.set("district", districtName);
     if (wardName) params.set("ward", wardName);
 
     const response = await fetch(`/api/nominatim/search?${params.toString()}`, {
@@ -736,7 +572,7 @@ export default function AddBranchPage() {
           name: item.label || input,
           sourceDisplayName: item.label || "",
           province: item.province || provinceName,
-          district: item.district || districtName,
+          district: item.district || "",
           ward: item.ward || wardName,
           lat: item.lat ? Number(item.lat) : undefined,
           lng: item.lng ? Number(item.lng) : undefined,
@@ -789,7 +625,6 @@ export default function AddBranchPage() {
 
         const canAutoLocate =
           Boolean(currentProvince) &&
-          Boolean(currentDistrict) &&
           Boolean(currentWard) &&
           input.length >= 5;
         const bestSuggestion = nextSuggestions[0];
@@ -813,12 +648,12 @@ export default function AddBranchPage() {
         clearTimeout(addressSuggestionTimeoutRef.current);
       }
     };
-  }, [addressDetailValue, currentProvince, currentDistrict, currentWard]);
+  }, [addressDetailValue, currentProvince, currentWard]);
 
   useEffect(() => {
     setAddressSuggestions([]);
     setShowSuggestions(false);
-  }, [watchedProvince, watchedDistrict, watchedWard]);
+  }, [watchedProvince, watchedWard]);
 
   useEffect(() => {
     function handleClickOutside(event: any) {
@@ -866,37 +701,11 @@ export default function AddBranchPage() {
       const selectedWardObj = wards.find(
         (w: any) => String(getWardId(w)) === data.ward,
       );
-      const selectedDistrictObj = districts.find(
-        (d: any) => String(getDistId(d)) === data.district,
-      );
-      const resolvedDistrictId =
-        data.district && data.district !== NO_DISTRICT_VALUE
-          ? String(data.district)
-          : "";
       const resolvedWardCode = selectedWardObj
         ? String(getWardId(selectedWardObj))
         : "";
-
-      if (!resolvedDistrictId) {
-        toast.error("Vui long chon Quan/Huyen GHN de tinh phi giao hang.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (!resolvedWardCode) {
-        toast.error("Vui long chon Phuong/Xa GHN de tinh phi giao hang.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (resolvedDistrictId && !selectedDistrictObj) {
-        toast.error("Vui lòng chọn Quận/Huyện từ danh sách GHN hoặc bỏ trống để tính theo tỉnh.");
-        setIsLoading(false);
-        return;
-      }
-
       if (!selectedWardObj || !resolvedWardCode) {
-        toast.error("Vui lòng chọn Phường/Xã từ danh sách GHN hoặc bỏ trống để tính theo tỉnh.");
+        toast.error("Vui lòng chọn Phường/Xã theo địa chỉ sau sáp nhập.");
         setIsLoading(false);
         return;
       }
@@ -914,12 +723,12 @@ export default function AddBranchPage() {
         fullAddress,
         provinceId: Number(data.province),
         provinceCode: Number(data.province),
-        districtId: resolvedDistrictId ? Number(resolvedDistrictId) : null,
-        districtCode: resolvedDistrictId ? Number(resolvedDistrictId) : null,
+        districtId: null,
+        districtCode: null,
         wardId:
           selectedWardObj?.wardId ??
           selectedWardObj?.WardID ??
-          null,
+          Number(data.ward),
         wardCode:
           (
             selectedWardObj?.code ??
@@ -928,7 +737,7 @@ export default function AddBranchPage() {
             resolvedWardCode
           ) || null,
         provinceName: currentProvince ? getProvName(currentProvince) : "",
-        districtName: selectedDistrictObj ? getDistName(selectedDistrictObj) : "",
+        districtName: "",
         wardName: currentWard ? getWardName(currentWard) : "",
         status: data.status.toUpperCase(),
         managerId: data.managerId ? Number(data.managerId) : null,
@@ -979,13 +788,6 @@ export default function AddBranchPage() {
       ),
     [provinces, searchTerm],
   );
-  const filteredDistricts = useMemo(
-    () =>
-      districts.filter((d) =>
-        getDistName(d).toLowerCase().includes(searchTerm.toLowerCase()),
-      ),
-    [districts, searchTerm],
-  );
   const filteredWards = useMemo(
     () =>
       wards.filter((w) =>
@@ -998,13 +800,10 @@ export default function AddBranchPage() {
     if (!isFormInitialized) return [];
 
     const missing: string[] = [];
-    if (!watchedDistrict || watchedDistrict === NO_DISTRICT_VALUE) {
-      missing.push("Quan/Huyen GHN");
-    }
     if (!watchedWard) {
-      missing.push("Phuong/Xa GHN");
+      missing.push("Phuong/Xa");
     }
-    if (!watchedProvince) missing.push("Tỉnh/Thành GHN");
+    if (!watchedProvince) missing.push("Tinh/Thanh");
     if (
       !hasValidCoordinatePair(watchedLat, watchedLng)
     ) {
@@ -1014,13 +813,10 @@ export default function AddBranchPage() {
   }, [
     isFormInitialized,
     watchedProvince,
-    watchedDistrict,
     watchedWard,
     watchedLat,
     watchedLng,
   ]);
-
-  const usesProvinceOnlyShippingFallback = false;
 
   const availableStaffs = useMemo(() => {
     const selectedManagerId = Number(watchedManagerId);
@@ -1156,7 +952,7 @@ export default function AddBranchPage() {
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-12">
-              <div className="space-y-1.5 xl:col-span-4">
+              <div className="space-y-1.5 xl:col-span-6">
                 <Label className="text-[10px] font-medium text-slate-400">
                   Tỉnh / Thành phố *
                 </Label>
@@ -1171,7 +967,6 @@ export default function AddBranchPage() {
                       onValueChange={(val) => {
                         field.onChange(val);
                         loadedProvinceRef.current = "";
-                        loadedDistrictRef.current = "";
                         setSearchTerm("");
                         setValue("district", "");
                         setValue("ward", "");
@@ -1207,57 +1002,7 @@ export default function AddBranchPage() {
                 )}
               </div>
 
-              <div className="space-y-1.5 xl:col-span-4">
-                <Label className="text-[10px] font-medium text-slate-400">
-                  Quận / Huyện
-                </Label>
-                <Controller
-                  name="district"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      onOpenChange={(open) => {
-                        if (open) setSearchTerm("");
-                      }}
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        loadedDistrictRef.current = "";
-                        setSearchTerm("");
-                        setValue("ward", "");
-                        resetSelectedMapLocation();
-                      }}
-                      value={field.value}
-                      disabled={!watchedProvince}
-                    >
-                      <SelectTrigger
-                        className={`h-9 text-[12px] ${errors.district ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
-                      >
-                        <SelectValue placeholder="Chọn quận / huyện" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[1000] p-0">
-                        {renderSearchInput("Tìm huyện...")}
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {filteredDistricts.map((d) => (
-                            <SelectItem
-                              key={getDistId(d)}
-                              value={String(getDistId(d))}
-                            >
-                              {getDistName(d)}
-                            </SelectItem>
-                          ))}
-                        </div>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.district && (
-                  <span className="text-[11px] text-rose-500">
-                    {errors.district.message}
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-1.5 xl:col-span-4">
+              <div className="space-y-1.5 xl:col-span-6">
                 <Label className="text-[10px] font-medium text-slate-400">
                   Phường / Xã
                 </Label>
@@ -1276,21 +1021,11 @@ export default function AddBranchPage() {
                           shouldValidate: true,
                         });
                         clearErrors("ward");
-                        const selectedWard = wards.find(
-                          (ward: any) => String(getWardId(ward)) === val,
-                        );
-                        setValue(
-                          "district",
-                          selectedWard && getWardDistrictId(selectedWard)
-                            ? String(getWardDistrictId(selectedWard))
-                            : watchedDistrict,
-                          { shouldDirty: true, shouldValidate: true },
-                        );
                         setSearchTerm("");
                         resetSelectedMapLocation();
                       }}
                       value={field.value}
-                      disabled={!watchedDistrict || watchedDistrict === NO_DISTRICT_VALUE}
+                      disabled={!watchedProvince}
                     >
                       <SelectTrigger
                         className={`h-9 text-[12px] ${errors.ward ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
@@ -1372,7 +1107,6 @@ export default function AddBranchPage() {
                   <p className="text-[10px] text-slate-400">
                     Gợi ý đang khóa theo{" "}
                     {currentWard ? `${getWardName(currentWard)}, ` : ""}
-                    {districtNameForAddress ? `${districtNameForAddress}, ` : ""}
                     {getProvName(currentProvince)}
                   </p>
                 )}
@@ -1412,12 +1146,6 @@ export default function AddBranchPage() {
                     {missingShippingConfigFields.join(", ")}
                   </span>
                   .
-                </div>
-              )}
-
-              {usesProvinceOnlyShippingFallback && (
-                <div className="xl:col-span-12 border border-blue-100 bg-blue-50 px-4 py-3 text-[12px] text-blue-700">
-                  Chi nhánh chưa chọn Quận/Huyện GHN, hệ thống sẽ tạm tính phí ship theo Tỉnh/Thành.
                 </div>
               )}
 

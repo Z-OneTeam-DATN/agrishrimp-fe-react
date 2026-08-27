@@ -254,6 +254,30 @@ function isResultInExpectedProvince(item: any, province: string) {
   );
 }
 
+function isResultInExpectedWard(item: any, ward: string) {
+  const expectedWard = normalizeSearchText(ward);
+  const expectedWardName = normalizeSearchText(stripAdministrativePrefix(ward));
+  if (!expectedWard && !expectedWardName) return true;
+
+  const actualWard = normalizeSearchText(item.ward || "");
+  const label = normalizeSearchText(item.label || "");
+  const scopes = [expectedWard, expectedWardName].filter(Boolean);
+
+  return scopes.some(
+    (scope) =>
+      (actualWard &&
+        (actualWard.includes(scope) || scope.includes(actualWard))) ||
+      label.includes(scope),
+  );
+}
+
+function isResultInExpectedScope(item: any, province: string, ward: string) {
+  return (
+    isResultInExpectedProvince(item, province) &&
+    isResultInExpectedWard(item, ward)
+  );
+}
+
 export async function GET(request: NextRequest) {
   const input = request.nextUrl.searchParams.get("input")?.trim() ?? "";
   const province = request.nextUrl.searchParams.get("province")?.trim() ?? "";
@@ -276,21 +300,21 @@ export async function GET(request: NextRequest) {
   const wardName = stripAdministrativePrefix(ward);
   const queryCandidates = inputVariants
     .flatMap((inputVariant) => [
-      [inputVariant, province, "Vietnam"],
-      [inputVariant, districtName, provinceName, "Vietnam"],
       [inputVariant, wardName, districtName, provinceName, "Vietnam"],
+      [inputVariant, districtName, provinceName, "Vietnam"],
+      [inputVariant, province, "Vietnam"],
+      [inputVariant, wardAscii, districtAscii, provinceAscii, "Vietnam"],
       [inputVariant, provinceAscii, "Vietnam"],
       [inputVariant, districtAscii, provinceAscii, "Vietnam"],
-      [inputVariant, wardAscii, districtAscii, provinceAscii, "Vietnam"],
     ])
     .map((parts) => parts.filter(Boolean).join(", "))
     .filter((query, index, queries) => queries.indexOf(query) === index)
     .slice(0, 6);
   const photonQueryCandidates = inputVariants
     .flatMap((inputVariant) => [
-      [inputVariant, provinceAscii, "vietnam"],
-      [inputVariant, districtAscii, provinceAscii, "vietnam"],
       [inputVariant, wardAscii, districtAscii, provinceAscii, "vietnam"],
+      [inputVariant, districtAscii, provinceAscii, "vietnam"],
+      [inputVariant, provinceAscii, "vietnam"],
     ])
     .map((parts) => normalizeSearchText(parts.filter(Boolean).join(" ")))
     .filter((query, index, queries) => query && queries.indexOf(query) === index)
@@ -313,9 +337,10 @@ export async function GET(request: NextRequest) {
       for (const query of openMapQueryCandidates) {
         const results = await searchOpenMapForward(query, openMapApiKey);
         const scopedResults = results.filter((item: any) =>
-          isResultInExpectedProvince(
+          isResultInExpectedScope(
             mapOpenMapItem(item, openMapQueryCandidates[0]),
             province,
+            ward,
           ),
         );
         openMapResults.push(...scopedResults);
@@ -328,7 +353,7 @@ export async function GET(request: NextRequest) {
     let mappedResults: any[] = openMapResults
       .map((item: any) => mapOpenMapItem(item, openMapQueryCandidates[0]))
       .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
-      .filter((item: any) => isResultInExpectedProvince(item, province))
+      .filter((item: any) => isResultInExpectedScope(item, province, ward))
       .filter(
         (item: any, index: number, array: any[]) =>
           array.findIndex(
@@ -358,17 +383,7 @@ export async function GET(request: NextRequest) {
       mappedResults = photonResults
         .map((item: any) => mapPhotonItem(item, photonQueryCandidates[0]))
         .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
-        .filter((item: any) => {
-          if (item.source === "photon") return true;
-          const actualDistrict = normalizeSearchText(item.district || "");
-          const expectedDistrict = normalizeSearchText(district);
-          return (
-            !actualDistrict ||
-            !expectedDistrict ||
-            actualDistrict.includes(expectedDistrict) ||
-            expectedDistrict.includes(actualDistrict)
-          );
-        })
+        .filter((item: any) => isResultInExpectedScope(item, province, ward))
         .filter(
           (item: any, index: number, array: any[]) =>
             array.findIndex(
@@ -396,7 +411,8 @@ export async function GET(request: NextRequest) {
 
       mappedResults = mergedResults
         .map((item: any) => mapNominatimItem(item, queryCandidates[0]))
-        .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+        .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
+        .filter((item: any) => isResultInExpectedScope(item, province, ward));
     }
 
     if (mappedResults.length === 0) {
@@ -417,6 +433,9 @@ export async function GET(request: NextRequest) {
           ...fallbackResults.map((item: any) =>
             mapNominatimItem(item, query, ward ? "ward" : "district"),
           ),
+        );
+        mappedResults = mappedResults.filter((item: any) =>
+          isResultInExpectedScope(item, province, ward),
         );
         if (mappedResults.length > 0) break;
       }
