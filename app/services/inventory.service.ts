@@ -99,6 +99,13 @@ getAllProductsForExport: async () => {
   },
 
   // Duyệt lệnh xuất (Chuyển sang APPROVED)
+  getAllDefectiveItems: async (branchId?: number | string) => {
+    const response = await apiJava.get(`${BASE_URL}/defective-items/all`, {
+      params: { branchId }
+    });
+    return repairVietnameseData(response.data);
+  },
+
   approveExportCommand: async (id: number | string) => {
     const response = await apiJava.post(`${BASE_URL}/export-commands/${id}/approve`);
     return response.data;
