@@ -46,7 +46,6 @@ import {
   PaymentStatusBadge,
   canRequestReplenishmentAction,
 } from "./OrderStateBadges";
-import { OrderRealtimeStatusIndicator } from "./OrderRealtimeStatusIndicator";
 import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
 import {
   ORDER_LIST_HEADER_CLASS,
@@ -293,15 +292,14 @@ export default function AdminOrderDetailView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <OrderRealtimeStatusIndicator />
-            {isRefreshing ? (
+          {isRefreshing ? (
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 text-[12px] font-medium text-blue-600">
                 <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
                 Äang Ä‘á»“ng bá»™ chi tiáº¿t Ä‘Æ¡n hĂ ng...
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
             {canCreateReplenishment ? (

@@ -17,7 +17,11 @@ import { useConfirmOrder } from "@/hooks/useConfirmOrder"
 import AddressForm from "@/components/profile/AddressForm"
 import CheckoutVoucherSelector from "@/components/order/CheckoutVoucherSelector"
 import PendingPaymentResumeView from "@/components/checkout/PendingPaymentResumeView"
-import { getFriendlyError, parseApiError } from "@/app/utils/apiError"
+import {
+    getBackendCodeMessage,
+    getFriendlyError,
+    parseApiError,
+} from "@/app/utils/apiError"
 import type { DeliveryInfo, CartItem, PaymentMethod, MyOrder, PrepareOrderResponse } from "@/app/types/order.types"
 import { resolveImageUrl } from "@/lib/resolveImageUrl"
 
@@ -44,18 +48,6 @@ const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: R
         icon: <Smartphone size={20} className="text-blue-500" />,
     },
 ]
-
-const SHIPPING_UNAVAILABLE_MESSAGES: Record<string, string> = {
-    GHN_NOT_CONFIGURED: "Hệ thống chưa cấu hình đủ GHN nên chưa thể tính phí ship thật. Bạn cần chờ quản trị viên cập nhật.",
-    GHN_MISSING_BRANCH_DISTRICT: "Chi nhánh giao hàng đang thiếu District ID GHN. Bạn chưa thể đặt đơn này cho tới khi chi nhánh được cấu hình đúng.",
-    GHN_MISSING_DELIVERY_DISTRICT: "Địa chỉ nhận hàng đang thiếu Quận/Huyện GHN. Hãy cập nhật lại địa chỉ rồi tính phí lại.",
-    GHN_MISSING_DELIVERY_WARD: "Địa chỉ nhận hàng đang thiếu Phường/Xã GHN. Hãy cập nhật lại địa chỉ rồi tính phí lại.",
-    GHN_API_FAILED: "GHN đang không trả về phí vận chuyển thật. Hãy thử lại sau ít phút.",
-    ORDER_PREPARE_NO_ACTIVE_BRANCHES: "Hiện chưa có chi nhánh hoạt động có thể phục vụ đơn hàng của bạn. Vui lòng thử lại sau.",
-    ORDER_PREPARE_NO_DELIVERY_BRANCHES: "Chưa có chi nhánh phù hợp cho địa chỉ giao hàng này. Hãy kiểm tra hoặc chọn địa chỉ khác.",
-    ORDER_PREPARE_NO_BRANCH_IN_REGION: "Vùng giao hàng của địa chỉ này hiện chưa có chi nhánh active để phục vụ trực tiếp. Hãy chọn địa chỉ khác để test hoặc bổ sung chi nhánh trong vùng.",
-    ORDER_PREPARE_UNSUPPORTED_REGION: "Hệ thống chưa xác định được vùng giao hàng của địa chỉ này. Hãy cập nhật lại địa chỉ chi tiết hơn.",
-}
 
 type SavedAddress = {
     id: number
@@ -341,10 +333,18 @@ export default function CheckoutPage() {
         () => (prepareMutation.error ? parseApiError(prepareMutation.error) : null),
         [prepareMutation.error]
     )
-    const prepareErrorHelpText = useMemo(() => {
-        const reasonCode = prepareErrorInfo?.backendCode
-        return reasonCode ? SHIPPING_UNAVAILABLE_MESSAGES[reasonCode] ?? null : null
-    }, [prepareErrorInfo?.backendCode])
+    const prepareErrorDisplayMessage = useMemo(() => {
+        if (!prepareMutation.error) {
+            return null
+        }
+
+        return getBackendCodeMessage(prepareErrorInfo?.backendCode)
+            ?? getFriendlyError(prepareMutation.error)
+    }, [prepareErrorInfo?.backendCode, prepareMutation.error])
+    const prepareErrorHelpText = useMemo(
+        () => (prepareErrorInfo?.backendCode ? null : "Vui lòng kiểm tra lại thông tin giao hàng hoặc thử lại sau."),
+        [prepareErrorInfo?.backendCode]
+    )
 
     useEffect(() => {
         if (rateLimitCooldown <= 0) return
@@ -974,7 +974,7 @@ export default function CheckoutPage() {
         const reasonCode = shippingPreview?.reason
         if (!shippingPreview?.isEstimate || !reasonCode) return null
 
-        return SHIPPING_UNAVAILABLE_MESSAGES[reasonCode] || `Lý do tạm tính: ${reasonCode}`
+        return getBackendCodeMessage(reasonCode) || `Lý do tạm tính: ${reasonCode}`
     }, [shippingPreview?.isEstimate, shippingPreview?.reason])
 
     const totalDisplayQuantity = useMemo(
@@ -1391,10 +1391,14 @@ export default function CheckoutPage() {
 
                                 {addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
                                     <div className="border border-red-100 bg-red-50 p-5 text-center">
-                                        <p className="text-sm font-semibold text-red-700 mb-1">{getFriendlyError(prepareMutation.error)}</p>
-                                        <p className="text-xs text-red-400">
-                                            {prepareErrorHelpText || "Vui lòng kiểm tra lại thông tin giao hàng hoặc thử lại sau."}
+                                        <p className="text-sm font-semibold text-red-700 mb-1">
+                                            {prepareErrorDisplayMessage}
                                         </p>
+                                        {prepareErrorHelpText && (
+                                            <p className="text-xs text-red-400">
+                                                {prepareErrorHelpText}
+                                            </p>
+                                        )}
                                         {prepareErrorInfo?.backendCode && (
                                             <p className="mt-2 text-[11px] font-medium text-red-500">
                                                 Mã lỗi: {prepareErrorInfo.backendCode}
