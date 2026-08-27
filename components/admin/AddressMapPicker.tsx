@@ -112,7 +112,7 @@ export default function AddressMapPicker({
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="/api/map/tiles/{z}/{x}/{y}"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapRecenter position={position} />
           <MapClickHandler onPositionChange={onPositionChange} />
