@@ -115,6 +115,24 @@ type AddressFormValues = {
 
 type Voucher = UserVoucher
 
+type PrepareContext = "address" | "refresh" | "voucher"
+
+type VoucherRequestStatus = "idle" | "applying" | "clearing"
+
+type VoucherRequestState = {
+    status: VoucherRequestStatus
+    requestId: number | null
+    previousVoucher: Voucher | null
+    previousVoucherCode: string | null
+}
+
+const IDLE_VOUCHER_REQUEST_STATE: VoucherRequestState = {
+    status: "idle",
+    requestId: null,
+    previousVoucher: null,
+    previousVoucherCode: null,
+}
+
 const normalizeNumber = (value: unknown) => {
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null
@@ -333,6 +351,8 @@ export default function CheckoutPage() {
     const [hasLoadedVouchers, setHasLoadedVouchers] = useState(false)
     const [isPreparing, setIsPreparing] = useState(false)
     const [prepareError, setPrepareError] = useState<unknown>(null)
+    const [prepareContext, setPrepareContext] = useState<PrepareContext>("address")
+    const [voucherRequestState, setVoucherRequestState] = useState<VoucherRequestState>(IDLE_VOUCHER_REQUEST_STATE)
 
     const [showTokenExpiredModal, setShowTokenExpiredModal] = useState(false)
     const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
@@ -342,8 +362,8 @@ export default function CheckoutPage() {
     const confirmAttemptKeyRef = useRef<string | null>(null)
     const handledCancelledSessionRef = useRef<string | null>(null)
     const prepareRequestIdRef = useRef(0)
-    const pendingVoucherUrlSyncRef = useRef<string | null>(null)
-    const lastHandledExternalVoucherQueryRef = useRef<string | null>(null)
+    const initialVoucherQueryCodeRef = useRef(normalizeVoucherCode(queryVoucherCode))
+    const hasHandledInitialVoucherQueryRef = useRef(false)
 
     const {
         items: persistedCartItems,
@@ -384,6 +404,10 @@ export default function CheckoutPage() {
     const prepareErrorHelpText = useMemo(
         () => (prepareErrorInfo?.backendCode ? null : "Vui lòng kiểm tra lại thông tin giao hàng hoặc thử lại sau."),
         [prepareErrorInfo?.backendCode]
+    )
+    const committedVoucherCode = useMemo(
+        () => normalizeVoucherCode(prepareOrderResponse?.voucherCode),
+        [prepareOrderResponse?.voucherCode]
     )
 
     useEffect(() => {
@@ -457,7 +481,6 @@ export default function CheckoutPage() {
 
     const syncVoucherInUrl = useCallback((nextVoucherCode?: string | null) => {
         const normalizedCode = normalizeVoucherCode(nextVoucherCode) || ""
-        pendingVoucherUrlSyncRef.current = normalizedCode
         const params = new URLSearchParams(searchParamsKey)
 
         if (normalizedCode) {
@@ -467,19 +490,36 @@ export default function CheckoutPage() {
         }
 
         const query = params.toString()
-        router.replace(query ? `/checkout?${query}` : "/checkout", { scroll: false })
-    }, [router, searchParamsKey])
+        const nextUrl = query ? `/checkout?${query}` : "/checkout"
+
+        if (typeof window !== "undefined") {
+            window.history.replaceState(window.history.state, "", nextUrl)
+        }
+    }, [searchParamsKey])
 
     const handlePrepareSuccess = useCallback((
         response: PrepareOrderResponse,
         requestedVoucherCode?: string | null,
-        showVoucherToast?: boolean,
+        options?: {
+            context?: PrepareContext
+            requestId?: number
+            showVoucherToast?: boolean
+        },
     ) => {
         const committedVoucherCode = normalizeVoucherCode(response.voucherCode)
         const syncedVoucher = findVoucherByCode(committedVoucherCode)
+        const showVoucherToast = Boolean(options?.showVoucherToast)
 
         setPrepareResponse(response, response.prepareToken)
         setPrepareError(null)
+
+        if (options?.context === "voucher" && options.requestId !== undefined) {
+            setVoucherRequestState((current) =>
+                current.requestId === options.requestId
+                    ? IDLE_VOUCHER_REQUEST_STATE
+                    : current
+            )
+        }
 
         const stockWarning = buildOutOfStockWarning(response)
         if (stockWarning) {
@@ -492,6 +532,7 @@ export default function CheckoutPage() {
             }
             setVoucherIntentCode(committedVoucherCode)
             setVoucherInput(committedVoucherCode)
+            syncVoucherInUrl(committedVoucherCode)
 
             if (showVoucherToast && requestedVoucherCode === committedVoucherCode) {
                 toast.success("Đã áp dụng voucher.")
@@ -517,15 +558,22 @@ export default function CheckoutPage() {
         userAddressId: number,
         currentCart: CartItem[] = cartItems,
         nextVoucherCode?: string | null,
-        options?: { showVoucherToast?: boolean },
+        options?: {
+            context?: PrepareContext
+            rollbackVoucher?: Voucher | null
+            rollbackVoucherCode?: string | null
+            showVoucherToast?: boolean
+        },
     ) => {
         const requestId = ++prepareRequestIdRef.current
         const normalizedVoucherCode = normalizeVoucherCode(nextVoucherCode)
         const selectedAddress = addresses.find((addr) => addr.id === userAddressId)
         const selectedDeliveryInfo = deliveryInfo?.userAddressId === userAddressId ? deliveryInfo : null
+        const context = options?.context ?? "address"
 
         setPrepareError(null)
-        setIsPreparing(true)
+        setPrepareContext(context)
+        setIsPreparing(context !== "voucher")
 
         prepareMutation.mutate({
             userAddressId,
@@ -550,7 +598,11 @@ export default function CheckoutPage() {
                 handlePrepareSuccess(
                     response,
                     normalizedVoucherCode,
-                    Boolean(options?.showVoucherToast),
+                    {
+                        context,
+                        requestId,
+                        showVoucherToast: Boolean(options?.showVoucherToast),
+                    },
                 )
             },
             onError: (error) => {
@@ -559,6 +611,28 @@ export default function CheckoutPage() {
                 }
 
                 setIsPreparing(false)
+
+                if (context === "voucher") {
+                    const rollbackVoucherCode = normalizeVoucherCode(options?.rollbackVoucherCode)
+
+                    setVoucherRequestState((current) =>
+                        current.requestId === requestId
+                            ? IDLE_VOUCHER_REQUEST_STATE
+                            : current
+                    )
+                    setSelectedVoucher(options?.rollbackVoucher ?? null)
+                    setVoucherIntentCode(rollbackVoucherCode)
+                    setVoucherInput(rollbackVoucherCode || "")
+                    syncVoucherInUrl(rollbackVoucherCode)
+
+                    if (isRateLimitedError(error)) {
+                        setRateLimitCooldown((prev) => Math.max(prev, getRetryAfterSeconds(error)))
+                    }
+
+                    toast.error(getFriendlyError(error))
+                    return
+                }
+
                 setPrepareError(error)
 
                 if (isRateLimitedError(error)) {
@@ -569,7 +643,8 @@ export default function CheckoutPage() {
                 toast.error(getFriendlyError(error))
             },
         })
-    }, [addresses, cartItems, deliveryInfo, handlePrepareSuccess, prepareMutation])
+        return requestId
+    }, [addresses, cartItems, deliveryInfo, handlePrepareSuccess, prepareMutation, syncVoucherInUrl])
 
     const syncVisibleCartItems = useCallback((nextItems: CartItem[]) => {
         setCartItems((currentItems) =>
@@ -602,7 +677,11 @@ export default function CheckoutPage() {
         options?: { closeModal?: boolean; showToast?: boolean }
     ) => {
         const nextVoucherCode = normalizeVoucherCode(voucher?.code)
+        const previousVoucher = committedVoucherCode ? findVoucherByCode(committedVoucherCode) : null
+        const previousVoucherCode = committedVoucherCode
 
+        setPrepareError(null)
+        setSelectedVoucher(nextVoucherCode ? voucher : null)
         setVoucherIntentCode(nextVoucherCode)
         setVoucherInput(nextVoucherCode || "")
         syncVoucherInUrl(nextVoucherCode)
@@ -612,19 +691,29 @@ export default function CheckoutPage() {
         }
 
         if (canPrepareWithDeliveryInfo(deliveryInfo)) {
-            requestPrepareQuote(deliveryInfo.userAddressId, cartItems, nextVoucherCode, {
+            const requestId = requestPrepareQuote(deliveryInfo.userAddressId, cartItems, nextVoucherCode, {
+                context: "voucher",
+                rollbackVoucher: previousVoucher,
+                rollbackVoucherCode: previousVoucherCode,
                 showVoucherToast: options?.showToast,
+            })
+            setVoucherRequestState({
+                status: nextVoucherCode ? "applying" : "clearing",
+                requestId,
+                previousVoucher,
+                previousVoucherCode,
             })
             return
         }
 
+        setVoucherRequestState(IDLE_VOUCHER_REQUEST_STATE)
         if (!nextVoucherCode) {
             setSelectedVoucher(null)
             if (options?.showToast) {
                 toast.success("Đã bỏ chọn voucher.")
             }
         }
-    }, [cartItems, deliveryInfo, requestPrepareQuote, syncVoucherInUrl])
+    }, [cartItems, committedVoucherCode, deliveryInfo, findVoucherByCode, requestPrepareQuote, syncVoucherInUrl])
 
     const applyVoucherByCode = useCallback(() => {
         const normalizedCode = voucherInput.trim().toUpperCase()
@@ -664,43 +753,28 @@ export default function CheckoutPage() {
     useEffect(() => {
         if (!hasLoadedVouchers) return
 
-        if (pendingVoucherUrlSyncRef.current !== null) {
-            if (queryVoucherCode !== pendingVoucherUrlSyncRef.current) {
-                return
-            }
-
-            pendingVoucherUrlSyncRef.current = null
+        if (hasHandledInitialVoucherQueryRef.current) {
             return
         }
 
-        if (!queryVoucherCode) {
-            lastHandledExternalVoucherQueryRef.current = null
-            return
-        }
+        hasHandledInitialVoucherQueryRef.current = true
+        const initialVoucherCode = initialVoucherQueryCodeRef.current
 
-        if (lastHandledExternalVoucherQueryRef.current === queryVoucherCode) {
+        if (!initialVoucherCode) {
             return
         }
 
         const foundVoucher = availableVouchers.find(
-            (voucher) => voucher.code.trim().toUpperCase() === queryVoucherCode
+            (voucher) => voucher.code.trim().toUpperCase() === initialVoucherCode
         )
 
-        lastHandledExternalVoucherQueryRef.current = queryVoucherCode
-
         if (!foundVoucher || !foundVoucher.canApply) {
-            if (!selectedVoucher && !voucherIntentCode) {
-                syncVoucherInUrl(null)
-            }
-            return
-        }
-
-        if (voucherIntentCode === foundVoucher.code.trim().toUpperCase()) {
+            syncVoucherInUrl(null)
             return
         }
 
         applyVoucher(foundVoucher)
-    }, [applyVoucher, availableVouchers, hasLoadedVouchers, queryVoucherCode, selectedVoucher, syncVoucherInUrl, voucherIntentCode])
+    }, [applyVoucher, availableVouchers, hasLoadedVouchers, syncVoucherInUrl])
 
     // 🐛 FIX LỖI 400: Thêm tham số currentCart = cartItems
     const handleAddressSelect = (addr: SavedAddress, currentCart = cartItems) => {
@@ -1126,29 +1200,59 @@ export default function CheckoutPage() {
     }, [prepareOrderDisplayResponse?.expiresAt])
 
     const quoteExpired = quoteExpiresAtMs !== null && quoteExpiresAtMs <= quoteNowMs
-    const committedVoucherCode = useMemo(
-        () => normalizeVoucherCode(prepareOrderDisplayResponse?.voucherCode),
-        [prepareOrderDisplayResponse?.voucherCode],
+    const isVoucherUpdating = voucherRequestState.status !== "idle"
+    const optimisticDiscountAmount = useMemo(() => {
+        if (!isVoucherUpdating) return null
+        if (!selectedVoucher) return 0
+
+        const parsed = Number(selectedVoucher.previewDiscountAmount)
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+    }, [isVoucherUpdating, selectedVoucher])
+    const displayDiscountAmount = useMemo(() => {
+        if (!prepareOrderDisplayResponse) return 0
+        if (!isVoucherUpdating) return prepareOrderDisplayResponse.discountAmount
+        if (!selectedVoucher) return 0
+        return optimisticDiscountAmount ?? prepareOrderDisplayResponse.discountAmount
+    }, [isVoucherUpdating, optimisticDiscountAmount, prepareOrderDisplayResponse, selectedVoucher])
+    const displayTotalAmount = useMemo(() => {
+        if (!prepareOrderDisplayResponse) return 0
+        if (!isVoucherUpdating) return prepareOrderDisplayResponse.totalAmount
+
+        return Math.max(
+            prepareOrderDisplayResponse.totalSubtotal
+            + prepareOrderDisplayResponse.totalShippingFee
+            - displayDiscountAmount,
+            0,
+        )
+    }, [displayDiscountAmount, isVoucherUpdating, prepareOrderDisplayResponse])
+    const displayVoucherCode = useMemo(
+        () => (isVoucherUpdating
+            ? normalizeVoucherCode(selectedVoucher?.code)
+            : committedVoucherCode),
+        [committedVoucherCode, isVoucherUpdating, selectedVoucher?.code],
     )
 
     const appliedVoucherDetails = useMemo(() => {
-        if (!committedVoucherCode) return null
+        if (!displayVoucherCode) return null
 
-        if (selectedVoucher?.code.trim().toUpperCase() === committedVoucherCode) {
+        if (selectedVoucher?.code.trim().toUpperCase() === displayVoucherCode) {
             return selectedVoucher
         }
 
         return availableVouchers.find(
-            (voucher) => voucher.code.trim().toUpperCase() === committedVoucherCode
+            (voucher) => voucher.code.trim().toUpperCase() === displayVoucherCode
         ) ?? null
-    }, [availableVouchers, committedVoucherCode, selectedVoucher])
+    }, [availableVouchers, displayVoucherCode, selectedVoucher])
 
     useEffect(() => {
+        if (voucherRequestState.status !== "idle") {
+            return
+        }
+
         if (!committedVoucherCode) {
-            if (!isPreparing && !voucherIntentCode) {
-                setSelectedVoucher(null)
-                setVoucherInput("")
-            }
+            setSelectedVoucher(null)
+            setVoucherIntentCode(null)
+            setVoucherInput("")
             return
         }
 
@@ -1160,11 +1264,11 @@ export default function CheckoutPage() {
             setSelectedVoucher(syncedVoucher)
         }
 
-        if (!voucherIntentCode) {
+        if (voucherIntentCode !== committedVoucherCode) {
             setVoucherIntentCode(committedVoucherCode)
             setVoucherInput(committedVoucherCode)
         }
-    }, [availableVouchers, committedVoucherCode, isPreparing, selectedVoucher, voucherIntentCode])
+    }, [availableVouchers, committedVoucherCode, selectedVoucher, voucherIntentCode, voucherRequestState.status])
 
     const handleConfirm = () => {
         if (rateLimitCooldown > 0) {
@@ -1267,12 +1371,13 @@ export default function CheckoutPage() {
     const hasPreparedOrder = !!prepareOrderDisplayResponse
     const canPlaceOrder = hasPreparedOrder && !!prepareOrderDisplayResponse.canPlaceOrder && !quoteExpired
     const canRefreshPreparedOrder = hasPreparedOrder && quoteExpired && !!deliveryInfo?.userAddressId
-    const isOrderActionPending = confirmMutation.isPending || isPreparing
+    const isOrderActionPending = confirmMutation.isPending || isPreparing || isVoucherUpdating
     const isOrderActionDisabled =
         isOrderActionPending ||
         rateLimitCooldown > 0 ||
         (!canPlaceOrder && !canRefreshPreparedOrder)
     const shouldShowMobileBottomBar = hasPreparedOrder && !!prepareOrderDisplayResponse.canPlaceOrder
+    const isBlockingPrepare = isPreparing && prepareContext !== "voucher"
 
     if (isResumePaymentMode) {
         if (isLoadingResumeOrder) {
@@ -1502,7 +1607,7 @@ export default function CheckoutPage() {
                                     </div>
                                 )}
 
-                                {addressConfirmed && isPreparing && (
+                                {addressConfirmed && isBlockingPrepare && (
                                     <div className="space-y-3 p-2">
                                         <div className="flex items-center gap-2 text-sm text-gray-400">
                                             <Loader2 size={14} className="animate-spin text-blue-500 shrink-0" />
@@ -1522,7 +1627,7 @@ export default function CheckoutPage() {
                                     </div>
                                 )}
 
-                                {addressConfirmed && !!prepareError && !isPreparing && (
+                                {addressConfirmed && !!prepareError && !isBlockingPrepare && (
                                     <div className="border border-red-100 bg-red-50 p-5 text-center">
                                         <p className="text-sm font-semibold text-red-700 mb-1">
                                             {prepareErrorDisplayMessage}
@@ -1540,7 +1645,7 @@ export default function CheckoutPage() {
                                     </div>
                                 )}
 
-                                {false && addressConfirmed && !!prepareError && !isPreparing && (
+                                {false && addressConfirmed && !!prepareError && !isBlockingPrepare && (
                                     <div className="border border-red-100 bg-red-50 p-5 text-center">
                                         <p className="text-sm font-semibold text-red-700 mb-1">Khu vực hiện chưa có cửa hàng phục vụ</p>
                                         <p className="text-xs text-red-400">Vui lòng chọn địa chỉ khác.</p>
@@ -1553,7 +1658,7 @@ export default function CheckoutPage() {
                                     </div>
                                 )}
 
-                                {addressConfirmed && !isPreparing && prepareOrderDisplayResponse && (
+                                {addressConfirmed && !isBlockingPrepare && prepareOrderDisplayResponse && (
                                     <div className="space-y-3">
                                         <div className="overflow-hidden border border-gray-200 bg-white">
                                             <div className="divide-y divide-gray-100">
@@ -1619,7 +1724,7 @@ export default function CheckoutPage() {
                                                     {formatMoney(prepareOrderDisplayResponse.totalShippingFee)}
                                                 </span>
                                                 <span className="font-bold text-gray-900">
-                                                    Tổng: {formatMoney(prepareOrderDisplayResponse.totalAmount)}
+                                                    Tổng: {formatMoney(displayTotalAmount)}
                                                 </span>
                                             </div>
                                         </div>
@@ -1629,6 +1734,14 @@ export default function CheckoutPage() {
                                             selectedVoucher={selectedVoucher}
                                             voucherInput={voucherInput}
                                             isLoading={isLoadingVouchers}
+                                            isUpdating={isVoucherUpdating}
+                                            pendingAction={
+                                                voucherRequestState.status === "applying"
+                                                    ? "apply"
+                                                    : voucherRequestState.status === "clearing"
+                                                        ? "clear"
+                                                        : null
+                                            }
                                             isOpen={isVoucherModalOpen}
                                             onOpen={() => setIsVoucherModalOpen(true)}
                                             onClose={() => setIsVoucherModalOpen(false)}
@@ -1722,7 +1835,7 @@ export default function CheckoutPage() {
                                             <span className="text-gray-500">Tiền hàng</span>
                                             <span className="text-gray-800 font-medium">{formatMoney(prepareOrderDisplayResponse.totalSubtotal)}</span>
                                         </div>
-                                        {prepareOrderDisplayResponse.discountAmount > 0 && (
+                                        {displayDiscountAmount > 0 && (
                                             <div className="flex justify-between items-center">
                                                 <div className="pr-3">
                                                     <p className="text-gray-500">Giảm giá voucher</p>
@@ -1730,13 +1843,18 @@ export default function CheckoutPage() {
                                                         <p className="mt-0.5 text-xs text-gray-400">
                                                             {getVoucherLabel(appliedVoucherDetails)} ({appliedVoucherDetails.code})
                                                         </p>
-                                                    ) : prepareOrderDisplayResponse.voucherCode ? (
+                                                    ) : displayVoucherCode ? (
                                                         <p className="mt-0.5 text-xs text-gray-400">
-                                                            {prepareOrderDisplayResponse.voucherCode}
+                                                            {displayVoucherCode}
                                                         </p>
                                                     ) : null}
+                                                    {isVoucherUpdating && selectedVoucher && optimisticDiscountAmount === null && (
+                                                        <p className="mt-0.5 text-xs text-blue-500">
+                                                            Đang cập nhật ưu đãi...
+                                                        </p>
+                                                    )}
                                                 </div>
-                                                <span className="font-medium text-blue-600">-{formatMoney(prepareOrderDisplayResponse.discountAmount)}</span>
+                                                <span className="font-medium text-blue-600">-{formatMoney(displayDiscountAmount)}</span>
                                             </div>
                                         )}
                                         <div className="flex justify-between items-start gap-3">
@@ -1751,7 +1869,7 @@ export default function CheckoutPage() {
                                             <div className="flex justify-between items-center">
                                                 <span className="font-semibold text-gray-800">Tổng thanh toán</span>
                                                 <span className="text-xl font-extrabold text-blue-600">
-                          {formatMoney(prepareOrderDisplayResponse.totalAmount)}
+                          {formatMoney(displayTotalAmount)}
                         </span>
                                             </div>
                                             <p className="text-[10px] text-gray-400 text-right mt-1">Đã bao gồm VAT (nếu có)</p>
@@ -1770,7 +1888,7 @@ export default function CheckoutPage() {
                                 >
                                     {confirmMutation.isPending ? (
                                         <><Loader2 size={15} className="animate-spin" /> Đang xử lý...</>
-                                    ) : isPreparing ? (
+                                    ) : isPreparing || isVoucherUpdating ? (
                                         <><Loader2 size={15} className="animate-spin" /> Đang cập nhật...</>
                                     ) : rateLimitCooldown > 0 ? (
                                         `Vui lòng chờ ${rateLimitCooldown}s`
@@ -1786,6 +1904,11 @@ export default function CheckoutPage() {
                                 {rateLimitCooldown > 0 && (
                                     <p className="mt-2 text-[11px] text-amber-600 text-center">
                                         Hệ thống đang giới hạn tần suất để chống spam. Thử lại sau {rateLimitCooldown}s.
+                                    </p>
+                                )}
+                                {isVoucherUpdating && (
+                                    <p className="mt-2 text-[11px] text-blue-500 text-center">
+                                        Đang cập nhật voucher cho báo giá mới nhất.
                                     </p>
                                 )}
 
@@ -1806,7 +1929,7 @@ export default function CheckoutPage() {
                         <div className="flex-1">
                             <p className="text-[10px] text-gray-400">Tổng thanh toán</p>
                             <p className="text-base font-bold text-blue-600">
-                                {formatMoney(prepareOrderDisplayResponse.totalAmount)}
+                                {formatMoney(displayTotalAmount)}
                             </p>
                         </div>
                         <button
@@ -1816,7 +1939,7 @@ export default function CheckoutPage() {
                         >
                             {confirmMutation.isPending
                                 ? <Loader2 size={14} className="animate-spin" />
-                                : isPreparing
+                                : isPreparing || isVoucherUpdating
                                     ? <Loader2 size={14} className="animate-spin" />
                                 : rateLimitCooldown > 0
                                     ? `Chờ ${rateLimitCooldown}s`
