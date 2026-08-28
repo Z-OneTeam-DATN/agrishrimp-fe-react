@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, Tag, TicketPercent, X } from "lucide-react"
+import { ChevronRight, Loader2, Tag, TicketPercent, X } from "lucide-react"
 import type { UserVoucher } from "@/app/services/voucher.service"
 
 type CheckoutVoucherSelectorProps = {
@@ -8,6 +8,8 @@ type CheckoutVoucherSelectorProps = {
     selectedVoucher: UserVoucher | null
     voucherInput: string
     isLoading: boolean
+    isUpdating?: boolean
+    pendingAction?: "apply" | "clear" | null
     isOpen: boolean
     onOpen: () => void
     onClose: () => void
@@ -39,6 +41,8 @@ export default function CheckoutVoucherSelector({
     selectedVoucher,
     voucherInput,
     isLoading,
+    isUpdating = false,
+    pendingAction = null,
     isOpen,
     onOpen,
     onClose,
@@ -72,13 +76,20 @@ export default function CheckoutVoucherSelector({
                     <button
                         type="button"
                         onClick={onOpen}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+                        disabled={isUpdating}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                        <Tag size={14} />
+                        {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Tag size={14} />}
                         {selectedVoucher ? "Đổi voucher" : "Chọn voucher"}
                         <ChevronRight size={14} />
                     </button>
                 </div>
+
+                {isUpdating && (
+                    <p className="mt-3 text-xs font-medium text-blue-500">
+                        {pendingAction === "clear" ? "Đang bỏ voucher..." : "Đang cập nhật voucher..."}
+                    </p>
+                )}
 
                 {selectedVoucher && (
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -88,7 +99,8 @@ export default function CheckoutVoucherSelector({
                         <button
                             type="button"
                             onClick={onClearVoucher}
-                            className="font-semibold text-gray-500 transition-colors hover:text-red-500"
+                            disabled={isUpdating}
+                            className="font-semibold text-gray-500 transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             Bỏ chọn voucher
                         </button>
@@ -97,7 +109,7 @@ export default function CheckoutVoucherSelector({
             </div>
 
             {isOpen && (
-                <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center sm:p-4">
+                <div className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center sm:p-4">
                     <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
                     <div className="relative z-10 flex max-h-[80vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:max-w-md sm:rounded-2xl">
@@ -117,15 +129,17 @@ export default function CheckoutVoucherSelector({
                                 <input
                                     type="text"
                                     value={voucherInput}
+                                    disabled={isUpdating}
                                     onChange={(event) => onVoucherInputChange(event.target.value.toUpperCase())}
                                     onKeyDown={(event) => event.key === "Enter" && onApplyByCode()}
                                     placeholder="Nhập mã voucher..."
-                                    className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                    className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50"
                                 />
                                 <button
                                     type="button"
                                     onClick={onApplyByCode}
-                                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                                    disabled={isUpdating}
+                                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
                                 >
                                     Áp dụng
                                 </button>
@@ -149,7 +163,7 @@ export default function CheckoutVoucherSelector({
                                     <button
                                         key={voucher.code}
                                         type="button"
-                                        disabled={isDisabled}
+                                        disabled={isDisabled || isUpdating}
                                         onClick={() => {
                                             onApplyVoucher(voucher)
                                             onClose()
