@@ -126,6 +126,8 @@ type VoucherRequestState = {
     previousVoucherCode: string | null
 }
 
+type InitialVoucherHydrationStatus = "pending" | "applied" | "cleared"
+
 const IDLE_VOUCHER_REQUEST_STATE: VoucherRequestState = {
     status: "idle",
     requestId: null,
@@ -388,10 +390,14 @@ export default function CheckoutPage() {
     const [voucherInput, setVoucherInput] = useState(queryVoucherCode)
     const [isLoadingVouchers, setIsLoadingVouchers] = useState(false)
     const [hasLoadedVouchers, setHasLoadedVouchers] = useState(false)
+    const [loadedVoucherSubtotal, setLoadedVoucherSubtotal] = useState<number | null>(null)
     const [isPreparing, setIsPreparing] = useState(false)
     const [prepareError, setPrepareError] = useState<unknown>(null)
     const [prepareContext, setPrepareContext] = useState<PrepareContext>("address")
     const [voucherRequestState, setVoucherRequestState] = useState<VoucherRequestState>(IDLE_VOUCHER_REQUEST_STATE)
+    const [initialVoucherHydrationStatus, setInitialVoucherHydrationStatus] = useState<InitialVoucherHydrationStatus>(
+        normalizedQueryVoucherCode ? "pending" : "cleared"
+    )
 
     const [showTokenExpiredModal, setShowTokenExpiredModal] = useState(false)
     const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
@@ -402,7 +408,6 @@ export default function CheckoutPage() {
     const handledCancelledSessionRef = useRef<string | null>(null)
     const prepareRequestIdRef = useRef(0)
     const initialVoucherQueryCodeRef = useRef(normalizedQueryVoucherCode)
-    const hasHandledInitialVoucherQueryRef = useRef(false)
 
     const {
         items: persistedCartItems,
@@ -715,6 +720,8 @@ export default function CheckoutPage() {
 
     const fetchAvailableVouchers = useCallback(async (orderSubtotal: number) => {
         setIsLoadingVouchers(true)
+        setHasLoadedVouchers(false)
+        setLoadedVoucherSubtotal(null)
         try {
             const vouchers = await voucherService.getAvailableForMe(orderSubtotal)
             setAvailableVouchers(
@@ -732,19 +739,26 @@ export default function CheckoutPage() {
             setAvailableVouchers([])
         } finally {
             setHasLoadedVouchers(true)
+            setLoadedVoucherSubtotal(orderSubtotal)
             setIsLoadingVouchers(false)
         }
     }, [])
 
     const applyVoucher = useCallback((
         voucher: Voucher | null,
-        options?: { closeModal?: boolean; showToast?: boolean }
+        options?: { closeModal?: boolean; showToast?: boolean; source?: "query" | "user" }
     ) => {
         const nextVoucherCode = normalizeVoucherCode(voucher?.code)
         const previousVoucher = committedVoucherCode ? findVoucherByCode(committedVoucherCode) : null
         const previousVoucherCode = committedVoucherCode
+        const source = options?.source ?? "user"
 
         setPrepareError(null)
+
+        if (source === "user" && initialVoucherHydrationStatus === "pending") {
+            setInitialVoucherHydrationStatus("cleared")
+        }
+
         setSelectedVoucher(nextVoucherCode ? voucher : null)
         setVoucherIntentCode(nextVoucherCode)
         setVoucherInput(nextVoucherCode || "")
@@ -777,7 +791,15 @@ export default function CheckoutPage() {
                 toast.success("Đã bỏ chọn voucher.")
             }
         }
-    }, [cartItems, committedVoucherCode, deliveryInfo, findVoucherByCode, requestPrepareQuote, syncVoucherInUrl])
+    }, [
+        cartItems,
+        committedVoucherCode,
+        deliveryInfo,
+        findVoucherByCode,
+        initialVoucherHydrationStatus,
+        requestPrepareQuote,
+        syncVoucherInUrl,
+    ])
 
     const applyVoucherByCode = useCallback(() => {
         const normalizedCode = voucherInput.trim().toUpperCase()
@@ -807,7 +829,8 @@ export default function CheckoutPage() {
     useEffect(() => {
         if (cartSubtotal <= 0) {
             setAvailableVouchers([])
-            setHasLoadedVouchers(true)
+            setHasLoadedVouchers(false)
+            setLoadedVoucherSubtotal(null)
             return
         }
 
@@ -864,34 +887,70 @@ export default function CheckoutPage() {
     }, [availableVouchers, cartSubtotal])
 
     useEffect(() => {
-        if (!hasLoadedVouchers) return
-
-        if (hasHandledInitialVoucherQueryRef.current) {
+        if (initialVoucherHydrationStatus !== "pending") {
             return
         }
 
-        hasHandledInitialVoucherQueryRef.current = true
         const initialVoucherCode = initialVoucherQueryCodeRef.current
-
         if (!initialVoucherCode) {
+            setInitialVoucherHydrationStatus("cleared")
             return
         }
 
-        const foundVoucher = checkoutVoucherOptions.find(
-            (voucher) => voucher.code.trim().toUpperCase() === initialVoucherCode
-        )
-
-        if (!foundVoucher && isResolvingCarriedVoucher) {
+        if (isResumePaymentMode || isCancelledPayosReturn) {
+            setInitialVoucherHydrationStatus("cleared")
             return
         }
+
+        if (committedVoucherCode === initialVoucherCode) {
+            setInitialVoucherHydrationStatus("applied")
+            return
+        }
+
+        if (isLoadingCart || cartItems.length === 0 || cartSubtotal <= 0) {
+            return
+        }
+
+        if (!hasLoadedVouchers || loadedVoucherSubtotal !== cartSubtotal) {
+            return
+        }
+
+        if (isResolvingCarriedVoucher) {
+            return
+        }
+
+        const foundVoucher = findVoucherByCode(initialVoucherCode)
 
         if (!foundVoucher || foundVoucher.canApply === false) {
+            setInitialVoucherHydrationStatus("cleared")
+            setCarriedVoucher(null)
+            setSelectedVoucher(null)
+            setVoucherIntentCode(null)
+            setVoucherInput("")
             syncVoucherInUrl(null)
+            toast.info("Voucher từ giỏ hàng không còn đủ điều kiện áp dụng nên đã được gỡ.", {
+                id: "checkout-carried-voucher-cleared",
+            })
             return
         }
 
-        applyVoucher(foundVoucher)
-    }, [applyVoucher, checkoutVoucherOptions, hasLoadedVouchers, isResolvingCarriedVoucher, syncVoucherInUrl])
+        setInitialVoucherHydrationStatus("applied")
+        applyVoucher(foundVoucher, { source: "query" })
+    }, [
+        applyVoucher,
+        cartItems.length,
+        cartSubtotal,
+        committedVoucherCode,
+        findVoucherByCode,
+        hasLoadedVouchers,
+        initialVoucherHydrationStatus,
+        isCancelledPayosReturn,
+        isLoadingCart,
+        isResolvingCarriedVoucher,
+        isResumePaymentMode,
+        loadedVoucherSubtotal,
+        syncVoucherInUrl,
+    ])
 
     // 🐛 FIX LỖI 400: Thêm tham số currentCart = cartItems
     const handleAddressSelect = (addr: SavedAddress, currentCart = cartItems) => {

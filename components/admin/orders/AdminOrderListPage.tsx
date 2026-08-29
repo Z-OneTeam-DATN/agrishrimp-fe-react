@@ -66,6 +66,7 @@ import {
   canRequestReplenishmentAction,
   OrderWorkflowBadge,
 } from "./OrderStateBadges";
+import { mapBranchOrderToMyOrder } from "./branchOrderViewModel";
 import {
   ORDER_LIST_EXPANDED_ROW_CLASS,
   ORDER_LIST_HEADER_CLASS,
@@ -127,6 +128,108 @@ const ORDER_STATUS_FILTER_OPTIONS: Array<{ label: string; value: StatusFilter }>
   { label: "Trả hàng", value: "RETURNED" },
 ];
 
+const parseStatusSelection = (status?: string | null) =>
+  (status ?? "")
+    .split(",")
+    .map((value) => value.trim().toUpperCase())
+    .filter(Boolean);
+
+const matchesStatusSelection = (
+  order: Pick<MyOrder, "status" | "legacyStatus">,
+  statusSelection?: string | null,
+) => {
+  const statuses = parseStatusSelection(statusSelection);
+
+  if (statuses.length === 0 || statuses.includes("ALL")) {
+    return true;
+  }
+
+  const orderStatuses = [
+    String(order.status ?? "").toUpperCase(),
+    String(order.legacyStatus ?? "").toUpperCase(),
+  ].filter(Boolean);
+
+  return statuses.some((status) => orderStatuses.includes(status));
+};
+
+const isIncompleteOrder = (
+  order: Pick<MyOrder, "status" | "paymentStatus">,
+) => {
+  if (order.status === "COMPLETED" || order.status === "RETURNED") {
+    return false;
+  }
+
+  if (order.status === "CANCELLED" && order.paymentStatus === "REFUNDED") {
+    return false;
+  }
+
+  return true;
+};
+
+const matchesIncompleteQuickFilter = (
+  order: Pick<MyOrder, "status" | "paymentStatus" | "items" | "subOrders">,
+  quickFilterId: OrderQuickFilterId | string | null | undefined,
+) => {
+  if (!isIncompleteOrder(order)) {
+    return false;
+  }
+
+  if (!quickFilterId || quickFilterId === "all") {
+    return true;
+  }
+
+  if (quickFilterId === "shortage") {
+    return hasOrderShortage(order);
+  }
+
+  if (quickFilterId === "unpaid") {
+    return order.paymentStatus !== "PAID";
+  }
+
+  if (quickFilterId === "cancelled") {
+    return order.status === "CANCELLED" && order.paymentStatus !== "REFUNDED";
+  }
+
+  return true;
+};
+
+const matchesBranchScopedSearch = (
+  order: Pick<
+    MyOrder,
+    "code" | "orderCode" | "customerName" | "customerPhone" | "receiverName" | "receiverPhone"
+  >,
+  search: string,
+) => {
+  const keyword = search.trim().toLowerCase();
+
+  if (!keyword) {
+    return true;
+  }
+
+  return [
+    order.orderCode,
+    order.code,
+    order.customerName,
+    order.customerPhone,
+    order.receiverName,
+    order.receiverPhone,
+  ]
+    .map((value) => value?.toString().trim().toLowerCase())
+    .some((value) => Boolean(value?.includes(keyword)));
+};
+
+const buildLocalOrderSummary = (
+  orders: MyOrder[],
+): AdminOrderSummaryResponse => ({
+  totalOrders: orders.length,
+  shortageOrders: orders.filter(hasOrderShortage).length,
+  unpaidOrders: orders.filter((order) => order.paymentStatus !== "PAID").length,
+  totalValue: orders.reduce(
+    (sum, order) => sum + Number(order.finalAmount ?? order.totalAmount ?? 0),
+    0,
+  ),
+});
+
 export default function AdminOrderListPage({
   title,
   fixedStatus,
@@ -176,6 +279,7 @@ export default function AdminOrderListPage({
 
   const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const isBranchScopedView = !canViewSystemOrders && canUseBranchOrders;
   const orderRouteAccess = useMemo(
     () =>
       resolveOrderRouteAccess({
@@ -248,6 +352,10 @@ export default function AdminOrderListPage({
       return;
     }
 
+    if (isBranchScopedView) {
+      return;
+    }
+
     if (!canViewSystemOrders) {
       router.replace(orderRouteAccess.orderListPath);
       return;
@@ -257,6 +365,7 @@ export default function AdminOrderListPage({
       router.push("/admin/forbidden");
     }
   }, [
+    isBranchScopedView,
     canViewSystemOrders,
     isLoadingAuth,
     orderRouteAccess.canAccessOrderModule,
@@ -321,7 +430,7 @@ export default function AdminOrderListPage({
   );
 
   const fetchOrders = useCallback(async ({ background = false }: FetchOrdersOptions = {}) => {
-    if (!canViewSystemOrders) {
+    if (!canViewSystemOrders && !isBranchScopedView) {
       return;
     }
 
@@ -333,6 +442,72 @@ export default function AdminOrderListPage({
       setDetailCache({});
     }
     try {
+      if (isBranchScopedView) {
+        const branchOrders = await orderService.getBranchOrders(
+          undefined,
+          undefined,
+          startDateFilter || undefined,
+          endDateFilter || undefined,
+        );
+        const mappedOrders = branchOrders.map(mapBranchOrderToMyOrder);
+        const branchBaseOrders = mappedOrders
+          .filter((order) =>
+            paymentFilter === "ALL" ? true : order.paymentStatus === paymentFilter,
+          )
+          .filter((order) => matchesBranchScopedSearch(order, search));
+        const branchFilteredOrders = hasQuickFilters
+          ? branchBaseOrders.filter((order) =>
+              matchesIncompleteQuickFilter(order, activeQuickFilter?.id),
+            )
+          : branchBaseOrders.filter((order) =>
+              matchesStatusSelection(
+                order,
+                selectedFixedStatus ?? (statusFilter === "ALL" ? null : statusFilter),
+              ),
+            );
+        const totalElements = branchFilteredOrders.length;
+        const totalPages = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
+        const safePage = Math.min(currentPage, Math.max(totalPages - 1, 0));
+        const startIndex = safePage * PAGE_SIZE;
+        const pageContent = branchFilteredOrders.slice(startIndex, startIndex + PAGE_SIZE);
+
+        setOrdersPage({
+          content: pageContent,
+          totalElements,
+          totalPages,
+          number: safePage,
+          size: PAGE_SIZE,
+          first: safePage === 0,
+          last: safePage >= totalPages - 1,
+        });
+        setOrders(pageContent);
+        setOrderSummary(
+          shouldShowSummaryCards ? buildLocalOrderSummary(branchFilteredOrders) : null,
+        );
+        setGroupCounts(
+          statusGroupItems.reduce<Record<string, number>>((nextCounts, group) => {
+            nextCounts[group.id] = branchBaseOrders.filter((order) =>
+              matchesStatusSelection(order, group.status),
+            ).length;
+            return nextCounts;
+          }, {}),
+        );
+        setQuickFilterCounts(
+          quickFilterItems.reduce<Record<string, number>>((nextCounts, group) => {
+            nextCounts[group.id] = branchBaseOrders.filter((order) =>
+              matchesIncompleteQuickFilter(order, group.id),
+            ).length;
+            return nextCounts;
+          }, {}),
+        );
+        lastRefreshSignalRef.current = Math.max(
+          lastRefreshSignalRef.current,
+          readAdminOrdersRefreshSignal(),
+        );
+        setSelectedItems([]);
+        return;
+      }
+
       const [data, summary, groupCountEntries, quickFilterCountEntries] = await Promise.all([
         orderService.getAdminOrders({
           ...adminOrderFilters,
@@ -403,7 +578,11 @@ export default function AdminOrderListPage({
         setGroupCounts({});
         setQuickFilterCounts({});
       }
-      toast.error("Không thể tải danh sách đơn hàng toàn hệ thống.");
+      toast.error(
+        isBranchScopedView
+          ? "Không thể tải danh sách đơn hàng của chi nhánh đang quản lý."
+          : "Không thể tải danh sách đơn hàng toàn hệ thống.",
+      );
     } finally {
       if (background) {
         setIsRefreshing(false);
@@ -412,26 +591,34 @@ export default function AdminOrderListPage({
       }
     }
   }, [
+    activeQuickFilter?.id,
     adminOrderFilters,
     baseAdminOrderFilters,
     canViewSystemOrders,
     currentPage,
+    endDateFilter,
     hasQuickFilters,
+    isBranchScopedView,
+    paymentFilter,
     quickFilterItems,
+    search,
+    selectedFixedStatus,
     shouldShowSummaryCards,
+    startDateFilter,
+    statusFilter,
     statusGroupItems,
   ]);
 
   useEffect(() => {
-    if (isLoadingAuth || !canViewSystemOrders) {
+    if (isLoadingAuth || (!canViewSystemOrders && !isBranchScopedView)) {
       return;
     }
 
     void fetchOrders();
-  }, [canViewSystemOrders, fetchOrders, isLoadingAuth]);
+  }, [canViewSystemOrders, fetchOrders, isBranchScopedView, isLoadingAuth]);
 
   useOrderRealtimeSync({
-    enabled: !isLoadingAuth && canViewSystemOrders,
+    enabled: !isLoadingAuth && (canViewSystemOrders || isBranchScopedView),
     lastRefreshSignalRef,
     onBackgroundRefresh: () => fetchOrders({ background: true }),
   });
@@ -477,7 +664,9 @@ export default function AdminOrderListPage({
     if (!detailCache[orderId]) {
       setLoadingDetailId(orderId);
       try {
-        const detail = await orderService.getAdminOrderById(orderId);
+        const detail = isBranchScopedView
+          ? mapBranchOrderToMyOrder(await orderService.getBranchOrderById(orderId))
+          : await orderService.getAdminOrderById(orderId);
         setDetailCache((prev) => ({ ...prev, [orderId]: detail }));
       } catch {
         toast.error("Không thể tải nhanh chi tiết đơn hàng.");
@@ -513,7 +702,9 @@ export default function AdminOrderListPage({
 
     try {
       setReplenishingOrderId(orderId);
-      const response = await orderService.requestAdminOrderReplenishment(orderId);
+      const response = isBranchScopedView
+        ? await orderService.requestBranchOrderReplenishment(orderId)
+        : await orderService.requestAdminOrderReplenishment(orderId);
       const responseDocuments = response.planItems ?? [];
       const hasCreatedDocuments =
         getReplenishmentDocumentLinks(responseDocuments).length > 0;
@@ -566,7 +757,11 @@ export default function AdminOrderListPage({
 
     try {
       setAdvancingOrderId(order.id);
-      await orderService.updateOrderStatus(order.id, action.nextStatus);
+      if (isBranchScopedView) {
+        await orderService.updateBranchOrderStatus(order.id, action.nextStatus);
+      } else {
+        await orderService.updateOrderStatus(order.id, action.nextStatus);
+      }
       if (shouldKeepOrderInCurrentView(action.nextStatus)) {
         setOrders((prev) =>
           prev.map((item) =>

@@ -70,6 +70,9 @@ const formatMoney = (amount: number | string | undefined | null) => {
 const toVoucherAmount = (value: string | number | null | undefined) =>
   Number(value ?? 0);
 
+const normalizeVoucherCode = (value?: string | null) =>
+  value?.trim().toUpperCase() || "";
+
 const loadSavedVoucherCodes = () => {
   if (typeof window === "undefined") return [] as string[];
 
@@ -575,13 +578,14 @@ export default function CartPage() {
       return;
     }
     setSelectedVoucher(voucher);
-    setVoucherInput(voucher.code);
+    setVoucherInput(normalizeVoucherCode(voucher.code));
     toast.success("Áp dụng voucher thành công!");
   };
 
   const applyVoucherByCode = () => {
+    const normalizedVoucherCode = normalizeVoucherCode(voucherInput);
     const found = availableVouchers.find(
-      (v) => v.code === voucherInput.trim().toUpperCase(),
+      (v) => normalizeVoucherCode(v.code) === normalizedVoucherCode,
     );
     if (!found) {
       toast.error("Mã voucher không hợp lệ hoặc đã hết hạn");
@@ -599,7 +603,7 @@ export default function CartPage() {
     }
 
     if (selectedVoucher) {
-      params.set("voucher", selectedVoucher.code);
+      params.set("voucher", normalizeVoucherCode(selectedVoucher.code));
     }
 
     const query = params.toString();

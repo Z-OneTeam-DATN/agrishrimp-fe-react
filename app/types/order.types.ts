@@ -240,9 +240,12 @@ export interface OrderReplenishmentDocument {
   destinationBranchName?: string | null
   documentId?: number | string | null
   documentType?: "TRANSFER" | "PURCHASE_REQUEST" | "BLOCKED" | string | null
+  documentStatus?: string | null
   documentCode?: string | null
   documentPath?: string | null
   documentLabel?: string | null
+  approvalRequired?: boolean | null
+  approvalMessage?: string | null
   message?: string | null
 }
 
@@ -320,6 +323,8 @@ export interface BranchOrder {
   orderCode: string
   customerName: string
   customerPhone: string
+  receiverName?: string | null
+  receiverPhone?: string | null
   shippingAddress: string
   createdAt: string
   paymentMethod: string
@@ -335,10 +340,18 @@ export interface BranchOrder {
   shippingFee: number
   estimatedDays: string | null
   carrier: string | null
+  branchId?: number | null
+  branchName?: string | null
+  branchPhone?: string | null
+  branchAddress?: string | null
+  note?: string | null
+  cancelReasonDisplay?: string | null
   statusUpdatedAt?: string | null
   shippingOverdue?: boolean
   canMarkReceived?: boolean
   overdueShippingDays?: number
+  replenishmentRequested?: boolean | null
+  replenishmentDocuments?: OrderReplenishmentDocument[] | null
   items: BranchOrderItem[]
 }
 

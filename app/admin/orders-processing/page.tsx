@@ -1,14 +1,5 @@
-"use client";
-
-import AdminOrderListPage, {
-  type AdminOrderStatusGroup,
-} from "@/components/admin/orders/AdminOrderListPage";
-import BranchOrderListPage from "@/components/admin/orders/BranchOrderListPage";
-import AdminAccessDenied from "@/components/admin/shared/AdminAccessDenied";
-import { usePermissions } from "@/hooks/usePermissions";
-import { canUseBranchOrderRoutes } from "@/lib/order-routing";
-import { P } from "@/lib/permissions";
-import { useAuthStore } from "@/stores/useAuthStore";
+import OrderListEntryPage from "@/components/admin/orders/OrderListEntryPage";
+import type { AdminOrderStatusGroup } from "@/components/admin/orders/AdminOrderListPage";
 
 const ORDER_PROCESSING_GROUPS: AdminOrderStatusGroup[] = [
   {
@@ -44,50 +35,17 @@ const ORDER_PROCESSING_GROUPS: AdminOrderStatusGroup[] = [
   {
     id: "shortage",
     label: "Đơn thiếu hàng",
-    status:
-      "AWAITING_REPLENISHMENT,PENDING_SHORTAGE_REVIEW,PENDING_TRANSFER",
+    status: "AWAITING_REPLENISHMENT,PENDING_SHORTAGE_REVIEW,PENDING_TRANSFER",
   },
 ];
 
 export default function OrderProcessingPage() {
-  const { hasPermission } = usePermissions();
-  const { user, warehouseId } = useAuthStore();
-  const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
-  const canViewOrderModule = hasPermission(P.ORDER_VIEW);
-  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
-
-  if (canViewSystemOrders) {
-    return (
-      <AdminOrderListPage
-        title="Xử lý đơn hàng"
-        subtitle="Gom các trạng thái cần xử lý theo từng bước vận hành để quản trị theo dõi nhanh hơn."
-        statusGroups={ORDER_PROCESSING_GROUPS}
-        defaultStatusGroupId="pending"
-      />
-    );
-  }
-
-  if (canViewOrderModule && canUseBranchOrders) {
-    return (
-      <BranchOrderListPage
-        title="Xử lý đơn hàng"
-        subtitle="Gom các trạng thái cần xử lý theo từng bước vận hành để chi nhánh theo dõi nhanh hơn."
-        statusGroups={ORDER_PROCESSING_GROUPS}
-        defaultStatusGroupId="pending"
-        enableProcessingActions
-      />
-    );
-  }
-
-  if (canViewOrderModule) {
-    return (
-      <AdminAccessDenied
-        compact
-        title="Tài khoản chưa được gán chi nhánh"
-        description="Bạn đã có quyền xem đơn hàng nhưng tài khoản này chưa được gán chi nhánh và cũng không có quyền xem tất cả chi nhánh."
-      />
-    );
-  }
-
-  return <AdminAccessDenied compact />;
+  return (
+    <OrderListEntryPage
+      title="Xử lý đơn hàng"
+      subtitle="Gom các trạng thái cần xử lý theo từng bước vận hành để theo dõi và thao tác trên cùng một màn hình."
+      statusGroups={ORDER_PROCESSING_GROUPS}
+      defaultStatusGroupId="pending"
+    />
+  );
 }
