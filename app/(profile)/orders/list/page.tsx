@@ -97,6 +97,12 @@ export default function OrderingPage() {
     void fetchData();
   }, [fetchData]);
 
+  const handleOrderUpdated = useCallback((updatedOrder: MyOrder) => {
+    setOrders((current) =>
+      current.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
+    );
+  }, []);
+
   const normalizedKeyword = searchKeyword.trim().toLowerCase();
 
   const ordersWithReturnRequest = useMemo(
@@ -313,6 +319,7 @@ export default function OrderingPage() {
                 order={order}
                 hasReturnRequest={ordersWithReturnRequest.has(order.id)}
                 onOrderCancelled={fetchData}
+                onOrderUpdated={handleOrderUpdated}
               />
             ))}
 

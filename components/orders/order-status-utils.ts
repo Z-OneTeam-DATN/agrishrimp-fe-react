@@ -1,4 +1,7 @@
-import { OrderStatus } from "@/app/types/order.types";
+import { MyOrder, OrderStatus } from "@/app/types/order.types";
+import { parseLocalDateTime } from "@/lib/dateUtils";
+
+const CUSTOMER_CONFIRM_RECEIVED_WINDOW_HOURS = 72;
 
 export type UserOrderStage =
   | "PENDING"
@@ -111,4 +114,30 @@ export function normalizeUserOrderFilter(
   }
 
   return "ALL";
+}
+
+export function canCustomerConfirmReceivedAction(
+  order: Pick<MyOrder, "status" | "statusUpdatedAt" | "canConfirmReceived">,
+): boolean {
+  if (typeof order.canConfirmReceived === "boolean") {
+    return order.canConfirmReceived;
+  }
+
+  if (order.status !== "SHIPPING") {
+    return false;
+  }
+
+  if (!order.statusUpdatedAt) {
+    return true;
+  }
+
+  const statusUpdatedAt = parseLocalDateTime(order.statusUpdatedAt);
+  if (Number.isNaN(statusUpdatedAt.getTime())) {
+    return true;
+  }
+
+  return (
+    Date.now() - statusUpdatedAt.getTime() <=
+    CUSTOMER_CONFIRM_RECEIVED_WINDOW_HOURS * 60 * 60 * 1000
+  );
 }

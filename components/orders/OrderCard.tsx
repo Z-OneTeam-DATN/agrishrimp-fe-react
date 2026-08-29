@@ -11,6 +11,8 @@ import {
   Truck,
   XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
+import { orderService } from "@/app/services/order.service";
 import {
   MyOrder,
   OrderPaymentStatus,
@@ -20,12 +22,14 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
+import { canCustomerConfirmReceivedAction } from "./order-status-utils";
 import { CancelOrderModal } from "./CancelOrderModal";
 
 interface OrderCardProps {
   order: MyOrder;
   hasReturnRequest?: boolean;
   onOrderCancelled?: () => void;
+  onOrderUpdated?: (order: MyOrder) => void | Promise<void>;
 }
 
 const cancellableStatuses = new Set<OrderStatus>([
@@ -136,8 +140,10 @@ export function OrderCard({
   order,
   hasReturnRequest = false,
   onOrderCancelled,
+  onOrderUpdated,
 }: OrderCardProps) {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isConfirmingReceived, setIsConfirmingReceived] = useState(false);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", {
@@ -157,6 +163,7 @@ export function OrderCard({
   };
 
   const statusConfig = getStatusConfig(order.status);
+  const canConfirmReceived = canCustomerConfirmReceivedAction(order);
 
   const btnMainClass =
     "h-8 rounded-none border border-[#1965a2] bg-[#1965a2] px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#145486]";
@@ -164,6 +171,21 @@ export function OrderCard({
     "h-8 rounded-none border border-gray-300 bg-white px-4 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-800";
   const btnPayClass =
     "h-8 rounded-none border border-red-500 bg-red-500 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-red-600";
+
+  const handleConfirmReceived = async () => {
+    try {
+      setIsConfirmingReceived(true);
+      await orderService.confirmReceivedByCustomer(order.id);
+      const refreshedOrder = await orderService.getOrderById(order.id);
+      await Promise.resolve(onOrderUpdated?.(refreshedOrder));
+      toast.success("Đã xác nhận nhận hàng thành công.");
+    } catch (error) {
+      console.error("Failed to confirm received order:", error);
+      toast.error("Không thể xác nhận đã nhận hàng lúc này.");
+    } finally {
+      setIsConfirmingReceived(false);
+    }
+  };
 
   return (
     <div className="mb-3 overflow-hidden border border-gray-100 bg-white transition-all duration-200 hover:shadow-sm">
@@ -309,6 +331,17 @@ export function OrderCard({
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
+          {canConfirmReceived ? (
+            <Button
+              type="button"
+              className={btnMainClass}
+              onClick={() => void handleConfirmReceived()}
+              disabled={isConfirmingReceived}
+            >
+              {isConfirmingReceived ? "Đang xác nhận..." : "Đã nhận hàng"}
+            </Button>
+          ) : null}
+
           {order.paymentMethod === "PAYOS" &&
           ["UNPAID", "PENDING"].includes(order.paymentStatus) &&
           order.checkoutUrl &&

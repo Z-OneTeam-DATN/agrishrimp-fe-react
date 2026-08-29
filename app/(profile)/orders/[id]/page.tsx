@@ -26,6 +26,7 @@ import {
   OrderStatus,
 } from "@/app/types/order.types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { canCustomerConfirmReceivedAction } from "@/components/orders/order-status-utils";
 import { formatDate } from "@/lib/dateUtils";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
@@ -282,6 +283,9 @@ export default function OrderDetailPage({
   };
 
   const displayStatus = getCustomerFacingStatus(order?.status ?? "PENDING");
+  const canConfirmReceived = order
+    ? canCustomerConfirmReceivedAction(order)
+    : false;
   const cfg = statusConfig[displayStatus];
   const activeStep = getActiveStep(displayStatus);
   const showStepper = displayStatus !== "CANCELLED" && displayStatus !== "RETURNED";
@@ -571,7 +575,7 @@ export default function OrderDetailPage({
           )}
         </div>
 
-        {displayStatus === "SHIPPING" && (
+        {displayStatus === "SHIPPING" && canConfirmReceived && (
           <div className="rounded-xl bg-white px-4 py-4">
             <button
               type="button"

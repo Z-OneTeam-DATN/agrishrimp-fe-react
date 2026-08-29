@@ -42,6 +42,8 @@ export function mapBranchOrderToMyOrder(order: BranchOrder): MyOrder {
     stockStatus: order.stockStatus ?? null,
     autoApproveAt: order.autoApproveAt ?? null,
     autoApprovalPaused: null,
+    statusUpdatedAt: order.statusUpdatedAt ?? null,
+    canConfirmReceived: null,
     createdAt: order.createdAt,
     note: order.note ?? null,
     cancelReasonCode: null,

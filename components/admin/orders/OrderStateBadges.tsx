@@ -342,7 +342,7 @@ export const getNextOrderWorkflowAction = (
     case "READY_FOR_PICKUP":
       return { label: "Chuyển giao hàng", nextStatus: "SHIPPING" };
     case "SHIPPING":
-      return { label: "Xác nhận đã giao", nextStatus: "RECEIVED" };
+      return { label: "Xác nhận đã giao", nextStatus: "COMPLETED" };
     case "RECEIVED":
       return { label: "Hoàn thành đơn", nextStatus: "COMPLETED" };
     default:
