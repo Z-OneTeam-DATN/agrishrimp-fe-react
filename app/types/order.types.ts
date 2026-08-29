@@ -275,6 +275,8 @@ export interface MyOrder {
   stockStatus?: PrepareStockStatus | null
   autoApproveAt?: string | null
   autoApprovalPaused?: boolean | null
+  statusUpdatedAt?: string | null
+  canConfirmReceived?: boolean | null
   createdAt: string
   note?: string | null
   cancelReasonCode?: OrderCancelReasonCode | null
