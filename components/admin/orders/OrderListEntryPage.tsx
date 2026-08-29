@@ -6,13 +6,15 @@ import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import AdminOrderListPage from "./AdminOrderListPage";
-import BranchOrderListPage from "./BranchOrderListPage";
+import type { AdminOrderStatusGroup } from "./AdminOrderListPage";
 import type { OrderQuickFilterGroup, OrderQuickFilterId } from "./orderQuickFilters";
 
 type OrderListEntryPageProps = {
   title: string;
   subtitle?: string;
   fixedStatusQuery?: string;
+  statusGroups?: AdminOrderStatusGroup[];
+  defaultStatusGroupId?: string;
   layoutVariant?: "default" | "incomplete";
   quickFilterGroups?: OrderQuickFilterGroup[];
   defaultQuickFilterId?: OrderQuickFilterId;
@@ -22,6 +24,8 @@ export default function OrderListEntryPage({
   title,
   subtitle,
   fixedStatusQuery,
+  statusGroups,
+  defaultStatusGroupId,
   layoutVariant = "default",
   quickFilterGroups,
   defaultQuickFilterId,
@@ -38,6 +42,8 @@ export default function OrderListEntryPage({
         title={title}
         subtitle={subtitle}
         fixedStatusQuery={fixedStatusQuery}
+        statusGroups={statusGroups}
+        defaultStatusGroupId={defaultStatusGroupId}
         layoutVariant={layoutVariant}
         quickFilterGroups={quickFilterGroups}
         defaultQuickFilterId={defaultQuickFilterId}
@@ -47,10 +53,13 @@ export default function OrderListEntryPage({
 
   if (canViewOrderModule && canUseBranchOrders) {
     return (
-      <BranchOrderListPage
+      <AdminOrderListPage
         title={title}
         subtitle={subtitle}
         fixedStatusQuery={fixedStatusQuery}
+        statusGroups={statusGroups}
+        defaultStatusGroupId={defaultStatusGroupId}
+        layoutVariant={layoutVariant}
         quickFilterGroups={quickFilterGroups}
         defaultQuickFilterId={defaultQuickFilterId}
       />

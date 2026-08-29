@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
+import { AlertTriangle, ClipboardList } from "lucide-react";
 import { getReplenishmentDocumentLinks } from "@/app/services/order.service";
 import type { OrderReplenishmentDocument } from "@/app/types/order.types";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,14 @@ export function ReplenishmentDocumentLinks({
   variant = "default",
 }: ReplenishmentDocumentLinksProps) {
   const links = getReplenishmentDocumentLinks(documents);
+  const approvalMessages = Array.from(
+    new Set(
+      links
+        .filter((link) => link.documentType === "PURCHASE_REQUEST" && link.approvalRequired)
+        .map((link) => (link.approvalMessage || "").trim())
+        .filter(Boolean),
+    ),
+  );
 
   if (!links.length) {
     return null;
@@ -86,6 +94,26 @@ export function ReplenishmentDocumentLinks({
           </Button>
         ))}
       </div>
+
+      {approvalMessages.length > 0 ? (
+        <div
+          className={cn(
+            "mt-3 flex items-start gap-2 border px-3 py-2 text-[12px]",
+            variant === "order-detail-monochrome"
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : "border-amber-200 bg-white text-amber-800",
+          )}
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="space-y-1">
+            {approvalMessages.map((message) => (
+              <p key={message} className="leading-5">
+                {message}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

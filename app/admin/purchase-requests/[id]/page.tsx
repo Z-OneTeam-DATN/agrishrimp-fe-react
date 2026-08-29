@@ -705,6 +705,12 @@ export default function PurchaseRequestDetailPage() {
   const canUpdatePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_UPDATE);
   const canApprovePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_APPROVE);
   const hasRemaining = pr.items?.some((i) => (i.remainingQty ?? 0) > 0);
+  const pendingApprovalNotice =
+    pr.status === "PENDING_APPROVAL"
+      ? canApprovePurchaseRequest
+        ? "Phiếu yêu cầu nhập hàng này đang chờ admin duyệt."
+        : "Phiếu yêu cầu nhập hàng này đã được gửi để admin duyệt. Sau khi admin duyệt, hệ thống mới tiếp tục các bước nhập hàng từ nhà cung cấp."
+      : null;
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
 
@@ -928,6 +934,12 @@ export default function PurchaseRequestDetailPage() {
       </div>
 
       {/* ── Info Cards ────────────────────────────────────────────────────── */}
+      {pendingApprovalNotice ? (
+        <div className="rounded-[4px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-medium leading-5 text-amber-800">
+          {pendingApprovalNotice}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
         {[
           {

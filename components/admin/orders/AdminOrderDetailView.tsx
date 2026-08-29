@@ -47,6 +47,7 @@ import {
   canRequestReplenishmentAction,
 } from "./OrderStateBadges";
 import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
+import { mapBranchOrderToMyOrder } from "./branchOrderViewModel";
 import {
   ORDER_LIST_HEADER_CLASS,
   ORDER_LIST_IMAGE_FRAME_CLASS,
@@ -93,6 +94,7 @@ export default function AdminOrderDetailView({
 
   const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const isBranchScopedView = !canViewSystemOrders && canUseBranchOrders;
   const orderRouteAccess = useMemo(
     () =>
       resolveOrderRouteAccess({
@@ -107,6 +109,10 @@ export default function AdminOrderDetailView({
       return;
     }
 
+    if (isBranchScopedView) {
+      return;
+    }
+
     if (!canViewSystemOrders) {
       router.replace(orderRouteAccess.orderListPath);
       return;
@@ -116,6 +122,7 @@ export default function AdminOrderDetailView({
       router.push("/admin/forbidden");
     }
   }, [
+    isBranchScopedView,
     canViewSystemOrders,
     isLoadingAuth,
     orderRouteAccess.canAccessOrderModule,
@@ -124,7 +131,7 @@ export default function AdminOrderDetailView({
   ]);
 
   const fetchOrder = useCallback(async (options?: { background?: boolean }) => {
-    if (!canViewSystemOrders) {
+    if (!canViewSystemOrders && !isBranchScopedView) {
       return;
     }
 
@@ -135,7 +142,9 @@ export default function AdminOrderDetailView({
       setIsLoading(true);
     }
     try {
-      const data = await orderService.getAdminOrderById(orderId);
+      const data = isBranchScopedView
+        ? mapBranchOrderToMyOrder(await orderService.getBranchOrderById(orderId))
+        : await orderService.getAdminOrderById(orderId);
       setOrder(data);
       lastRefreshSignalRef.current = Math.max(
         lastRefreshSignalRef.current,
@@ -153,18 +162,24 @@ export default function AdminOrderDetailView({
         setIsLoading(false);
       }
     }
-  }, [canViewSystemOrders, orderId, orderRouteAccess.defaultOrderListPath, router]);
+  }, [
+    canViewSystemOrders,
+    isBranchScopedView,
+    orderId,
+    orderRouteAccess.defaultOrderListPath,
+    router,
+  ]);
 
   useEffect(() => {
-    if (isLoadingAuth || !canViewSystemOrders) {
+    if (isLoadingAuth || (!canViewSystemOrders && !isBranchScopedView)) {
       return;
     }
 
     void fetchOrder();
-  }, [canViewSystemOrders, fetchOrder, isLoadingAuth]);
+  }, [canViewSystemOrders, fetchOrder, isBranchScopedView, isLoadingAuth]);
 
   useOrderRealtimeSync({
-    enabled: !isLoadingAuth && canViewSystemOrders,
+    enabled: !isLoadingAuth && (canViewSystemOrders || isBranchScopedView),
     lastRefreshSignalRef,
     onBackgroundRefresh: () => fetchOrder({ background: true }),
   });
@@ -197,7 +212,9 @@ export default function AdminOrderDetailView({
 
     try {
       setIsSubmitting("replenishment");
-      const response = await orderService.requestAdminOrderReplenishment(order.id);
+      const response = isBranchScopedView
+        ? await orderService.requestBranchOrderReplenishment(order.id)
+        : await orderService.requestAdminOrderReplenishment(order.id);
       const responseDocuments = response.planItems ?? [];
       if (getReplenishmentDocumentLinks(responseDocuments).length > 0) {
         setOrder((prev) =>
@@ -237,7 +254,11 @@ export default function AdminOrderDetailView({
 
     try {
       setIsSubmitting("advance");
-      await orderService.updateOrderStatus(order.id, nextAction.nextStatus);
+      if (isBranchScopedView) {
+        await orderService.updateBranchOrderStatus(order.id, nextAction.nextStatus);
+      } else {
+        await orderService.updateOrderStatus(order.id, nextAction.nextStatus);
+      }
       toast.success(`Đơn hàng ${getOrderCode(order)} đã được cập nhật trạng thái.`);
       await fetchOrder();
     } catch {
