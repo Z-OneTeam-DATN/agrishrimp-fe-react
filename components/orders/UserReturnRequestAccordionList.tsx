@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { ReturnRequest } from "@/app/types/return.types";
 import { formatDate } from "@/lib/dateUtils";
 import {
+  getReturnHandlingLabel,
   getReturnIssueLabel,
   getReturnRefundLabel,
   getReturnStatusMeta,
@@ -33,7 +34,6 @@ export function filterUserReturnRequests(
     const searchableValues = [
       request.code,
       request.orderCode,
-      request.branchName,
       request.reason,
       request.description,
       ...request.items.flatMap((item) => [
@@ -122,7 +122,7 @@ export function UserReturnRequestAccordionList({
                   </span>
                   {!request.requiresPhysicalReturn ? (
                     <span className="border border-[#d8e6f5] bg-white px-2 py-1 text-xs text-[#1965a2]">
-                      Chi nhánh xử lý trực tiếp
+                      {getReturnHandlingLabel(request.handlingOption)}
                     </span>
                   ) : null}
                 </div>
@@ -135,21 +135,13 @@ export function UserReturnRequestAccordionList({
                 />
               </div>
 
-              <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-slate-400">
                     Mã đơn
                   </p>
                   <p className="mt-1 font-medium text-[#12385b]">
                     {request.orderCode}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Chi nhánh
-                  </p>
-                  <p className="mt-1 font-medium text-[#12385b]">
-                    {request.branchName || "Đang cập nhật"}
                   </p>
                 </div>
                 <div>
@@ -190,6 +182,14 @@ export function UserReturnRequestAccordionList({
                         </p>
                         <p className="mt-1 font-medium text-[#12385b]">
                           {getReturnIssueLabel(request.issueType)}
+                        </p>
+                      </div>
+                      <div className="border border-[#d8e6f5] bg-white px-4 py-3">
+                        <p className="text-xs uppercase tracking-wide text-slate-400">
+                          Phương án xử lý
+                        </p>
+                        <p className="mt-1 font-medium text-[#12385b]">
+                          {getReturnHandlingLabel(request.handlingOption)}
                         </p>
                       </div>
                       <div className="border border-[#d8e6f5] bg-white px-4 py-3">

@@ -8,6 +8,8 @@ export type ReturnIssueType =
 
 export type ReturnRefundMethod = "BANK_TRANSFER" | "CASH";
 
+export type ReturnHandlingOption = "REFUND_ONLY" | "RETURN_AND_REFUND";
+
 export type ReturnRequestStatus =
   | "PENDING"
   | "APPROVED"
@@ -68,6 +70,7 @@ export interface CreateReturnRequestPayload {
   bankName: string;
   bankBranch?: string | null;
   issueType: ReturnIssueType;
+  handlingOption: ReturnHandlingOption;
   refundMethod: ReturnRefundMethod;
   reason: string;
   description: string;
@@ -104,6 +107,7 @@ export interface ReturnRequest {
   code: string;
   status: ReturnRequestStatus;
   issueType: ReturnIssueType;
+  handlingOption: ReturnHandlingOption;
   refundMethod: ReturnRefundMethod;
   requiresPhysicalReturn: boolean;
   orderId: number;

@@ -40,6 +40,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/dateUtils";
 import { P } from "@/lib/permissions";
 import {
+  getReturnHandlingLabel,
   getReturnIssueLabel,
   getReturnRefundLabel,
   getReturnStatusMeta,
@@ -345,7 +346,7 @@ export default function ReturnOrderDetailPage({
                   </span>
                   {!request.requiresPhysicalReturn ? (
                     <span className={MONO_STATUS_BADGE_CLASS}>
-                      Thiếu hàng, chi nhánh xử lý trực tiếp
+                      {getReturnHandlingLabel(request.handlingOption)}
                     </span>
                   ) : null}
                 </div>
@@ -406,9 +407,9 @@ export default function ReturnOrderDetailPage({
 
         {!request.requiresPhysicalReturn && (
           <div className={MONO_INFO_PANEL_CLASS}>
-            Yêu cầu này thuộc trường hợp thiếu hàng. Chi nhánh phục vụ sẽ xác minh
-            bằng chứng, duyệt và hoàn tiền trực tiếp cho khách hàng, không cần bước
-            nhận lại hàng.
+            Yêu cầu này đang đi theo phương án chỉ hoàn tiền. Chi nhánh phục vụ sẽ
+            xác minh bằng chứng, duyệt và hoàn tiền trực tiếp cho khách hàng, không
+            cần bước nhận lại hàng.
           </div>
         )}
 
@@ -461,6 +462,11 @@ export default function ReturnOrderDetailPage({
                 icon={<Package size={15} className="text-slate-400" />}
                 label="Loại sự cố"
                 value={getReturnIssueLabel(request.issueType)}
+              />
+              <InfoLine
+                icon={<RotateCcw size={15} className="text-slate-400" />}
+                label="Phương án xử lý"
+                value={getReturnHandlingLabel(request.handlingOption)}
               />
               <InfoLine
                 icon={<CreditCard size={15} className="text-slate-400" />}
@@ -598,7 +604,7 @@ export default function ReturnOrderDetailPage({
                 <TimelineItem
                   done
                   label="Bỏ qua bước nhận hàng"
-                  value="Trường hợp thiếu hàng do chi nhánh xử lý trực tiếp"
+                  value="Yêu cầu chỉ hoàn tiền, không cần nhận lại hàng vật lý"
                 />
               )}
               <TimelineItem

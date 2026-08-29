@@ -9,7 +9,7 @@ import { toast } from "sonner"
 import { cartService } from "@/app/services/cart.service"
 import { addressService } from "@/app/services/address.service"
 import { orderService } from "@/app/services/order.service"
-import { voucherService, type UserVoucher } from "@/app/services/voucher.service"
+import { voucherService, type UserVoucher, type Voucher as PublicVoucher } from "@/app/services/voucher.service"
 import { useCartStore } from "@/stores/useCartStore"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { usePrepareOrder } from "@/hooks/usePrepareOrder"
@@ -155,6 +155,42 @@ const normalizeVoucherCode = (value?: string | null) => {
     const normalized = value?.trim().toUpperCase() || ""
     return normalized || null
 }
+
+const isVoucherActive = (voucher: Pick<PublicVoucher, "status" | "startDate" | "endDate">) => {
+    const now = Date.now()
+    const startOk = !voucher.startDate || new Date(voucher.startDate).getTime() <= now
+    const endOk = !voucher.endDate || new Date(voucher.endDate).getTime() >= now
+    return voucher.status === "ACTIVE" && startOk && endOk
+}
+
+const getVoucherPreviewDiscount = (
+    voucher: Pick<PublicVoucher, "discountType" | "value" | "discountValue" | "maxDiscount" | "minOrderValue">,
+    orderSubtotal: number,
+) => {
+    const minOrderValue = Number(voucher.minOrderValue ?? 0)
+    if (orderSubtotal < minOrderValue) {
+        return 0
+    }
+
+    const value = Number(voucher.value ?? voucher.discountValue ?? 0)
+    if (voucher.discountType === "PERCENT") {
+        const calculatedDiscount = (orderSubtotal * value) / 100
+        return voucher.maxDiscount
+            ? Math.min(calculatedDiscount, Number(voucher.maxDiscount))
+            : calculatedDiscount
+    }
+
+    return value
+}
+
+const buildCheckoutVoucher = (
+    voucher: PublicVoucher,
+    orderSubtotal: number,
+): Voucher => ({
+    ...voucher,
+    canApply: isVoucherActive(voucher) && orderSubtotal >= Number(voucher.minOrderValue ?? 0),
+    previewDiscountAmount: getVoucherPreviewDiscount(voucher, orderSubtotal),
+})
 
 const buildOutOfStockWarning = (response: PrepareOrderResponse) => {
     if (response.canFulfill || response.subOrders?.length || !response.outOfStockItems?.length) {
@@ -307,6 +343,7 @@ export default function CheckoutPage() {
     const searchParams = useSearchParams()
     const searchParamsKey = searchParams.toString()
     const queryVoucherCode = searchParams.get("voucher")?.trim().toUpperCase() || ""
+    const normalizedQueryVoucherCode = normalizeVoucherCode(queryVoucherCode)
     const selectedItemsParam = searchParams.get("items") || ""
     const prepareTokenParam = searchParams.get("prepareToken")?.trim() || ""
     const paymentSessionParam = searchParams.get("paymentSession")?.trim() || ""
@@ -343,6 +380,8 @@ export default function CheckoutPage() {
     const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
     const [isSubmittingAddress, setIsSubmittingAddress] = useState(false)
     const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([])
+    const [carriedVoucher, setCarriedVoucher] = useState<Voucher | null>(null)
+    const [isResolvingCarriedVoucher, setIsResolvingCarriedVoucher] = useState(Boolean(normalizedQueryVoucherCode))
     const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null)
     const [voucherIntentCode, setVoucherIntentCode] = useState<string | null>(null)
     const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false)
@@ -362,7 +401,7 @@ export default function CheckoutPage() {
     const confirmAttemptKeyRef = useRef<string | null>(null)
     const handledCancelledSessionRef = useRef<string | null>(null)
     const prepareRequestIdRef = useRef(0)
-    const initialVoucherQueryCodeRef = useRef(normalizeVoucherCode(queryVoucherCode))
+    const initialVoucherQueryCodeRef = useRef(normalizedQueryVoucherCode)
     const hasHandledInitialVoucherQueryRef = useRef(false)
 
     const {
@@ -457,6 +496,22 @@ export default function CheckoutPage() {
             ),
         [cartItems]
     )
+    const checkoutVoucherOptions = useMemo(() => {
+        if (!carriedVoucher) {
+            return availableVouchers
+        }
+
+        const carriedVoucherCode = normalizeVoucherCode(carriedVoucher.code)
+        if (!carriedVoucherCode) {
+            return availableVouchers
+        }
+
+        if (availableVouchers.some((voucher) => normalizeVoucherCode(voucher.code) === carriedVoucherCode)) {
+            return availableVouchers
+        }
+
+        return [carriedVoucher, ...availableVouchers]
+    }, [availableVouchers, carriedVoucher])
 
     const activeVoucherCode = voucherIntentCode || undefined
     const checkoutRedirectTarget = searchParamsKey
@@ -469,7 +524,7 @@ export default function CheckoutPage() {
             return null
         }
 
-        return availableVouchers.find(
+        return checkoutVoucherOptions.find(
             (voucher) => voucher.code.trim().toUpperCase() === normalizedCode
         ) ?? (
             selectedVoucher
@@ -477,7 +532,7 @@ export default function CheckoutPage() {
                 ? selectedVoucher
                 : null
         )
-    }, [availableVouchers, selectedVoucher])
+    }, [checkoutVoucherOptions, selectedVoucher])
 
     const syncVoucherInUrl = useCallback((nextVoucherCode?: string | null) => {
         const normalizedCode = normalizeVoucherCode(nextVoucherCode) || ""
@@ -662,7 +717,16 @@ export default function CheckoutPage() {
         setIsLoadingVouchers(true)
         try {
             const vouchers = await voucherService.getAvailableForMe(orderSubtotal)
-            setAvailableVouchers(Array.isArray(vouchers) ? vouchers : [])
+            setAvailableVouchers(
+                Array.isArray(vouchers)
+                    ? vouchers.map((voucher) => ({
+                        ...voucher,
+                        previewDiscountAmount:
+                            voucher.previewDiscountAmount
+                            ?? getVoucherPreviewDiscount(voucher, orderSubtotal),
+                    }))
+                    : []
+            )
         } catch (error) {
             console.error("Không thể tải danh sách voucher", error)
             setAvailableVouchers([])
@@ -723,7 +787,7 @@ export default function CheckoutPage() {
             return
         }
 
-        const foundVoucher = availableVouchers.find(
+        const foundVoucher = checkoutVoucherOptions.find(
             (voucher) => voucher.code.trim().toUpperCase() === normalizedCode
         )
 
@@ -738,7 +802,7 @@ export default function CheckoutPage() {
         }
 
         applyVoucher(foundVoucher, { closeModal: true, showToast: true })
-    }, [applyVoucher, availableVouchers, voucherInput])
+    }, [applyVoucher, checkoutVoucherOptions, voucherInput])
 
     useEffect(() => {
         if (cartSubtotal <= 0) {
@@ -749,6 +813,55 @@ export default function CheckoutPage() {
 
         void fetchAvailableVouchers(cartSubtotal)
     }, [cartSubtotal, fetchAvailableVouchers])
+
+    useEffect(() => {
+        const initialVoucherCode = initialVoucherQueryCodeRef.current
+        if (!initialVoucherCode) {
+            setCarriedVoucher(null)
+            setIsResolvingCarriedVoucher(false)
+            return
+        }
+
+        const existingVoucher = availableVouchers.find(
+            (voucher) => normalizeVoucherCode(voucher.code) === initialVoucherCode
+        )
+        if (existingVoucher) {
+            setCarriedVoucher(null)
+            setIsResolvingCarriedVoucher(false)
+            return
+        }
+
+        let cancelled = false
+        setIsResolvingCarriedVoucher(true)
+
+        void voucherService.getByCode(initialVoucherCode)
+            .then((voucher) => {
+                if (cancelled) {
+                    return
+                }
+
+                if (!voucher || !isVoucherActive(voucher)) {
+                    setCarriedVoucher(null)
+                    return
+                }
+
+                setCarriedVoucher(buildCheckoutVoucher(voucher, cartSubtotal))
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setCarriedVoucher(null)
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsResolvingCarriedVoucher(false)
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [availableVouchers, cartSubtotal])
 
     useEffect(() => {
         if (!hasLoadedVouchers) return
@@ -764,17 +877,21 @@ export default function CheckoutPage() {
             return
         }
 
-        const foundVoucher = availableVouchers.find(
+        const foundVoucher = checkoutVoucherOptions.find(
             (voucher) => voucher.code.trim().toUpperCase() === initialVoucherCode
         )
 
-        if (!foundVoucher || !foundVoucher.canApply) {
+        if (!foundVoucher && isResolvingCarriedVoucher) {
+            return
+        }
+
+        if (!foundVoucher || foundVoucher.canApply === false) {
             syncVoucherInUrl(null)
             return
         }
 
         applyVoucher(foundVoucher)
-    }, [applyVoucher, availableVouchers, hasLoadedVouchers, syncVoucherInUrl])
+    }, [applyVoucher, checkoutVoucherOptions, hasLoadedVouchers, isResolvingCarriedVoucher, syncVoucherInUrl])
 
     // 🐛 FIX LỖI 400: Thêm tham số currentCart = cartItems
     const handleAddressSelect = (addr: SavedAddress, currentCart = cartItems) => {
@@ -1239,10 +1356,10 @@ export default function CheckoutPage() {
             return selectedVoucher
         }
 
-        return availableVouchers.find(
+        return checkoutVoucherOptions.find(
             (voucher) => voucher.code.trim().toUpperCase() === displayVoucherCode
         ) ?? null
-    }, [availableVouchers, displayVoucherCode, selectedVoucher])
+    }, [checkoutVoucherOptions, displayVoucherCode, selectedVoucher])
 
     useEffect(() => {
         if (voucherRequestState.status !== "idle") {
@@ -1256,7 +1373,7 @@ export default function CheckoutPage() {
             return
         }
 
-        const syncedVoucher = availableVouchers.find(
+        const syncedVoucher = checkoutVoucherOptions.find(
             (voucher) => voucher.code.trim().toUpperCase() === committedVoucherCode
         ) ?? null
 
@@ -1268,7 +1385,7 @@ export default function CheckoutPage() {
             setVoucherIntentCode(committedVoucherCode)
             setVoucherInput(committedVoucherCode)
         }
-    }, [availableVouchers, committedVoucherCode, selectedVoucher, voucherIntentCode, voucherRequestState.status])
+    }, [checkoutVoucherOptions, committedVoucherCode, selectedVoucher, voucherIntentCode, voucherRequestState.status])
 
     const handleConfirm = () => {
         if (rateLimitCooldown > 0) {
@@ -1730,7 +1847,7 @@ export default function CheckoutPage() {
                                         </div>
 
                                         <CheckoutVoucherSelector
-                                            availableVouchers={availableVouchers}
+                                            availableVouchers={checkoutVoucherOptions}
                                             selectedVoucher={selectedVoucher}
                                             voucherInput={voucherInput}
                                             isLoading={isLoadingVouchers}
