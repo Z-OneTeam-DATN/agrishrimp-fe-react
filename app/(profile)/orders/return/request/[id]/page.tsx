@@ -20,6 +20,7 @@ import {
   CreateReturnRequestPayload,
   ReturnDraftItem,
   ReturnEvidenceType,
+  ReturnHandlingOption,
   ReturnIssueType,
   ReturnOrderDraft,
 } from "@/app/types/return.types";
@@ -40,6 +41,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
+  getReturnHandlingLabel,
+  RETURN_HANDLING_OPTIONS,
   RETURN_ISSUE_OPTIONS,
   RETURN_REFUND_OPTIONS,
 } from "@/lib/return-request";
@@ -117,6 +120,7 @@ export default function ReturnRequestPage({
     bankName: "",
     bankBranch: "",
     issueType: "DAMAGED" as ReturnIssueType,
+    handlingOption: "RETURN_AND_REFUND" as ReturnHandlingOption,
     refundMethod: "BANK_TRANSFER" as CreateReturnRequestPayload["refundMethod"],
     reason: "",
     description: "",
@@ -206,6 +210,18 @@ export default function ReturnRequestPage({
   }, [draft, user]);
 
   useEffect(() => {
+    if (form.issueType !== "MISSING_ITEM") {
+      return;
+    }
+
+    setForm((current) =>
+      current.handlingOption === "REFUND_ONLY"
+        ? current
+        : { ...current, handlingOption: "REFUND_ONLY" },
+    );
+  }, [form.issueType]);
+
+  useEffect(() => {
     return () => {
       [...imageEvidences, ...videoEvidences].forEach((item) => {
         if (item.previewUrl.startsWith("blob:")) {
@@ -240,8 +256,8 @@ export default function ReturnRequestPage({
     [selectedDraftItems],
   );
 
-  const selectedBranchName = selectedDraftItems[0]?.branchName ?? null;
   const branchConflict = selectedBranchIds.length > 1;
+  const handlingOptionLocked = form.issueType === "MISSING_ITEM";
   const refundPreview = selectedDraftItems.reduce(
     (total, item) => total + item.unitPrice * item.selectedQuantity,
     0,
@@ -264,7 +280,7 @@ export default function ReturnRequestPage({
         item.branchId !== activeBranchId
       ) {
         toast.error(
-          "Mỗi yêu cầu chỉ được chọn sản phẩm thuộc cùng một chi nhánh phục vụ.",
+          "Các sản phẩm đã chọn hiện chưa thể gửi chung trong một yêu cầu. Vui lòng tách thành yêu cầu riêng.",
         );
         return;
       }
@@ -390,7 +406,7 @@ export default function ReturnRequestPage({
       return "Vui lòng chọn ít nhất một sản phẩm cần trả hàng.";
     }
     if (branchConflict || selectedBranchIds.length !== 1) {
-      return "Mỗi yêu cầu trả hàng chỉ được xử lý cho một chi nhánh phục vụ.";
+      return "Các sản phẩm đã chọn hiện chưa thể gửi chung trong một yêu cầu. Vui lòng tách thành yêu cầu riêng.";
     }
     if (!form.fullName.trim()) {
       return "Vui lòng nhập họ tên người nhận hoàn tiền.";
@@ -447,6 +463,7 @@ export default function ReturnRequestPage({
         bankName: form.bankName.trim(),
         bankBranch: form.bankBranch.trim() || null,
         issueType: form.issueType,
+        handlingOption: form.handlingOption,
         refundMethod: form.refundMethod,
         reason: form.reason.trim(),
         description: form.description.trim(),
@@ -465,7 +482,7 @@ export default function ReturnRequestPage({
 
       const createdRequest = await returnService.createReturnRequest(payload);
       toast.success(
-        `Đã gửi yêu cầu trả hàng ${createdRequest.code}. Chi nhánh sẽ xử lý thủ công tiếp theo.`,
+        `Đã gửi yêu cầu trả hàng ${createdRequest.code}. Chúng tôi sẽ cập nhật kết quả xử lý sớm nhất.`,
       );
       setConfirmOpen(false);
       router.replace("/orders/list?status=RETURNED");
@@ -537,7 +554,7 @@ export default function ReturnRequestPage({
                   <span className="font-semibold text-[#12385b]">
                     {draft.orderCode}
                   </span>{" "}
-                  sẽ được chuyển đến chi nhánh phục vụ để xử lý thủ công.
+                  sẽ được tiếp nhận và xử lý theo yêu cầu bạn gửi.
                 </p>
               </div>
             </div>
@@ -573,17 +590,16 @@ export default function ReturnRequestPage({
 
         {!draft.singleBranchOnly ? (
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
-            Đơn hàng này có sản phẩm từ nhiều chi nhánh phục vụ. Mỗi lần gửi yêu
-            cầu, bạn chỉ nên chọn sản phẩm thuộc cùng một chi nhánh để chi nhánh đó
-            xử lý nhanh hơn.
+            Đơn hàng này có nhiều sản phẩm cần tách thành các yêu cầu riêng. Vui
+            lòng chọn các sản phẩm tương thích để gửi trong cùng một yêu cầu.
           </div>
         ) : null}
 
         {form.issueType === "MISSING_ITEM" ? (
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
-            Trường hợp thiếu hàng sẽ do chi nhánh phục vụ xử lý hoàn tiền trực tiếp.
-            Khách hàng không cần gửi lại hàng vật lý nhưng vẫn bắt buộc có hình ảnh
-            và video mô tả lỗi của đơn hàng.
+            Trường hợp thiếu hàng sẽ được xử lý theo phương án hoàn tiền trực tiếp.
+            Bạn không cần gửi lại hàng vật lý nhưng vẫn bắt buộc có hình ảnh và
+            video mô tả lỗi của đơn hàng.
           </div>
         ) : null}
 
@@ -696,11 +712,6 @@ export default function ReturnRequestPage({
                               <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
                                 Tối đa trả: {item.maxReturnQuantity}
                               </span>
-                              {item.branchName ? (
-                                <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
-                                  Chi nhánh: {item.branchName}
-                                </span>
-                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -727,8 +738,8 @@ export default function ReturnRequestPage({
 
                           {disabledByBranch ? (
                             <p className="text-xs text-slate-500">
-                              Sản phẩm này thuộc chi nhánh khác. Hãy tạo phiếu riêng
-                              nếu muốn xử lý thêm.
+                              Sản phẩm này hiện chưa thể gửi chung trong yêu cầu này.
+                              Vui lòng tách thành yêu cầu riêng nếu cần xử lý thêm.
                             </p>
                           ) : null}
                         </div>
@@ -745,9 +756,68 @@ export default function ReturnRequestPage({
                   3. Thông tin hoàn tiền
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Họ tên, số điện thoại và thông tin ngân hàng đều bắt buộc để chi
-                  nhánh đối soát và hoàn tiền nhanh hơn.
+                  Họ tên, số điện thoại và thông tin ngân hàng đều bắt buộc để yêu
+                  cầu được đối soát và hoàn tiền nhanh hơn.
                 </p>
+              </div>
+
+              <div className="mb-4 space-y-3 text-sm">
+                <div className="space-y-1">
+                  <span className="font-medium text-[#12385b]">
+                    Lựa chọn phương án xử lý
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    Chọn cách yêu cầu hoàn tiền của đơn này sẽ được xử lý.
+                  </p>
+                </div>
+
+                <div className="grid gap-3">
+                  {RETURN_HANDLING_OPTIONS.map((option) => {
+                    const disabled =
+                      handlingOptionLocked &&
+                      option.value === "RETURN_AND_REFUND";
+
+                    return (
+                      <label
+                        key={option.value}
+                        className={`flex cursor-pointer items-start gap-3 border px-4 py-3 transition-colors ${
+                          form.handlingOption === option.value
+                            ? "border-[#1965a2] bg-[#f8fbff]"
+                            : "border-[#d8e6f5] bg-white"
+                        } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="handlingOption"
+                          value={option.value}
+                          checked={form.handlingOption === option.value}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              handlingOption:
+                                event.target.value as ReturnHandlingOption,
+                            }))
+                          }
+                          disabled={disabled}
+                          className="mt-1 h-4 w-4 border-[#cfe0f2] text-[#1965a2] focus:ring-[#1965a2]"
+                        />
+                        <div>
+                          <p className="font-medium text-[#12385b]">
+                            {option.label}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                            {option.description}
+                          </p>
+                          {disabled ? (
+                            <p className="mt-1 text-xs font-medium text-[#1965a2]">
+                              Đơn thiếu hàng chỉ hỗ trợ phương án chỉ hoàn tiền.
+                            </p>
+                          ) : null}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -899,8 +969,8 @@ export default function ReturnRequestPage({
                   4. Lý do và mô tả lỗi
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Mô tả rõ tình trạng lỗi, thiếu hàng hoặc giao sai để chi nhánh xác
-                  minh nhanh hơn.
+                  Mô tả rõ tình trạng lỗi, thiếu hàng hoặc giao sai để yêu cầu được
+                  xác minh nhanh hơn.
                 </p>
               </div>
 
@@ -957,7 +1027,7 @@ export default function ReturnRequestPage({
                       }))
                     }
                     rows={5}
-                    placeholder="Mô tả thời điểm nhận hàng, lỗi gặp phải, số lượng bị ảnh hưởng và thông tin cần chi nhánh kiểm tra."
+                    placeholder="Mô tả thời điểm nhận hàng, lỗi gặp phải, số lượng bị ảnh hưởng và thông tin cần kiểm tra thêm."
                     className={flatFieldClass}
                   />
                 </label>
@@ -970,8 +1040,8 @@ export default function ReturnRequestPage({
                   5. Hình ảnh và video bằng chứng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để chi nhánh xác
-                  minh nhanh hơn.
+                  Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để yêu cầu được
+                  xác minh nhanh hơn.
                 </p>
               </div>
 
@@ -1117,12 +1187,6 @@ export default function ReturnRequestPage({
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Chi nhánh xử lý</span>
-                  <span className="text-right font-semibold text-[#12385b]">
-                    {selectedBranchName || "Sẽ xác định theo sản phẩm đã chọn"}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-4">
                   <span className="text-slate-500">Loại sự cố</span>
                   <span className="text-right font-semibold text-[#12385b]">
                     {
@@ -1130,6 +1194,12 @@ export default function ReturnRequestPage({
                         (option) => option.value === form.issueType,
                       )?.label
                     }
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-slate-500">Phương án xử lý</span>
+                  <span className="text-right font-semibold text-[#12385b]">
+                    {getReturnHandlingLabel(form.handlingOption)}
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
@@ -1169,7 +1239,7 @@ export default function ReturnRequestPage({
               <p className="mt-3 text-xs text-slate-500">
                 Sau khi gửi, phiếu sẽ hiển thị ngay trong tab{" "}
                 <span className="font-medium text-[#1965a2]">Trả hàng</span> để
-                bạn theo dõi tiến độ xử lý của chi nhánh.
+                bạn theo dõi tiến độ xử lý.
               </p>
             </div>
           </aside>
@@ -1181,9 +1251,8 @@ export default function ReturnRequestPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận gửi yêu cầu trả hàng</AlertDialogTitle>
             <AlertDialogDescription>
-              Yêu cầu sẽ được chuyển đến chi nhánh phục vụ của đơn hàng này. Hãy
-              chắc rằng thông tin khách hàng, ngân hàng, lý do và bằng chứng đã đầy
-              đủ.
+              Yêu cầu sẽ được tiếp nhận để xử lý. Hãy chắc rằng thông tin khách
+              hàng, ngân hàng, lý do và bằng chứng đã đầy đủ.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -1192,12 +1261,6 @@ export default function ReturnRequestPage({
               <span>Đơn hàng</span>
               <span className="font-semibold text-[#12385b]">
                 {draft.orderCode}
-              </span>
-            </div>
-            <div className="mt-2 flex justify-between gap-4">
-              <span>Chi nhánh</span>
-              <span className="text-right font-semibold text-[#12385b]">
-                {selectedBranchName || "Sẽ xác định khi gửi"}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">

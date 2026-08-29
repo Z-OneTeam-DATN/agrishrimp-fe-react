@@ -20,6 +20,7 @@ import {
 } from "@/lib/order-routing";
 import { P } from "@/lib/permissions";
 import {
+  getReturnHandlingLabel,
   getReturnIssueLabel,
   getReturnStatusMeta,
   RETURN_STATUS_OPTIONS,
@@ -135,8 +136,8 @@ export default function ReturnOrdersPage() {
       ["APPROVED", "RECEIVED"].includes(item.status),
     ).length;
     const refunded = requests.filter((item) => item.status === "REFUNDED").length;
-    const missingItem = requests.filter(
-      (item) => item.issueType === "MISSING_ITEM",
+    const refundOnly = requests.filter(
+      (item) => item.handlingOption === "REFUND_ONLY",
     ).length;
 
     return {
@@ -144,7 +145,7 @@ export default function ReturnOrdersPage() {
       pending,
       approved,
       refunded,
-      missingItem,
+      refundOnly,
     };
   }, [requests]);
 
@@ -189,9 +190,9 @@ export default function ReturnOrdersPage() {
       </div>
 
       <div className="rounded-[4px] border border-blue-200 bg-blue-50 p-4 text-[13px] leading-6 text-blue-800">
-        Có {summary.missingItem} yêu cầu thuộc nhóm thiếu hàng. Với các yêu cầu này,
-        chi nhánh phục vụ sẽ duyệt và hoàn tiền trực tiếp, không cần bước nhận lại
-        hàng.
+        Có {summary.refundOnly} yêu cầu đang đi theo phương án chỉ hoàn tiền. Với
+        các yêu cầu này, chi nhánh phục vụ sẽ duyệt và hoàn tiền trực tiếp, không
+        cần bước nhận lại hàng.
       </div>
 
       <div className="rounded-[4px] border border-blue-100 bg-white p-4 shadow-sm">
@@ -288,7 +289,7 @@ export default function ReturnOrdersPage() {
                           </span>
                           {!request.requiresPhysicalReturn ? (
                             <span className="text-[11px] font-medium text-blue-600">
-                              Thiếu hàng, chi nhánh xử lý trực tiếp
+                              {getReturnHandlingLabel(request.handlingOption)}
                             </span>
                           ) : null}
                         </div>

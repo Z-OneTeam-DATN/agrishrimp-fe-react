@@ -1,4 +1,5 @@
 import {
+  ReturnHandlingOption,
   ReturnIssueType,
   ReturnRefundMethod,
   ReturnRequestStatus,
@@ -30,6 +31,25 @@ export const RETURN_REFUND_OPTIONS: Array<{
   label: string;
   value: ReturnRefundMethod;
 }> = [{ label: "Chuyển khoản", value: "BANK_TRANSFER" }];
+
+export const RETURN_HANDLING_OPTIONS: Array<{
+  label: string;
+  value: ReturnHandlingOption;
+  description: string;
+}> = [
+  {
+    label: "Chỉ hoàn tiền",
+    value: "REFUND_ONLY",
+    description:
+      "Áp dụng khi không cần thu hồi hàng, hoặc hàng hư hỏng nặng không thể thu hồi.",
+  },
+  {
+    label: "Trả hàng và hoàn tiền cho khách",
+    value: "RETURN_AND_REFUND",
+    description:
+      "Khách gửi lại hàng và nhận hoàn tiền sau khi chi nhánh xác nhận.",
+  },
+];
 
 export function getReturnStatusMeta(status: ReturnRequestStatus) {
   switch (status) {
@@ -81,5 +101,16 @@ export function getReturnRefundLabel(refundMethod: ReturnRefundMethod) {
       return "Tiền mặt";
     default:
       return refundMethod;
+  }
+}
+
+export function getReturnHandlingLabel(handlingOption: ReturnHandlingOption) {
+  switch (handlingOption) {
+    case "REFUND_ONLY":
+      return "Chỉ hoàn tiền";
+    case "RETURN_AND_REFUND":
+      return "Trả hàng và hoàn tiền cho khách";
+    default:
+      return handlingOption;
   }
 }
