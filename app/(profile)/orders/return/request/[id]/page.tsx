@@ -188,10 +188,17 @@ export default function ReturnRequestPage({
             "Không thể tải thông tin trả hàng. Vui lòng thử lại sau.",
           ),
         );
-    } finally {
-      setUploadingType(null);
-    }
-  };
+      } finally {
+        setUploadingType(null);
+      }
+    };
+
+    void fetchData();
+
+    return () => {
+      active = false;
+    };
+  }, [id, router]);
 
   const removeEvidence = (item: UploadEvidenceItem) => {
     if (item.previewUrl.startsWith("blob:")) {
@@ -208,6 +215,284 @@ export default function ReturnRequestPage({
     setVideoEvidences((current) =>
       current.filter((evidence) => evidence.id !== item.id),
     );
+  };
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      fullName: current.fullName || user.fullName || "",
+      phoneNumber: current.phoneNumber || user.phoneNumber || "",
+      email: current.email || user.email || "",
+    }));
+  }, [user]);
+
+  useEffect(() => {
+    if (
+      form.issueType === "MISSING_ITEM" &&
+      form.handlingOption !== "REFUND_ONLY"
+    ) {
+      setForm((current) => ({
+        ...current,
+        handlingOption: "REFUND_ONLY",
+      }));
+    }
+  }, [form.handlingOption, form.issueType]);
+
+  const validateField = (field: RequiredFieldKey, value: string) => {
+    const trimmed = value.trim();
+
+    switch (field) {
+      case "fullName":
+        return trimmed ? null : "Vui lòng nhập họ tên người nhận hoàn tiền.";
+      case "phoneNumber":
+        if (!trimmed) {
+          return "Vui lòng nhập số điện thoại.";
+        }
+        return /^[0-9]{9,11}$/.test(trimmed)
+          ? null
+          : "Số điện thoại phải gồm 9-11 chữ số.";
+      case "bankAccountName":
+        return trimmed ? null : "Vui lòng nhập tên chủ tài khoản.";
+      case "bankAccountNumber":
+        if (!trimmed) {
+          return "Vui lòng nhập số tài khoản.";
+        }
+        return /^[0-9]{6,25}$/.test(trimmed)
+          ? null
+          : "Số tài khoản không hợp lệ.";
+      case "bankName":
+        return trimmed ? null : "Vui lòng nhập tên ngân hàng.";
+      case "reason":
+        return trimmed ? null : "Vui lòng nhập lý do ngắn gọn.";
+      case "description":
+        return trimmed ? null : "Vui lòng nhập mô tả chi tiết.";
+      default:
+        return null;
+    }
+  };
+
+  useEffect(() => {
+    setFieldErrors((current) => {
+      let changed = false;
+      const nextErrors: FieldErrors = { ...current };
+
+      for (const field of REQUIRED_FIELD_KEYS) {
+        if (!touchedFields[field] && !current[field]) {
+          continue;
+        }
+
+        const nextError = validateField(field, String(form[field] ?? ""));
+        if (nextError) {
+          if (nextErrors[field] !== nextError) {
+            nextErrors[field] = nextError;
+            changed = true;
+          }
+          continue;
+        }
+
+        if (nextErrors[field]) {
+          delete nextErrors[field];
+          changed = true;
+        }
+      }
+
+      return changed ? nextErrors : current;
+    });
+  }, [form, touchedFields]);
+
+  const handleRequiredFieldBlur = (field: RequiredFieldKey) => {
+    setTouchedFields((current) => ({
+      ...current,
+      [field]: true,
+    }));
+  };
+
+  const showAllRequiredFieldErrors = () => {
+    const nextErrors: FieldErrors = {};
+    for (const field of REQUIRED_FIELD_KEYS) {
+      const nextError = validateField(field, String(form[field] ?? ""));
+      if (nextError) {
+        nextErrors[field] = nextError;
+      }
+    }
+
+    setTouchedFields((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        REQUIRED_FIELD_KEYS.map((field) => [field, true]),
+      ),
+    }));
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length > 0;
+  };
+
+  const getFieldInputClass = (field: RequiredFieldKey) =>
+    cn(
+      flatFieldClass,
+      touchedFields[field] &&
+        fieldErrors[field] &&
+        "border-rose-400 focus-visible:ring-rose-400",
+    );
+
+  const renderFieldError = (field: RequiredFieldKey) => (
+    <p
+      className={cn(
+        fieldErrorClass,
+        touchedFields[field] && fieldErrors[field]
+          ? "text-rose-500"
+          : "text-transparent",
+      )}
+    >
+      {touchedFields[field] && fieldErrors[field] ? fieldErrors[field] : " "}
+    </p>
+  );
+
+  const selectedDraftItems = useMemo(() => {
+    if (!draft) {
+      return [] as Array<ReturnDraftItem & { selectedQuantity: number }>;
+    }
+
+    return draft.items.reduce<Array<ReturnDraftItem & { selectedQuantity: number }>>(
+      (result, item) => {
+        const selected = selectedItems[getDraftItemKey(item)];
+        if (!selected) {
+          return result;
+        }
+
+        result.push({
+          ...item,
+          selectedQuantity: Math.min(
+            Math.max(selected.quantity ?? 1, 1),
+            item.maxReturnQuantity,
+          ),
+        });
+        return result;
+      },
+      [],
+    );
+  }, [draft, selectedItems]);
+
+  const selectedBranchIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          selectedDraftItems
+            .map((item) => item.branchId)
+            .filter((branchId): branchId is number => branchId !== null),
+        ),
+      ),
+    [selectedDraftItems],
+  );
+
+  const branchConflict =
+    selectedDraftItems.length > 1 && selectedBranchIds.length !== 1;
+  const totalSelectedQuantity = selectedDraftItems.reduce(
+    (sum, item) => sum + item.selectedQuantity,
+    0,
+  );
+  const refundPreview = selectedDraftItems.reduce(
+    (sum, item) => sum + item.unitPrice * item.selectedQuantity,
+    0,
+  );
+  const handlingOptionLocked = form.issueType === "MISSING_ITEM";
+
+  const handleToggleItem = (item: ReturnDraftItem, checked: boolean) => {
+    const itemKey = getDraftItemKey(item);
+    setSelectedItems((current) => {
+      const next = { ...current };
+      if (!checked) {
+        delete next[itemKey];
+        return next;
+      }
+
+      next[itemKey] = {
+        quantity: Math.min(
+          Math.max(current[itemKey]?.quantity ?? 1, 1),
+          item.maxReturnQuantity,
+        ),
+      };
+      return next;
+    });
+  };
+
+  const handleQuantityChange = (item: ReturnDraftItem, value: string) => {
+    const itemKey = getDraftItemKey(item);
+    const normalized = Math.min(
+      Math.max(normalizeNumberInput(value), 1),
+      item.maxReturnQuantity,
+    );
+
+    setSelectedItems((current) => ({
+      ...current,
+      [itemKey]: { quantity: normalized },
+    }));
+  };
+
+  const uploadEvidenceFiles = async (
+    files: FileList | null,
+    mediaType: ReturnEvidenceType,
+  ) => {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const maxSize =
+      mediaType === "IMAGE" ? MAX_IMAGE_SIZE_BYTES : MAX_VIDEO_SIZE_BYTES;
+    const label = mediaType === "IMAGE" ? "hình ảnh" : "video";
+    const uploads = Array.from(files);
+
+    for (const file of uploads) {
+      if (file.size > maxSize) {
+        toast.error(
+          `${repairVietnameseText(file.name)} vượt quá giới hạn ${
+            mediaType === "IMAGE" ? "10MB" : "50MB"
+          }.`,
+        );
+        return;
+      }
+    }
+
+    const nextItems: UploadEvidenceItem[] = [];
+
+    try {
+      setUploadingType(mediaType);
+
+      for (const file of uploads) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const uploaded = await FileService.tmpUpload(formData);
+
+        nextItems.push({
+          id: `${mediaType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          mediaType,
+          fileUrl: uploaded.url,
+          publicId: uploaded.publicId ?? null,
+          fileName: repairVietnameseText(file.name),
+          previewUrl: URL.createObjectURL(file),
+        });
+      }
+
+      if (mediaType === "IMAGE") {
+        setImageEvidences((current) => [...current, ...nextItems]);
+      } else {
+        setVideoEvidences((current) => [...current, ...nextItems]);
+      }
+    } catch (err: any) {
+      nextItems.forEach((item) => {
+        if (item.previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      });
+      toast.error(
+        extractErrorMessage(err, `Không thể tải ${label} lên lúc này.`),
+      );
+    } finally {
+      setUploadingType(null);
+    }
   };
 
   const validateBeforeSubmit = () => {
@@ -251,7 +536,6 @@ export default function ReturnRequestPage({
 
       const payload: CreateReturnRequestPayload = {
         orderId: draft.orderId,
-        orderCode: draft.orderCode,
         fullName: form.fullName.trim(),
         phoneNumber: form.phoneNumber.trim(),
         email: form.email.trim() || null,
@@ -399,7 +683,7 @@ export default function ReturnRequestPage({
               <div className="mb-4 flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-[#1965a2]" />
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  1. Ch?n s?n ph?m c?n tr?
+                  1. Chọn sản phẩm cần trả
                 </h2>
               </div>
 
@@ -456,7 +740,7 @@ export default function ReturnRequestPage({
                                 Đã mua: {item.orderedQuantity}
                               </span>
                               <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
-                                T?i ?a tr?: {item.maxReturnQuantity}
+                                Tối đa trả: {item.maxReturnQuantity}
                               </span>
                             </div>
                           </div>
@@ -484,8 +768,8 @@ export default function ReturnRequestPage({
 
                           {disabledByBranch ? (
                             <p className="text-xs text-slate-500">
-                              S?n ph?m n?y hi?n ch?a th? g?i chung trong y?u c?u n?y.
-                              Vui l?ng t?ch th?nh y?u c?u ri?ng n?u c?n x? l? th?m.
+                              Sản phẩm này hiện chưa thể gửi chung trong yêu cầu này.
+                              Vui lòng tách thành yêu cầu riêng nếu cần xử lý thêm.
                             </p>
                           ) : null}
                         </div>
@@ -499,7 +783,7 @@ export default function ReturnRequestPage({
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  2. Th?ng tin ho?n ti?n
+                  2. Thông tin hoàn tiền
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Cập nhật thông tin liên hệ và tài khoản nhận hoàn tiền để chúng tôi đối soát yêu cầu nhanh hơn.
@@ -580,7 +864,7 @@ export default function ReturnRequestPage({
                     }
                     onBlur={() => handleRequiredFieldBlur("fullName")}
                     aria-invalid={Boolean(fieldErrors.fullName)}
-                    placeholder="Nguy?n V?n A"
+                    placeholder="Nguyễn Văn A"
                     className={getFieldInputClass("fullName")}
                   />
                   {renderFieldError("fullName")}
@@ -588,7 +872,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    S? ?i?n tho?i
+                    Số điện thoại
                   </span>
                   <Input
                     value={form.phoneNumber}
@@ -626,7 +910,7 @@ export default function ReturnRequestPage({
                     Phương thức hoàn tiền
                   </span>
                   <Input
-                    value="Chuy?n kho?n"
+                    value="Chuyển khoản"
                     readOnly
                     className={flatFieldClass}
                   />
@@ -634,7 +918,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    T?n ch? t?i kho?n
+                    Tên chủ tài khoản
                   </span>
                   <Input
                     value={form.bankAccountName}
@@ -654,7 +938,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    S? t?i kho?n
+                    Số tài khoản
                   </span>
                   <Input
                     value={form.bankAccountNumber}
@@ -674,7 +958,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    T?n ng?n h?ng
+                    Tên ngân hàng
                   </span>
                   <Input
                     value={form.bankName}
@@ -694,7 +978,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    Chi nh?nh ng?n h?ng
+                    Chi nhánh ngân hàng
                   </span>
                   <Input
                     value={form.bankBranch}
@@ -704,7 +988,7 @@ export default function ReturnRequestPage({
                         bankBranch: event.target.value,
                       }))
                     }
-                    placeholder="Chi nh?nh C?n Th?"
+                    placeholder="Chi nhánh Cần Thơ"
                     className={flatFieldClass}
                   />
                 </label>
@@ -724,7 +1008,7 @@ export default function ReturnRequestPage({
               <div className="space-y-4">
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    Lo?i s? c?
+                    Loại sự cố
                   </span>
                   <select
                     value={form.issueType}
@@ -746,7 +1030,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    L? do ng?n g?n
+                    Lý do ngắn gọn
                   </span>
                   <Input
                     value={form.reason}
@@ -758,7 +1042,7 @@ export default function ReturnRequestPage({
                     }
                     onBlur={() => handleRequiredFieldBlur("reason")}
                     aria-invalid={Boolean(fieldErrors.reason)}
-                    placeholder="V? d?: Giao sai s?n ph?m, thi?u 1 m?n, bao b? r?ch..."
+                    placeholder="Ví dụ: Giao sai sản phẩm, thiếu 1 món, bao bì rách..."
                     className={getFieldInputClass("reason")}
                   />
                   {renderFieldError("reason")}
@@ -766,7 +1050,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    M? t? chi ti?t
+                    Mô tả chi tiết
                   </span>
                   <Textarea
                     value={form.description}
@@ -790,7 +1074,7 @@ export default function ReturnRequestPage({
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  4. H?nh ?nh v? video b?ng ch?ng
+                  4. Hình ảnh và video bằng chứng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để yêu cầu được xác minh nhanh hơn.
@@ -803,17 +1087,17 @@ export default function ReturnRequestPage({
                   <div className="mb-3 flex items-center gap-2">
                     <ImagePlus size={18} className="text-[#1965a2]" />
                     <span className="font-medium text-[#12385b]">
-                      H?nh ?nh l?i
+                      Hình ảnh lỗi
                     </span>
                   </div>
 
                   <label className="flex cursor-pointer flex-col items-center justify-center bg-[#f8fbff] px-4 py-8 text-center transition-colors hover:bg-[#eef6ff]">
                     <Upload size={20} className="mb-2 text-[#1965a2]" />
                     <span className="text-sm font-medium text-[#12385b]">
-                      T?i ?nh b?ng ch?ng
+                      Tải ảnh bằng chứng
                     </span>
                     <span className="mt-1 text-xs text-slate-500">
-                      JPG, PNG, WEBP. T?i ?a 10MB m?i t?p.
+                      JPG, PNG, WEBP. Tối đa 10MB mỗi tệp.
                     </span>
                     <input
                       type="file"
@@ -830,7 +1114,7 @@ export default function ReturnRequestPage({
                   {uploadingType === "IMAGE" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
-                      ?ang t?i h?nh ?nh...
+                      Đang tải hình ảnh...
                     </div>
                   ) : null}
 
@@ -865,16 +1149,16 @@ export default function ReturnRequestPage({
                 <div className="border border-dashed border-[#cfe0f2] px-4 py-4">
                   <div className="mb-3 flex items-center gap-2">
                     <Video size={18} className="text-[#1965a2]" />
-                    <span className="font-medium text-[#12385b]">Video l?i</span>
+                    <span className="font-medium text-[#12385b]">Video lỗi</span>
                   </div>
 
                   <label className="flex cursor-pointer flex-col items-center justify-center bg-[#f8fbff] px-4 py-8 text-center transition-colors hover:bg-[#eef6ff]">
                     <Upload size={20} className="mb-2 text-[#1965a2]" />
                     <span className="text-sm font-medium text-[#12385b]">
-                      T?i video b?ng ch?ng
+                      Tải video bằng chứng
                     </span>
                     <span className="mt-1 text-xs text-slate-500">
-                      MP4, MOV, WEBM. T?i ?a 50MB m?i t?p.
+                      MP4, MOV, WEBM. Tối đa 50MB mỗi tệp.
                     </span>
                     <input
                       type="file"
@@ -891,7 +1175,7 @@ export default function ReturnRequestPage({
                   {uploadingType === "VIDEO" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
-                      ?ang t?i video...
+                      Đang tải video...
                     </div>
                   ) : null}
 
@@ -929,7 +1213,7 @@ export default function ReturnRequestPage({
           <aside className="space-y-4">
             <div className="sticky top-24 border border-[#d8e6f5] bg-white px-5 py-5">
               <h2 className="text-lg font-semibold text-[#12385b]">
-                5. X?c nh?n g?i
+                5. Xác nhận gửi
               </h2>
 
               <div className="mt-4 space-y-3 text-sm">
@@ -940,7 +1224,7 @@ export default function ReturnRequestPage({
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Lo?i s? c?</span>
+                  <span className="text-slate-500">Loại sự cố</span>
                   <span className="text-right font-semibold text-[#12385b]">
                     {
                       RETURN_ISSUE_OPTIONS.find(
@@ -956,7 +1240,7 @@ export default function ReturnRequestPage({
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">T?m t?nh ho?n</span>
+                  <span className="text-slate-500">Tạm tính hoàn</span>
                   <span className="text-right text-lg font-semibold text-[#1965a2]">
                     {formatCurrency(refundPreview)}
                   </span>
@@ -964,13 +1248,13 @@ export default function ReturnRequestPage({
               </div>
 
               <div className="mt-4 border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-xs leading-6 text-slate-600">
-                B?t bu?c:
+                Bắt buộc:
                 <br />
-                - H? t?n, s? ?i?n tho?i, l? do v? m? t? chi ti?t
+                - Họ tên, số điện thoại, lý do và mô tả chi tiết
                 <br />
-                - T?n ch? t?i kho?n, s? t?i kho?n v? t?n ng?n h?ng
+                - Tên chủ tài khoản, số tài khoản và tên ngân hàng
                 <br />
-                - ?t nh?t 1 h?nh ?nh v? 1 video l?i
+                - Ít nhất 1 hình ảnh và 1 video lỗi
               </div>
 
               <Button
@@ -990,11 +1274,11 @@ export default function ReturnRequestPage({
                 className="mt-5 h-11 w-full rounded-none bg-[#1965a2] text-white hover:bg-[#145486]"
                 disabled={submitting}
               >
-                {submitting ? "?ang g?i..." : "G?i y?u c?u tr? h?ng"}
+                {submitting ? "Đang gửi..." : "Gửi yêu cầu trả hàng"}
               </Button>
 
               <p className="mt-3 text-xs text-slate-500">
-                Sau khi g?i, phi?u s? hi?n th? ngay trong tab{" "}
+                Sau khi gửi, phiếu sẽ hiển thị ngay trong tab{" "}
                 <span className="font-medium text-[#1965a2]">Trả hàng</span> để
                 bạn theo dõi tiến độ xử lý.
               </p>
@@ -1006,7 +1290,7 @@ export default function ReturnRequestPage({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent className="rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>X?c nh?n g?i y?u c?u tr? h?ng</AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận gửi yêu cầu trả hàng</AlertDialogTitle>
             <AlertDialogDescription>
               Yêu cầu sẽ được tiếp nhận để xử lý. Hãy chắc rằng thông tin liên hệ, phương thức hoàn tiền, lý do và bằng chứng đều đã đầy đủ.
 
@@ -1027,7 +1311,7 @@ export default function ReturnRequestPage({
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>T?m t?nh ho?n</span>
+              <span>Tạm tính hoàn</span>
               <span className="font-semibold text-[#1965a2]">
                 {formatCurrency(refundPreview)}
               </span>
@@ -1036,7 +1320,7 @@ export default function ReturnRequestPage({
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={submitting} className="rounded-none">
-              H?y
+              Hủy
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
