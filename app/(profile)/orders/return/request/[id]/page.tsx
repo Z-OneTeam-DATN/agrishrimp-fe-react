@@ -23,6 +23,7 @@ import {
   ReturnHandlingOption,
   ReturnIssueType,
   ReturnOrderDraft,
+  ReturnRefundMethod,
 } from "@/app/types/return.types";
 import {
   AlertDialog,
@@ -266,6 +267,58 @@ export default function ReturnRequestPage({
     (total, item) => total + item.selectedQuantity,
     0,
   );
+  const availableRefundMethods = useMemo(() => {
+    if (!selectedDraftItems.length) {
+      return ["BANK_TRANSFER"] as ReturnRefundMethod[];
+    }
+
+    let sharedMethods: ReturnRefundMethod[] | null = null;
+
+    for (const item of selectedDraftItems) {
+      const itemMethods = item.allowedRefundMethods?.length
+        ? item.allowedRefundMethods
+        : (["BANK_TRANSFER"] as ReturnRefundMethod[]);
+
+      sharedMethods = sharedMethods
+        ? sharedMethods.filter((method) => itemMethods.includes(method))
+        : [...itemMethods];
+    }
+
+    return sharedMethods && sharedMethods.length ? sharedMethods : ["BANK_TRANSFER"];
+  }, [selectedDraftItems]);
+
+  const canUseCashRefund = availableRefundMethods.includes("CASH");
+  const requiresBankDetails = form.refundMethod === "BANK_TRANSFER";
+  const cashRefundDistanceKm = useMemo(() => {
+    const eligibleItem = selectedDraftItems.find((item) => item.cashRefundEligible);
+    return eligibleItem?.cashRefundDistanceKm ?? null;
+  }, [selectedDraftItems]);
+
+  const visibleRefundOptions = useMemo(
+    () =>
+      RETURN_REFUND_OPTIONS.filter((option) =>
+        availableRefundMethods.includes(option.value),
+      ).map((option) =>
+        option.value === "CASH"
+          ? {
+              ...option,
+              label: "Tiền mặt tại điểm xử lý gần bạn",
+            }
+          : option,
+      ),
+    [availableRefundMethods],
+  );
+
+  useEffect(() => {
+    if (availableRefundMethods.includes(form.refundMethod)) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      refundMethod: "BANK_TRANSFER",
+    }));
+  }, [availableRefundMethods, form.refundMethod]);
 
   const handleToggleItem = (item: ReturnDraftItem, checked: boolean) => {
     const itemKey = getDraftItemKey(item);
@@ -414,13 +467,13 @@ export default function ReturnRequestPage({
     if (!form.phoneNumber.trim()) {
       return "Vui lòng nhập số điện thoại liên hệ.";
     }
-    if (!form.bankAccountName.trim()) {
+    if (requiresBankDetails && !form.bankAccountName.trim()) {
       return "Vui lòng nhập tên chủ tài khoản.";
     }
-    if (!form.bankAccountNumber.trim()) {
+    if (requiresBankDetails && !form.bankAccountNumber.trim()) {
       return "Vui lòng nhập số tài khoản.";
     }
-    if (!form.bankName.trim()) {
+    if (requiresBankDetails && !form.bankName.trim()) {
       return "Vui lòng nhập tên ngân hàng.";
     }
     if (!form.reason.trim()) {
@@ -458,10 +511,14 @@ export default function ReturnRequestPage({
         fullName: form.fullName.trim(),
         phoneNumber: form.phoneNumber.trim(),
         email: form.email.trim() || null,
-        bankAccountName: form.bankAccountName.trim(),
-        bankAccountNumber: form.bankAccountNumber.trim(),
-        bankName: form.bankName.trim(),
-        bankBranch: form.bankBranch.trim() || null,
+        bankAccountName: requiresBankDetails
+          ? form.bankAccountName.trim()
+          : null,
+        bankAccountNumber: requiresBankDetails
+          ? form.bankAccountNumber.trim()
+          : null,
+        bankName: requiresBankDetails ? form.bankName.trim() : null,
+        bankBranch: requiresBankDetails ? form.bankBranch.trim() || null : null,
         issueType: form.issueType,
         handlingOption: form.handlingOption,
         refundMethod: form.refundMethod,
@@ -609,51 +666,7 @@ export default function ReturnRequestPage({
               <div className="mb-4 flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-[#1965a2]" />
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  1. Thông tin đơn hàng
-                </h2>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Mã đơn
-                  </p>
-                  <p className="mt-1 font-medium text-[#12385b]">
-                    {draft.orderCode}
-                  </p>
-                </div>
-                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Trạng thái đơn
-                  </p>
-                  <p className="mt-1 font-medium text-[#12385b]">
-                    {draft.orderStatus || "Đã giao"}
-                  </p>
-                </div>
-                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Khách hàng
-                  </p>
-                  <p className="mt-1 font-medium text-[#12385b]">
-                    {draft.customerName || user?.fullName || user?.displayName || "-"}
-                  </p>
-                </div>
-                <div className="border border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Điện thoại
-                  </p>
-                  <p className="mt-1 font-medium text-[#12385b]">
-                    {draft.customerPhone || user?.phoneNumber || "-"}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section className="border border-[#d8e6f5] bg-white px-5 py-5">
-              <div className="mb-4 flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-[#1965a2]" />
-                <h2 className="text-lg font-semibold text-[#12385b]">
-                  2. Chọn sản phẩm cần trả
+                  1. Chọn sản phẩm cần trả
                 </h2>
               </div>
 
@@ -753,11 +766,11 @@ export default function ReturnRequestPage({
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  3. Thông tin hoàn tiền
+                  2. Thông tin hoàn tiền
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Họ tên, số điện thoại và thông tin ngân hàng đều bắt buộc để yêu
-                  cầu được đối soát và hoàn tiền nhanh hơn.
+                  Cập nhật thông tin liên hệ để chúng tôi đối soát yêu cầu nhanh hơn.
+                  Nếu điểm xử lý gần bạn, hệ thống sẽ mở thêm lựa chọn nhận tiền mặt.
                 </p>
               </div>
 
@@ -819,6 +832,16 @@ export default function ReturnRequestPage({
                   })}
                 </div>
               </div>
+
+              {canUseCashRefund && cashRefundDistanceKm !== null ? (
+                <div className="mb-4 border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
+                  Địa chỉ giao hàng của đơn này đang cách điểm xử lý gần bạn khoảng{" "}
+                  <span className="font-semibold text-[#12385b]">
+                    {cashRefundDistanceKm.toFixed(2)} km
+                  </span>
+                  , nên bạn có thể chọn nhận tiền mặt nếu thuận tiện.
+                </div>
+              ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2 text-sm">
@@ -885,7 +908,7 @@ export default function ReturnRequestPage({
                     }
                     className={flatSelectClass}
                   >
-                    {RETURN_REFUND_OPTIONS.map((option) => (
+                    {visibleRefundOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -893,80 +916,89 @@ export default function ReturnRequestPage({
                   </select>
                 </label>
 
-                <label className="space-y-2 text-sm">
-                  <span className="font-medium text-[#12385b]">
-                    Tên chủ tài khoản
-                  </span>
-                  <Input
-                    value={form.bankAccountName}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        bankAccountName: event.target.value,
-                      }))
-                    }
-                    placeholder="NGUYEN VAN A"
-                    className={flatFieldClass}
-                  />
-                </label>
+                {requiresBankDetails ? (
+                  <>
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-[#12385b]">
+                        Tên chủ tài khoản
+                      </span>
+                      <Input
+                        value={form.bankAccountName}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            bankAccountName: event.target.value,
+                          }))
+                        }
+                        placeholder="NGUYEN VAN A"
+                        className={flatFieldClass}
+                      />
+                    </label>
 
-                <label className="space-y-2 text-sm">
-                  <span className="font-medium text-[#12385b]">
-                    Số tài khoản
-                  </span>
-                  <Input
-                    value={form.bankAccountNumber}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        bankAccountNumber: event.target.value,
-                      }))
-                    }
-                    placeholder="0123456789"
-                    className={flatFieldClass}
-                  />
-                </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-[#12385b]">
+                        Số tài khoản
+                      </span>
+                      <Input
+                        value={form.bankAccountNumber}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            bankAccountNumber: event.target.value,
+                          }))
+                        }
+                        placeholder="0123456789"
+                        className={flatFieldClass}
+                      />
+                    </label>
 
-                <label className="space-y-2 text-sm">
-                  <span className="font-medium text-[#12385b]">
-                    Tên ngân hàng
-                  </span>
-                  <Input
-                    value={form.bankName}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        bankName: event.target.value,
-                      }))
-                    }
-                    placeholder="Vietcombank"
-                    className={flatFieldClass}
-                  />
-                </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-[#12385b]">
+                        Tên ngân hàng
+                      </span>
+                      <Input
+                        value={form.bankName}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            bankName: event.target.value,
+                          }))
+                        }
+                        placeholder="Vietcombank"
+                        className={flatFieldClass}
+                      />
+                    </label>
 
-                <label className="space-y-2 text-sm">
-                  <span className="font-medium text-[#12385b]">
-                    Chi nhánh ngân hàng
-                  </span>
-                  <Input
-                    value={form.bankBranch}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        bankBranch: event.target.value,
-                      }))
-                    }
-                    placeholder="Chi nhánh Cần Thơ"
-                    className={flatFieldClass}
-                  />
-                </label>
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-[#12385b]">
+                        Chi nhánh ngân hàng
+                      </span>
+                      <Input
+                        value={form.bankBranch}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            bankBranch: event.target.value,
+                          }))
+                        }
+                        placeholder="Chi nhánh Cần Thơ"
+                        className={flatFieldClass}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <div className="md:col-span-2 border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
+                    Bạn sẽ nhận hoàn tiền mặt trực tiếp tại điểm xử lý gần bạn sau khi
+                    yêu cầu được duyệt và xử lý xong.
+                  </div>
+                )}
               </div>
             </section>
 
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  4. Lý do và mô tả lỗi
+                  3. Lý do và mô tả lỗi
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Mô tả rõ tình trạng lỗi, thiếu hàng hoặc giao sai để yêu cầu được
@@ -1037,7 +1069,7 @@ export default function ReturnRequestPage({
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  5. Hình ảnh và video bằng chứng
+                  4. Hình ảnh và video bằng chứng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để yêu cầu được
@@ -1176,7 +1208,7 @@ export default function ReturnRequestPage({
           <aside className="space-y-4">
             <div className="sticky top-24 border border-[#d8e6f5] bg-white px-5 py-5">
               <h2 className="text-lg font-semibold text-[#12385b]">
-                6. Xác nhận gửi
+                  5. Xác nhận gửi
               </h2>
 
               <div className="mt-4 space-y-3 text-sm">
@@ -1213,9 +1245,11 @@ export default function ReturnRequestPage({
               <div className="mt-4 border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-xs leading-6 text-slate-600">
                 Bắt buộc:
                 <br />
-                - Họ tên, số điện thoại, số tài khoản, tên ngân hàng
+                - Họ tên, số điện thoại, lý do và mô tả chi tiết
                 <br />
-                - Mã đơn, lý do, mô tả chi tiết
+                {requiresBankDetails
+                  ? "- Tên chủ tài khoản, số tài khoản và tên ngân hàng"
+                  : "- Chọn phương thức nhận tiền mặt tại điểm xử lý gần bạn"}
                 <br />
                 - Ít nhất 1 hình ảnh và 1 video lỗi
               </div>
@@ -1251,8 +1285,8 @@ export default function ReturnRequestPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận gửi yêu cầu trả hàng</AlertDialogTitle>
             <AlertDialogDescription>
-              Yêu cầu sẽ được tiếp nhận để xử lý. Hãy chắc rằng thông tin khách
-              hàng, ngân hàng, lý do và bằng chứng đã đầy đủ.
+              Yêu cầu sẽ được tiếp nhận để xử lý. Hãy chắc rằng thông tin liên hệ,
+              phương thức hoàn tiền, lý do và bằng chứng đã đầy đủ.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
