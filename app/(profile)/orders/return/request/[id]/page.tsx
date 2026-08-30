@@ -46,7 +46,7 @@ import {
   RETURN_ISSUE_OPTIONS,
 } from "@/lib/return-request";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, repairVietnameseText } from "@/lib/utils";
 
 type UploadEvidenceItem = {
   id: string;
@@ -93,11 +93,11 @@ function normalizeNumberInput(value: string) {
 }
 
 function extractErrorMessage(error: any, fallback: string) {
-  return (
+  return repairVietnameseText(
     error?.response?.data?.detail ||
-    error?.response?.data?.message ||
-    error?.message ||
-    fallback
+      error?.response?.data?.message ||
+      error?.message ||
+      fallback,
   );
 }
 
@@ -170,7 +170,7 @@ export default function ReturnRequestPage({
 
         if (existingRequest) {
           toast.info(
-            `Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng ${existingRequest.orderCode} Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â³ phiĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿u ${existingRequest.code}.`,
+            `Đơn hàng ${existingRequest.orderCode} đã có phiếu ${existingRequest.code}.`,
           );
           router.replace("/orders/list?status=RETURNED");
           return;
@@ -185,311 +185,9 @@ export default function ReturnRequestPage({
         setError(
           extractErrorMessage(
             err,
-            "KhÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng tin trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng. Vui lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â²ng thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i sau.",
+            "Không thể tải thông tin trả hàng. Vui lòng thử lại sau.",
           ),
         );
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void fetchData();
-
-    return () => {
-      active = false;
-    };
-  }, [id, router]);
-
-  useEffect(() => {
-    if (!draft) {
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      fullName:
-        current.fullName ||
-        draft.customerName ||
-        user?.fullName ||
-        user?.displayName ||
-        "",
-      phoneNumber:
-        current.phoneNumber ||
-        draft.customerPhone ||
-        user?.phoneNumber ||
-        "",
-      email: current.email || user?.email || "",
-      bankAccountName:
-        current.bankAccountName ||
-        user?.fullName ||
-        user?.displayName ||
-        draft.customerName ||
-        "",
-    }));
-  }, [draft, user]);
-
-  useEffect(() => {
-    if (form.issueType !== "MISSING_ITEM") {
-      return;
-    }
-
-    setForm((current) =>
-      current.handlingOption === "REFUND_ONLY"
-        ? current
-        : { ...current, handlingOption: "REFUND_ONLY" },
-    );
-  }, [form.issueType]);
-
-  useEffect(() => {
-    return () => {
-      [...imageEvidences, ...videoEvidences].forEach((item) => {
-        if (item.previewUrl.startsWith("blob:")) {
-          URL.revokeObjectURL(item.previewUrl);
-        }
-      });
-    };
-  }, [imageEvidences, videoEvidences]);
-
-  const selectedDraftItems = useMemo(() => {
-    if (!draft) {
-      return [];
-    }
-
-    return draft.items
-      .filter((item) => selectedItems[getDraftItemKey(item)])
-      .map((item) => ({
-        ...item,
-        selectedQuantity: selectedItems[getDraftItemKey(item)].quantity,
-      }));
-  }, [draft, selectedItems]);
-
-  const selectedBranchIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          selectedDraftItems
-            .map((item) => item.branchId)
-            .filter((branchId): branchId is number => branchId !== null),
-        ),
-      ),
-    [selectedDraftItems],
-  );
-
-  const branchConflict = selectedBranchIds.length > 1;
-  const handlingOptionLocked = form.issueType === "MISSING_ITEM";
-  const refundPreview = selectedDraftItems.reduce(
-    (total, item) => total + item.unitPrice * item.selectedQuantity,
-    0,
-  );
-  const totalSelectedQuantity = selectedDraftItems.reduce(
-    (total, item) => total + item.selectedQuantity,
-    0,
-  );
-  const buildRequiredFieldErrors = (values = form): FieldErrors => {
-    const nextErrors: FieldErrors = {};
-
-    if (!values.fullName.trim()) {
-      nextErrors.fullName = "Vui lòng nhập họ tên người nhận hoàn tiền.";
-    }
-    if (!values.phoneNumber.trim()) {
-      nextErrors.phoneNumber = "Vui lòng nhập số điện thoại liên hệ.";
-    }
-    if (!values.bankAccountName.trim()) {
-      nextErrors.bankAccountName = "Vui lòng nhập tên chủ tài khoản.";
-    }
-    if (!values.bankAccountNumber.trim()) {
-      nextErrors.bankAccountNumber = "Vui lòng nhập số tài khoản.";
-    }
-    if (!values.bankName.trim()) {
-      nextErrors.bankName = "Vui lòng nhập tên ngân hàng.";
-    }
-    if (!values.reason.trim()) {
-      nextErrors.reason = "Vui lòng nhập lý do trả hàng.";
-    }
-    if (!values.description.trim()) {
-      nextErrors.description = "Vui lòng mô tả chi tiết lỗi của đơn hàng.";
-    }
-
-    return nextErrors;
-  };
-
-  useEffect(() => {
-    if (!REQUIRED_FIELD_KEYS.some((field) => touchedFields[field])) {
-      return;
-    }
-
-    const nextErrors = buildRequiredFieldErrors(form);
-
-    setFieldErrors((current) => {
-      const updated = { ...current };
-
-      for (const field of REQUIRED_FIELD_KEYS) {
-        if (!touchedFields[field]) {
-          continue;
-        }
-
-        if (nextErrors[field]) {
-          updated[field] = nextErrors[field];
-        } else {
-          delete updated[field];
-        }
-      }
-
-      return updated;
-    });
-  }, [form, touchedFields]);
-
-  const handleRequiredFieldBlur = (field: RequiredFieldKey) => {
-    setTouchedFields((current) =>
-      current[field] ? current : { ...current, [field]: true },
-    );
-  };
-
-  const showAllRequiredFieldErrors = () => {
-    const nextErrors = buildRequiredFieldErrors(form);
-
-    setTouchedFields((current) => {
-      const nextTouchedFields = { ...current };
-
-      for (const field of REQUIRED_FIELD_KEYS) {
-        nextTouchedFields[field] = true;
-      }
-
-      return nextTouchedFields;
-    });
-    setFieldErrors(nextErrors);
-
-    return Object.keys(nextErrors).length > 0;
-  };
-
-  const getFieldInputClass = (field: RequiredFieldKey) =>
-    cn(
-      flatFieldClass,
-      fieldErrors[field] && "border-rose-500 focus-visible:ring-rose-500",
-    );
-
-  const renderFieldError = (field: RequiredFieldKey) => (
-    <p
-      className={cn(
-        fieldErrorClass,
-        fieldErrors[field] ? "text-rose-500" : "text-transparent",
-      )}
-    >
-      {fieldErrors[field] ?? "\u00A0"}
-    </p>
-  );
-
-  const handleToggleItem = (item: ReturnDraftItem, checked: boolean) => {
-    const itemKey = getDraftItemKey(item);
-
-    if (checked) {
-      const activeBranchId = selectedDraftItems[0]?.branchId;
-
-      if (
-        activeBranchId !== null &&
-        activeBranchId !== undefined &&
-        item.branchId !== null &&
-        item.branchId !== activeBranchId
-      ) {
-        toast.error(
-          "CÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡c sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân hiĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡n chĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°a thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i chung trong mĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢t yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u. Vui lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â²ng tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ch thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â nh yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u riÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªng.",
-        );
-        return;
-      }
-
-      setSelectedItems((current) => ({
-        ...current,
-        [itemKey]: {
-          quantity: Math.min(
-            current[itemKey]?.quantity ?? 1,
-            item.maxReturnQuantity,
-          ),
-        },
-      }));
-      return;
-    }
-
-    setSelectedItems((current) => {
-      const next = { ...current };
-      delete next[itemKey];
-      return next;
-    });
-  };
-
-  const handleQuantityChange = (item: ReturnDraftItem, value: string) => {
-    const nextQuantity = Math.max(
-      1,
-      Math.min(item.maxReturnQuantity, normalizeNumberInput(value)),
-    );
-
-    setSelectedItems((current) => ({
-      ...current,
-      [getDraftItemKey(item)]: {
-        quantity: nextQuantity,
-      },
-    }));
-  };
-
-  const uploadEvidenceFiles = async (
-    fileList: FileList | null,
-    mediaType: ReturnEvidenceType,
-  ) => {
-    if (!fileList?.length) {
-      return;
-    }
-
-    const files = Array.from(fileList);
-    const maxSize =
-      mediaType === "IMAGE" ? MAX_IMAGE_SIZE_BYTES : MAX_VIDEO_SIZE_BYTES;
-
-    for (const file of files) {
-      if (file.size > maxSize) {
-        toast.error(
-          mediaType === "IMAGE"
-            ? "Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¢nh vĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£t quÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ giĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Âºi hĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡n 10MB."
-            : "Video vĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£t quÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ giĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Âºi hĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡n 50MB.",
-        );
-        return;
-      }
-    }
-
-    setUploadingType(mediaType);
-
-    try {
-      const uploaded = await Promise.all(
-        files.map(async (file, index) => {
-          const formData = new FormData();
-          formData.append("file", file);
-
-          const response = await FileService.tmpUpload(formData);
-          return {
-            id: `${mediaType}-${Date.now()}-${index}`,
-            mediaType,
-            fileUrl: response.url,
-            publicId: response.publicId ?? null,
-            fileName: file.name,
-            previewUrl: URL.createObjectURL(file),
-          } satisfies UploadEvidenceItem;
-        }),
-      );
-
-      if (mediaType === "IMAGE") {
-        setImageEvidences((current) => [...current, ...uploaded]);
-      } else {
-        setVideoEvidences((current) => [...current, ...uploaded]);
-      }
-
-      toast.success(
-        mediaType === "IMAGE"
-          ? "Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªn hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi."
-          : "Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªn video lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi.",
-      );
-    } catch (err: any) {
-      toast.error(
-        extractErrorMessage(err, "KhÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªn tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡p Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­nh kÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¨m lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âºc nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y."),
-      );
     } finally {
       setUploadingType(null);
     }
@@ -514,19 +212,19 @@ export default function ReturnRequestPage({
 
   const validateBeforeSubmit = () => {
     if (!draft) {
-      return "KhÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â³ dĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â¯ liĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡u Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡o yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u.";
+      return "Không có dữ liệu đơn hàng để tạo yêu cầu.";
     }
     if (!selectedDraftItems.length) {
-      return "Vui lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â²ng chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­t nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¥t mĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢t sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§n trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng.";
+      return "Vui lòng chọn ít nhất một sản phẩm cần trả hàng.";
     }
     if (branchConflict || selectedBranchIds.length !== 1) {
-      return "CÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡c sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân hiĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡n chĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°a thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i chung trong mĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢t yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u. Vui lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â²ng tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ch thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â nh yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u riÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªng.";
+      return "Các sản phẩm đã chọn hiện chưa thể gửi chung trong một yêu cầu. Vui lòng tách thành các yêu cầu riêng.";
     }
     if (imageEvidences.length === 0) {
-      return "CĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§n cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â³ Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­t nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¥t 1 hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi.";
+      return "Cần có ít nhất 1 hình ảnh lỗi.";
     }
     if (videoEvidences.length === 0) {
-      return "CĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§n cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â³ Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­t nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¥t 1 video lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi.";
+      return "Cần có ít nhất 1 video lỗi.";
     }
     return null;
   };
@@ -553,16 +251,17 @@ export default function ReturnRequestPage({
 
       const payload: CreateReturnRequestPayload = {
         orderId: draft.orderId,
+        orderCode: draft.orderCode,
         fullName: form.fullName.trim(),
         phoneNumber: form.phoneNumber.trim(),
         email: form.email.trim() || null,
+        refundMethod: "BANK_TRANSFER",
         bankAccountName: form.bankAccountName.trim(),
         bankAccountNumber: form.bankAccountNumber.trim(),
         bankName: form.bankName.trim(),
         bankBranch: form.bankBranch.trim() || null,
         issueType: form.issueType,
         handlingOption: form.handlingOption,
-        refundMethod: "BANK_TRANSFER",
         reason: form.reason.trim(),
         description: form.description.trim(),
         items: selectedDraftItems.map((item) => ({
@@ -580,13 +279,13 @@ export default function ReturnRequestPage({
 
       const createdRequest = await returnService.createReturnRequest(payload);
       toast.success(
-        `Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng ${createdRequest.code}. ChÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âºng tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´i sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â½ cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â­p nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â­t kĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿t quĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ xĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½ sĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Âºm nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¥t.`,
+        `Đã gửi yêu cầu trả hàng ${createdRequest.code}. Chúng tôi sẽ cập nhật kết quả xử lý sớm nhất.`,
       );
       setConfirmOpen(false);
       router.replace("/orders/list?status=RETURNED");
     } catch (err: any) {
       toast.error(
-        extractErrorMessage(err, "KhÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âºc nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y."),
+        extractErrorMessage(err, "Không thể gửi yêu cầu trả hàng lúc này."),
       );
     } finally {
       setSubmitting(false);
@@ -611,18 +310,18 @@ export default function ReturnRequestPage({
           <div className="space-y-3">
             <div>
               <h1 className="text-lg font-semibold text-[#12385b]">
-                KhÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡o yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng
+                Không thể tạo yêu cầu trả hàng
               </h1>
               <p className="mt-1 text-sm text-slate-500">
                 {error ??
-                  "Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y chĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°a sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Âµn sÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng cho luĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă…â€œng trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â§ cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng."}
+                  "Đơn hàng này chưa sẵn sàng cho luồng trả hàng thủ công."}
               </p>
             </div>
             <Link
               href="/orders/list?status=COMPLETED"
               className="inline-flex h-10 items-center bg-[#1965a2] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#145486]"
             >
-              Quay lĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ giao
+              Quay lại đơn đã giao
             </Link>
           </div>
         </div>
@@ -641,18 +340,14 @@ export default function ReturnRequestPage({
                 className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[#1965a2]"
               >
                 <ArrowLeft size={16} />
-                Quay lĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ giao
+                Quay lại đơn đã giao
               </Link>
               <div>
                 <h1 className="text-2xl font-semibold text-[#12385b]">
-                  TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡o yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng
+                  Tạo yêu cầu trả hàng
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng{" "}
-                  <span className="font-semibold text-[#12385b]">
-                    {draft.orderCode}
-                  </span>{" "}
-                  sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â½ Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£c tiĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿p nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â­n vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  xĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½ theo yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u bĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡n gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i.
+                  Đơn hàng <span className="font-semibold text-[#12385b]">{draft.orderCode}</span> sẽ được tiếp nhận và xử lý theo yêu cầu bạn gửi.
                 </p>
               </div>
             </div>
@@ -660,19 +355,19 @@ export default function ReturnRequestPage({
             <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
               <p>
                 <span className="font-semibold text-[#12385b]">
-                  SĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‹Å“ sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân:
+                  Số sản phẩm đã chọn:
                 </span>{" "}
                 {selectedDraftItems.length}
               </p>
               <p className="mt-1">
                 <span className="font-semibold text-[#12385b]">
-                  SĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‹Å“ lĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£ng trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£:
+                  Số lượng trả:
                 </span>{" "}
                 {totalSelectedQuantity}
               </p>
               <p className="mt-1">
                 <span className="font-semibold text-[#12385b]">
-                  TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡m tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­nh hoÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â n:
+                  Tạm tính hoàn:
                 </span>{" "}
                 {formatCurrency(refundPreview)}
               </p>
@@ -682,22 +377,19 @@ export default function ReturnRequestPage({
 
         {draft.message ? (
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
-            {draft.message}
+            {repairVietnameseText(draft.message)}
           </div>
         ) : null}
 
         {!draft.singleBranchOnly ? (
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
-            Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â³ nhiĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Âu sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§n tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ch thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â nh cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡c yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u riÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªng. Vui
-            lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â²ng chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡c sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m tĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡ng thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­ch Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i trong cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¹ng mĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢t yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u.
+            Đơn hàng này có nhiều sản phẩm cần tách thành các yêu cầu riêng. Vui lòng chọn các sản phẩm tương thích để gửi trong cùng một yêu cầu.
           </div>
         ) : null}
 
         {form.issueType === "MISSING_ITEM" ? (
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
-            TrĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Âng hĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£p thiĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿u hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â½ Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£c xĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½ theo phĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡ng Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡n hoÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â n tiĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân trĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â±c tiĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿p.
-            BĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡n khÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§n gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i lĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng vĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â­t lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½ nhĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°ng vĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â«n bĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¯t buĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢c cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â³ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â 
-            video mÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi cĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â§a Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng.
+            Trường hợp thiếu hàng sẽ được xử lý theo phương án chỉ hoàn tiền trực tiếp. Bạn không cần gửi lại hàng vật lý nhưng vẫn bắt buộc có hình ảnh và video mô tả lỗi của đơn hàng.
           </div>
         ) : null}
 
@@ -707,7 +399,7 @@ export default function ReturnRequestPage({
               <div className="mb-4 flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-[#1965a2]" />
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  1. ChĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§n trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£
+                  1. Ch?n s?n ph?m c?n tr?
                 </h2>
               </div>
 
@@ -755,16 +447,16 @@ export default function ReturnRequestPage({
                                 {item.productName}
                               </h3>
                               <p className="mt-1 text-sm text-slate-500">
-                                {item.variantName || item.sku || "SĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m thuĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢c Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng"}
+                                {item.variantName || item.sku || "Sản phẩm thuộc đơn hàng"}
                               </p>
                             </div>
 
                             <div className="flex flex-wrap gap-2 text-xs text-slate-500">
                               <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
-                                Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ mua: {item.orderedQuantity}
+                                Đã mua: {item.orderedQuantity}
                               </span>
                               <span className="border border-[#d8e6f5] bg-[#fbfdff] px-2 py-1">
-                                TĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‹Å“i Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“a trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£: {item.maxReturnQuantity}
+                                T?i ?a tr?: {item.maxReturnQuantity}
                               </span>
                             </div>
                           </div>
@@ -776,7 +468,7 @@ export default function ReturnRequestPage({
                           </div>
 
                           <label className="space-y-2 text-sm text-slate-600">
-                            <span>SĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‹Å“ lĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£ng trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£</span>
+                            <span>Số lượng trả</span>
                             <Input
                               type="number"
                               min={1}
@@ -792,8 +484,8 @@ export default function ReturnRequestPage({
 
                           {disabledByBranch ? (
                             <p className="text-xs text-slate-500">
-                              SĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y hiĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡n chĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°a thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i chung trong yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y.
-                              Vui lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â²ng tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ch thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â nh yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u riÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªng nĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿u cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§n xĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½ thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªm.
+                              S?n ph?m n?y hi?n ch?a th? g?i chung trong y?u c?u n?y.
+                              Vui l?ng t?ch th?nh y?u c?u ri?ng n?u c?n x? l? th?m.
                             </p>
                           ) : null}
                         </div>
@@ -807,20 +499,20 @@ export default function ReturnRequestPage({
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  2. ThÄ‚Â´ng tin hoÄ‚Â n tiĂ¡Â»Ân
+                  2. Th?ng tin ho?n ti?n
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  CĂ¡ÂºÂ­p nhĂ¡ÂºÂ­t thÄ‚Â´ng tin liÄ‚Âªn hĂ¡Â»â€¡ vÄ‚Â  tÄ‚Â i khoĂ¡ÂºÂ£n nhĂ¡ÂºÂ­n hoÄ‚Â n tiĂ¡Â»Ân Ă„â€˜Ă¡Â»Æ’ chÄ‚Âºng tÄ‚Â´i Ă„â€˜Ă¡Â»â€˜i soÄ‚Â¡t yÄ‚Âªu cĂ¡ÂºÂ§u nhanh hĂ†Â¡n.
+                  Cập nhật thông tin liên hệ và tài khoản nhận hoàn tiền để chúng tôi đối soát yêu cầu nhanh hơn.
                 </p>
               </div>
 
               <div className="mb-4 space-y-3 text-sm">
                 <div className="space-y-1">
                   <span className="font-medium text-[#12385b]">
-                    LĂ¡Â»Â±a chĂ¡Â»Ân phĂ†Â°Ă†Â¡ng Ä‚Â¡n xĂ¡Â»Â­ lÄ‚Â½
+                    Lựa chọn phương án xử lý
                   </span>
                   <p className="text-xs text-slate-500">
-                    ChĂ¡Â»Ân cÄ‚Â¡ch yÄ‚Âªu cĂ¡ÂºÂ§u hoÄ‚Â n tiĂ¡Â»Ân cĂ¡Â»Â§a Ă„â€˜Ă†Â¡n nÄ‚Â y sĂ¡ÂºÂ½ Ă„â€˜Ă†Â°Ă¡Â»Â£c xĂ¡Â»Â­ lÄ‚Â½.
+                    Chọn cách yêu cầu hoàn tiền của bạn sẽ được xử lý.
                   </p>
                 </div>
 
@@ -863,7 +555,7 @@ export default function ReturnRequestPage({
                           </p>
                           {disabled ? (
                             <p className="mt-1 text-xs font-medium text-[#1965a2]">
-                              Ă„ÂĂ†Â¡n thiĂ¡ÂºÂ¿u hÄ‚Â ng chĂ¡Â»â€° hĂ¡Â»â€” trĂ¡Â»Â£ phĂ†Â°Ă†Â¡ng Ä‚Â¡n chĂ¡Â»â€° hoÄ‚Â n tiĂ¡Â»Ân.
+                              Đơn thiếu hàng chỉ hỗ trợ phương án chỉ hoàn tiền.
                             </p>
                           ) : null}
                         </div>
@@ -876,7 +568,7 @@ export default function ReturnRequestPage({
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    HĂ¡Â»Â tÄ‚Âªn ngĂ†Â°Ă¡Â»Âi nhĂ¡ÂºÂ­n hoÄ‚Â n tiĂ¡Â»Ân
+                    Họ tên người nhận hoàn tiền
                   </span>
                   <Input
                     value={form.fullName}
@@ -888,7 +580,7 @@ export default function ReturnRequestPage({
                     }
                     onBlur={() => handleRequiredFieldBlur("fullName")}
                     aria-invalid={Boolean(fieldErrors.fullName)}
-                    placeholder="NguyĂ¡Â»â€¦n VĂ„Æ’n A"
+                    placeholder="Nguy?n V?n A"
                     className={getFieldInputClass("fullName")}
                   />
                   {renderFieldError("fullName")}
@@ -896,7 +588,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    SĂ¡Â»â€˜ Ă„â€˜iĂ¡Â»â€¡n thoĂ¡ÂºÂ¡i
+                    S? ?i?n tho?i
                   </span>
                   <Input
                     value={form.phoneNumber}
@@ -931,10 +623,10 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    PhĂ†Â°Ă†Â¡ng thĂ¡Â»Â©c hoÄ‚Â n tiĂ¡Â»Ân
+                    Phương thức hoàn tiền
                   </span>
                   <Input
-                    value="ChuyĂ¡Â»Æ’n khoĂ¡ÂºÂ£n"
+                    value="Chuy?n kho?n"
                     readOnly
                     className={flatFieldClass}
                   />
@@ -942,7 +634,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    TÄ‚Âªn chĂ¡Â»Â§ tÄ‚Â i khoĂ¡ÂºÂ£n
+                    T?n ch? t?i kho?n
                   </span>
                   <Input
                     value={form.bankAccountName}
@@ -962,7 +654,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    SĂ¡Â»â€˜ tÄ‚Â i khoĂ¡ÂºÂ£n
+                    S? t?i kho?n
                   </span>
                   <Input
                     value={form.bankAccountNumber}
@@ -982,7 +674,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    TÄ‚Âªn ngÄ‚Â¢n hÄ‚Â ng
+                    T?n ng?n h?ng
                   </span>
                   <Input
                     value={form.bankName}
@@ -1002,7 +694,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    Chi nhÄ‚Â¡nh ngÄ‚Â¢n hÄ‚Â ng
+                    Chi nh?nh ng?n h?ng
                   </span>
                   <Input
                     value={form.bankBranch}
@@ -1012,7 +704,7 @@ export default function ReturnRequestPage({
                         bankBranch: event.target.value,
                       }))
                     }
-                    placeholder="Chi nhÄ‚Â¡nh CĂ¡ÂºÂ§n ThĂ†Â¡"
+                    placeholder="Chi nh?nh C?n Th?"
                     className={flatFieldClass}
                   />
                 </label>
@@ -1022,17 +714,17 @@ export default function ReturnRequestPage({
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  3. LÄ‚Â½ do vÄ‚Â  mÄ‚Â´ tĂ¡ÂºÂ£ lĂ¡Â»â€”i
+                  3. Lý do và mô tả lỗi
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  MÄ‚Â´ tĂ¡ÂºÂ£ rÄ‚Âµ tÄ‚Â¬nh trĂ¡ÂºÂ¡ng lĂ¡Â»â€”i, thiĂ¡ÂºÂ¿u hÄ‚Â ng hoĂ¡ÂºÂ·c giao sai Ă„â€˜Ă¡Â»Æ’ yÄ‚Âªu cĂ¡ÂºÂ§u Ă„â€˜Ă†Â°Ă¡Â»Â£c xÄ‚Â¡c minh nhanh hĂ†Â¡n.
+                  Mô tả rõ tình trạng lỗi, thiếu hàng hoặc giao sai để yêu cầu được xác minh nhanh hơn.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    LoĂ¡ÂºÂ¡i sĂ¡Â»Â± cĂ¡Â»â€˜
+                    Lo?i s? c?
                   </span>
                   <select
                     value={form.issueType}
@@ -1054,7 +746,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    LÄ‚Â½ do ngĂ¡ÂºÂ¯n gĂ¡Â»Ân
+                    L? do ng?n g?n
                   </span>
                   <Input
                     value={form.reason}
@@ -1066,7 +758,7 @@ export default function ReturnRequestPage({
                     }
                     onBlur={() => handleRequiredFieldBlur("reason")}
                     aria-invalid={Boolean(fieldErrors.reason)}
-                    placeholder="VÄ‚Â­ dĂ¡Â»Â¥: Giao sai sĂ¡ÂºÂ£n phĂ¡ÂºÂ©m, thiĂ¡ÂºÂ¿u 1 mÄ‚Â³n, bao bÄ‚Â¬ rÄ‚Â¡ch..."
+                    placeholder="V? d?: Giao sai s?n ph?m, thi?u 1 m?n, bao b? r?ch..."
                     className={getFieldInputClass("reason")}
                   />
                   {renderFieldError("reason")}
@@ -1074,7 +766,7 @@ export default function ReturnRequestPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-[#12385b]">
-                    MÄ‚Â´ tĂ¡ÂºÂ£ chi tiĂ¡ÂºÂ¿t
+                    M? t? chi ti?t
                   </span>
                   <Textarea
                     value={form.description}
@@ -1087,7 +779,7 @@ export default function ReturnRequestPage({
                     onBlur={() => handleRequiredFieldBlur("description")}
                     aria-invalid={Boolean(fieldErrors.description)}
                     rows={5}
-                    placeholder="MÄ‚Â´ tĂ¡ÂºÂ£ thĂ¡Â»Âi Ă„â€˜iĂ¡Â»Æ’m nhĂ¡ÂºÂ­n hÄ‚Â ng, lĂ¡Â»â€”i gĂ¡ÂºÂ·p phĂ¡ÂºÂ£i, sĂ¡Â»â€˜ lĂ†Â°Ă¡Â»Â£ng bĂ¡Â»â€¹ Ă¡ÂºÂ£nh hĂ†Â°Ă¡Â»Å¸ng vÄ‚Â  thÄ‚Â´ng tin cĂ¡ÂºÂ§n kiĂ¡Â»Æ’m tra thÄ‚Âªm."
+                    placeholder="Mô tả thời điểm nhận hàng, lỗi gặp phải, số lượng bị ảnh hưởng và thông tin cần kiểm tra thêm."
                     className={getFieldInputClass("description")}
                   />
                   {renderFieldError("description")}
@@ -1098,11 +790,11 @@ export default function ReturnRequestPage({
             <section className="border border-[#d8e6f5] bg-white px-5 py-5">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-[#12385b]">
-                  4. HÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  video bĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â±ng chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â©ng
+                  4. H?nh ?nh v? video b?ng ch?ng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  BĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¯t buĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢c cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â³ Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­t nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¥t 1 hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  1 video lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£c
-                  xÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡c minh nhanh hĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n.
+                  Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để yêu cầu được xác minh nhanh hơn.
+
                 </p>
               </div>
 
@@ -1111,17 +803,17 @@ export default function ReturnRequestPage({
                   <div className="mb-3 flex items-center gap-2">
                     <ImagePlus size={18} className="text-[#1965a2]" />
                     <span className="font-medium text-[#12385b]">
-                      HÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi
+                      H?nh ?nh l?i
                     </span>
                   </div>
 
                   <label className="flex cursor-pointer flex-col items-center justify-center bg-[#f8fbff] px-4 py-8 text-center transition-colors hover:bg-[#eef6ff]">
                     <Upload size={20} className="mb-2 text-[#1965a2]" />
                     <span className="text-sm font-medium text-[#12385b]">
-                      TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh bĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â±ng chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â©ng
+                      T?i ?nh b?ng ch?ng
                     </span>
                     <span className="mt-1 text-xs text-slate-500">
-                      JPG, PNG, WEBP. TĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‹Å“i Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“a 10MB mĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡p.
+                      JPG, PNG, WEBP. T?i ?a 10MB m?i t?p.
                     </span>
                     <input
                       type="file"
@@ -1138,7 +830,7 @@ export default function ReturnRequestPage({
                   {uploadingType === "IMAGE" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
-                      Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Âang tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh...
+                      ?ang t?i h?nh ?nh...
                     </div>
                   ) : null}
 
@@ -1155,7 +847,7 @@ export default function ReturnRequestPage({
                         />
                         <div className="flex items-center justify-between gap-2 px-2 py-2">
                           <p className="truncate text-xs text-slate-500">
-                            {item.fileName ?? "HÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬nh Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£nh"}
+                            {repairVietnameseText(item.fileName ?? "Hình ảnh")}
                           </p>
                           <button
                             type="button"
@@ -1173,16 +865,16 @@ export default function ReturnRequestPage({
                 <div className="border border-dashed border-[#cfe0f2] px-4 py-4">
                   <div className="mb-3 flex items-center gap-2">
                     <Video size={18} className="text-[#1965a2]" />
-                    <span className="font-medium text-[#12385b]">Video lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi</span>
+                    <span className="font-medium text-[#12385b]">Video l?i</span>
                   </div>
 
                   <label className="flex cursor-pointer flex-col items-center justify-center bg-[#f8fbff] px-4 py-8 text-center transition-colors hover:bg-[#eef6ff]">
                     <Upload size={20} className="mb-2 text-[#1965a2]" />
                     <span className="text-sm font-medium text-[#12385b]">
-                      TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i video bĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â±ng chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â©ng
+                      T?i video b?ng ch?ng
                     </span>
                     <span className="mt-1 text-xs text-slate-500">
-                      MP4, MOV, WEBM. TĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‹Å“i Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“a 50MB mĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡p.
+                      MP4, MOV, WEBM. T?i ?a 50MB m?i t?p.
                     </span>
                     <input
                       type="file"
@@ -1199,7 +891,7 @@ export default function ReturnRequestPage({
                   {uploadingType === "VIDEO" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
-                      Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Âang tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£i video...
+                      ?ang t?i video...
                     </div>
                   ) : null}
 
@@ -1216,7 +908,7 @@ export default function ReturnRequestPage({
                         />
                         <div className="flex items-center justify-between gap-2 px-2 py-2">
                           <p className="truncate text-xs text-slate-500">
-                            {item.fileName ?? "Video lĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Âi"}
+                            {repairVietnameseText(item.fileName ?? "Video lỗi")}
                           </p>
                           <button
                             type="button"
@@ -1237,18 +929,18 @@ export default function ReturnRequestPage({
           <aside className="space-y-4">
             <div className="sticky top-24 border border-[#d8e6f5] bg-white px-5 py-5">
               <h2 className="text-lg font-semibold text-[#12385b]">
-                  5. XÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡c nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â­n gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i
+                5. X?c nh?n g?i
               </h2>
 
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">MÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n</span>
+                  <span className="text-slate-500">Mã đơn</span>
                   <span className="text-right font-semibold text-[#12385b]">
                     {draft.orderCode}
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">LoĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i sĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â± cĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‹Å“</span>
+                  <span className="text-slate-500">Lo?i s? c?</span>
                   <span className="text-right font-semibold text-[#12385b]">
                     {
                       RETURN_ISSUE_OPTIONS.find(
@@ -1258,13 +950,13 @@ export default function ReturnRequestPage({
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">PhĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡ng Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡n xĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½</span>
+                  <span className="text-slate-500">Phương án xử lý</span>
                   <span className="text-right font-semibold text-[#12385b]">
                     {getReturnHandlingLabel(form.handlingOption)}
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡m tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­nh hoÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â n</span>
+                  <span className="text-slate-500">T?m t?nh ho?n</span>
                   <span className="text-right text-lg font-semibold text-[#1965a2]">
                     {formatCurrency(refundPreview)}
                   </span>
@@ -1272,13 +964,13 @@ export default function ReturnRequestPage({
               </div>
 
               <div className="mt-4 border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-xs leading-6 text-slate-600">
-                Báº¯t buá»™c:
+                B?t bu?c:
                 <br />
-                - Há» tĂªn, sá»‘ Ä‘iá»‡n thoáº¡i, lĂ½ do vĂ  mĂ´ táº£ chi tiáº¿t
+                - H? t?n, s? ?i?n tho?i, l? do v? m? t? chi ti?t
                 <br />
-                - TĂªn chá»§ tĂ i khoáº£n, sá»‘ tĂ i khoáº£n vĂ  tĂªn ngĂ¢n hĂ ng
+                - T?n ch? t?i kho?n, s? t?i kho?n v? t?n ng?n h?ng
                 <br />
-                - Ăt nháº¥t 1 hĂ¬nh áº£nh vĂ  1 video lá»—i
+                - ?t nh?t 1 h?nh ?nh v? 1 video l?i
               </div>
 
               <Button
@@ -1298,13 +990,13 @@ export default function ReturnRequestPage({
                 className="mt-5 h-11 w-full rounded-none bg-[#1965a2] text-white hover:bg-[#145486]"
                 disabled={submitting}
               >
-                {submitting ? "Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Âang gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i..." : "GĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng"}
+                {submitting ? "?ang g?i..." : "G?i y?u c?u tr? h?ng"}
               </Button>
 
               <p className="mt-3 text-xs text-slate-500">
-                Sau khi gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i, phiĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿u sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â½ hiĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢n thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¹ ngay trong tab{" "}
-                <span className="font-medium text-[#1965a2]">TrĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng</span> Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢
-                bĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡n theo dÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âµi tiĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿n Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢ xĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½.
+                Sau khi g?i, phi?u s? hi?n th? ngay trong tab{" "}
+                <span className="font-medium text-[#1965a2]">Trả hàng</span> để
+                bạn theo dõi tiến độ xử lý.
               </p>
             </div>
           </aside>
@@ -1314,28 +1006,28 @@ export default function ReturnRequestPage({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent className="rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>XÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡c nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â­n gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u trĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£ hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng</AlertDialogTitle>
+            <AlertDialogTitle>X?c nh?n g?i y?u c?u tr? h?ng</AlertDialogTitle>
             <AlertDialogDescription>
-              YÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u sĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â½ Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â£c tiĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿p nhĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â­n Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€ Ă¢â‚¬â„¢ xĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­ lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½. HÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£y chĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¯c rĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â±ng thÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng tin liÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªn hĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¡,
-              phĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡ng thĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â©c hoÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â n tiĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân, lÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½ do vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  bĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â±ng chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â©ng Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§y Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â§.
+              Yêu cầu sẽ được tiếp nhận để xử lý. Hãy chắc rằng thông tin liên hệ, phương thức hoàn tiền, lý do và bằng chứng đều đã đầy đủ.
+
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-4 text-sm text-slate-600">
             <div className="flex justify-between gap-4">
-              <span>Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â¡n hÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â ng</span>
+              <span>Đơn hàng</span>
               <span className="font-semibold text-[#12385b]">
                 {draft.orderCode}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>SĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â£n phĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â©m Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â£ chĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân</span>
+              <span>Sản phẩm đã chọn</span>
               <span className="font-semibold text-[#12385b]">
                 {selectedDraftItems.length}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡m tÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â­nh hoÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â n</span>
+              <span>T?m t?nh ho?n</span>
               <span className="font-semibold text-[#1965a2]">
                 {formatCurrency(refundPreview)}
               </span>
@@ -1344,7 +1036,7 @@ export default function ReturnRequestPage({
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={submitting} className="rounded-none">
-              HĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â§y
+              H?y
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
@@ -1354,7 +1046,7 @@ export default function ReturnRequestPage({
               className="rounded-none bg-[#1965a2] text-white hover:bg-[#145486]"
               disabled={submitting}
             >
-              {submitting ? "Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Âang gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i..." : "Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚ÂĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă…â€œng Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â½ gĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â­i yÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªu cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â§u"}
+              {submitting ? "Đang gửi..." : "Đồng ý gửi yêu cầu"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
