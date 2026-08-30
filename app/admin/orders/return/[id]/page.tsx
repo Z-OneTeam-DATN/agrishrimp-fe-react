@@ -112,7 +112,7 @@ export default function ReturnOrderDetailPage({
           refundAmount:
             prev.refundAmount ||
             String(Math.round(Number(data.totalRefundAmount ?? 0))),
-          refundMethod: BANK_TRANSFER_REFUND_METHOD,
+          refundMethod: data.refundMethod ?? BANK_TRANSFER_REFUND_METHOD,
         }));
       } catch (err: any) {
         const message = extractErrorMessage(
@@ -202,10 +202,6 @@ export default function ReturnOrderDetailPage({
         toast.error("Vui lòng nhập số tiền hoàn hợp lệ.");
         return;
       }
-      if (form.refundMethod !== BANK_TRANSFER_REFUND_METHOD) {
-        toast.error("Luồng trả hàng chỉ hỗ trợ hoàn tiền qua chuyển khoản ngân hàng.");
-        return;
-      }
     }
 
     try {
@@ -243,12 +239,12 @@ export default function ReturnOrderDetailPage({
         updatedRequest = canViewSystemOrders
           ? await returnService.refundAdminReturnRequest(request.id, {
               refundAmount: Number(form.refundAmount),
-              refundMethod: BANK_TRANSFER_REFUND_METHOD,
+              refundMethod: form.refundMethod,
               internalNote: form.internalNote.trim() || undefined,
             })
           : await returnService.refundBranchReturnRequest(request.id, {
               refundAmount: Number(form.refundAmount),
-              refundMethod: BANK_TRANSFER_REFUND_METHOD,
+              refundMethod: form.refundMethod,
               internalNote: form.internalNote.trim() || undefined,
             });
       }
@@ -260,7 +256,7 @@ export default function ReturnOrderDetailPage({
         internalNote: "",
         rejectReason: "",
         refundAmount: String(Math.round(Number(updatedRequest.totalRefundAmount ?? 0))),
-        refundMethod: BANK_TRANSFER_REFUND_METHOD,
+        refundMethod: updatedRequest.refundMethod ?? BANK_TRANSFER_REFUND_METHOD,
       }));
 
       toast.success(
@@ -468,26 +464,36 @@ export default function ReturnOrderDetailPage({
                 label="Phương án xử lý"
                 value={getReturnHandlingLabel(request.handlingOption)}
               />
-              <InfoLine
-                icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Tên chủ tài khoản"
-                value={request.bankAccountName}
-              />
-              <InfoLine
-                icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Số tài khoản"
-                value={request.bankAccountNumber}
-              />
-              <InfoLine
-                icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Ngân hàng"
-                value={request.bankName}
-              />
-              <InfoLine
-                icon={<CreditCard size={15} className="text-slate-400" />}
-                label="Chi nhánh ngân hàng"
-                value={request.bankBranch || "Khách hàng không cung cấp"}
-              />
+              {request.refundMethod === "BANK_TRANSFER" ? (
+                <>
+                  <InfoLine
+                    icon={<CreditCard size={15} className="text-slate-400" />}
+                    label="Tên chủ tài khoản"
+                    value={request.bankAccountName || "Khách hàng chưa cung cấp"}
+                  />
+                  <InfoLine
+                    icon={<CreditCard size={15} className="text-slate-400" />}
+                    label="Số tài khoản"
+                    value={request.bankAccountNumber || "Khách hàng chưa cung cấp"}
+                  />
+                  <InfoLine
+                    icon={<CreditCard size={15} className="text-slate-400" />}
+                    label="Ngân hàng"
+                    value={request.bankName || "Khách hàng chưa cung cấp"}
+                  />
+                  <InfoLine
+                    icon={<CreditCard size={15} className="text-slate-400" />}
+                    label="Chi nhánh ngân hàng"
+                    value={request.bankBranch || "Khách hàng không cung cấp"}
+                  />
+                </>
+              ) : (
+                <InfoLine
+                  icon={<CreditCard size={15} className="text-slate-400" />}
+                  label="Cách hoàn tiền"
+                  value="Khách nhận tiền mặt trực tiếp tại điểm xử lý gần"
+                />
+              )}
             </div>
           </Panel>
 
@@ -770,7 +776,7 @@ export default function ReturnOrderDetailPage({
 
                 <label className="space-y-2 text-sm">
                   <span className="font-medium text-slate-700">Phương thức hoàn</span>
-                  <Input value="Chuyển khoản ngân hàng" readOnly disabled />
+                  <Input value={getReturnRefundLabel(form.refundMethod)} readOnly disabled />
                 </label>
               </div>
             </div>
@@ -837,7 +843,9 @@ export default function ReturnOrderDetailPage({
                   ? "Khách hàng sẽ nhìn thấy lý do từ chối trong danh sách yêu cầu của họ."
                   : actionOpen === "receive"
                     ? "Chỉ áp dụng cho trường hợp cần nhận lại hàng vật lý trước khi hoàn tiền."
-                    : "Số tiền hoàn sẽ được ghi nhận với phương thức chuyển khoản ngân hàng."}
+                    : form.refundMethod === "CASH"
+                      ? "Số tiền hoàn sẽ được ghi nhận với phương thức tiền mặt."
+                      : "Số tiền hoàn sẽ được ghi nhận với phương thức chuyển khoản ngân hàng."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

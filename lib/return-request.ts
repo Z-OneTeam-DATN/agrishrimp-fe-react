@@ -30,7 +30,10 @@ export const RETURN_ISSUE_OPTIONS: Array<{
 export const RETURN_REFUND_OPTIONS: Array<{
   label: string;
   value: ReturnRefundMethod;
-}> = [{ label: "Chuyển khoản", value: "BANK_TRANSFER" }];
+}> = [
+  { label: "Chuyển khoản", value: "BANK_TRANSFER" },
+  { label: "Tiền mặt", value: "CASH" },
+];
 
 export const RETURN_HANDLING_OPTIONS: Array<{
   label: string;
@@ -47,7 +50,7 @@ export const RETURN_HANDLING_OPTIONS: Array<{
     label: "Trả hàng và hoàn tiền cho khách",
     value: "RETURN_AND_REFUND",
     description:
-      "Khách gửi lại hàng và nhận hoàn tiền sau khi chi nhánh xác nhận.",
+      "Khách gửi lại hàng và nhận hoàn tiền sau khi điểm xử lý xác nhận.",
   },
 ];
 

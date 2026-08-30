@@ -34,6 +34,9 @@ export interface ReturnDraftItem {
   maxReturnQuantity: number;
   unitPrice: number;
   totalPrice: number;
+  allowedRefundMethods: ReturnRefundMethod[];
+  cashRefundEligible: boolean | null;
+  cashRefundDistanceKm: number | null;
 }
 
 export interface ReturnOrderDraft {
@@ -65,9 +68,9 @@ export interface CreateReturnRequestPayload {
   fullName: string;
   phoneNumber: string;
   email?: string | null;
-  bankAccountName: string;
-  bankAccountNumber: string;
-  bankName: string;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
+  bankName?: string | null;
   bankBranch?: string | null;
   issueType: ReturnIssueType;
   handlingOption: ReturnHandlingOption;
@@ -117,9 +120,9 @@ export interface ReturnRequest {
   customerName: string;
   customerPhone: string;
   customerEmail?: string | null;
-  bankAccountName: string;
-  bankAccountNumber: string;
-  bankName: string;
+  bankAccountName: string | null;
+  bankAccountNumber: string | null;
+  bankName: string | null;
   bankBranch?: string | null;
   reason: string;
   description: string;
