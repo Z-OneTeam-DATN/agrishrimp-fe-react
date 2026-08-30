@@ -575,7 +575,7 @@ export default function OrderDetailPage({
           )}
         </div>
 
-        {displayStatus === "SHIPPING" && canConfirmReceived && (
+        {canConfirmReceived && (
           <div className="rounded-xl bg-white px-4 py-4">
             <button
               type="button"
