@@ -77,6 +77,7 @@ import {
   ORDER_LIST_PRIMARY_ACTION_CLASS,
   ORDER_LIST_ROW_CLASS,
   ORDER_LIST_ROW_ACTIVE_CLASS,
+  ORDER_LIST_ROW_BATCH_MATCH_CLASS,
   ORDER_LIST_ROW_SELECTED_CLASS,
   ORDER_LIST_SECONDARY_ACTION_CLASS,
   ORDER_LIST_SHELL_CLASS,
@@ -127,6 +128,27 @@ const ORDER_STATUS_FILTER_OPTIONS: Array<{ label: string; value: StatusFilter }>
   })),
   { label: "Trả hàng", value: "RETURNED" },
 ];
+
+const ORDER_SELECTION_STATUS_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: "Chờ thanh toán",
+  PENDING_AUTO_APPROVAL: "Chờ tự xác nhận",
+  PENDING_SHORTAGE_REVIEW: "Chờ xử lý thiếu hàng",
+  PENDING_TRANSFER: "Chờ điều chuyển",
+  AWAITING_REPLENISHMENT: "Đơn thiếu hàng",
+  RETURNED: "Trả hàng",
+};
+
+const getOrderSelectionStatusKey = (
+  order: Pick<MyOrder, "status" | "legacyStatus">,
+) =>
+  String(order.status ?? order.legacyStatus ?? "")
+    .trim()
+    .toUpperCase();
+
+const getOrderSelectionStatusLabel = (statusKey: string) =>
+  ORDER_SELECTION_STATUS_LABELS[statusKey] ??
+  ORDER_STATUS_FILTER_OPTIONS.find((option) => option.value === statusKey)?.label ??
+  statusKey;
 
 const parseStatusSelection = (status?: string | null) =>
   (status ?? "")
@@ -273,8 +295,11 @@ export default function AdminOrderListPage({
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
-  const [advancingOrderId, setAdvancingOrderId] = useState<number | null>(null);
-  const [replenishingOrderId, setReplenishingOrderId] = useState<number | null>(null);
+  const [advancingOrderIds, setAdvancingOrderIds] = useState<number[]>([]);
+  const [replenishingOrderIds, setReplenishingOrderIds] = useState<number[]>([]);
+  const setAdvancingOrderId = useCallback((orderId: number | null) => {
+    setAdvancingOrderIds(orderId === null ? [] : [orderId]);
+  }, []);
   const lastRefreshSignalRef = useRef(0);
 
   const canViewSystemOrders = hasPermission(P.ORDER_VIEW_ALL_BRANCHES);
@@ -642,6 +667,57 @@ export default function AdminOrderListPage({
     [orders],
   );
 
+  const orderMap = useMemo(
+    () => new Map(orders.map((order) => [order.id, order])),
+    [orders],
+  );
+  const selectedOrderIdSet = useMemo(
+    () => new Set(selectedItems),
+    [selectedItems],
+  );
+  const selectedOrders = useMemo(
+    () =>
+      selectedItems
+        .map((id) => detailCache[id] ?? orderMap.get(id))
+        .filter((order): order is MyOrder => Boolean(order)),
+    [detailCache, orderMap, selectedItems],
+  );
+  const selectedStatusKey = useMemo(
+    () =>
+      selectedOrders[0]
+        ? getOrderSelectionStatusKey(selectedOrders[0])
+        : null,
+    [selectedOrders],
+  );
+  const selectedStatusLabel = useMemo(
+    () =>
+      selectedStatusKey
+        ? getOrderSelectionStatusLabel(selectedStatusKey)
+        : null,
+    [selectedStatusKey],
+  );
+  const selectableSameStatusOrderIds = useMemo(
+    () =>
+      selectedStatusKey
+        ? orders
+            .filter(
+              (order) => getOrderSelectionStatusKey(order) === selectedStatusKey,
+            )
+            .map((order) => order.id)
+        : [],
+    [orders, selectedStatusKey],
+  );
+  const selectableSameStatusOrderIdSet = useMemo(
+    () => new Set(selectableSameStatusOrderIds),
+    [selectableSameStatusOrderIds],
+  );
+  const areAllSelectableOrdersSelected = useMemo(
+    () =>
+      selectableSameStatusOrderIds.length > 0 &&
+      selectableSameStatusOrderIds.every((id) => selectedOrderIdSet.has(id)),
+    [selectableSameStatusOrderIds, selectedOrderIdSet],
+  );
+
   useEffect(() => {
     setSelectedItems((prev) =>
       prev.filter((id) => orders.some((order) => order.id === id)),
@@ -676,6 +752,248 @@ export default function AdminOrderListPage({
     }
   };
 
+  const getOrderActionState = useCallback(
+    (order: MyOrder) => {
+      const replenishmentDocuments =
+        order.replenishmentDocuments ?? [];
+      const hasExistingReplenishmentDocuments =
+        Boolean(order.replenishmentRequested) ||
+        getReplenishmentDocumentLinks(replenishmentDocuments).length > 0;
+
+      return {
+        nextAction: hasPermission(P.ORDER_UPDATE)
+          ? getNextOrderWorkflowAction(order)
+          : null,
+        allowReplenishment:
+          hasPermission(P.ORDER_UPDATE) &&
+          canRequestReplenishmentAction(order),
+        hasExistingReplenishmentDocuments,
+      };
+    },
+    [hasPermission],
+  );
+
+  const resolveBatchTargetOrders = useCallback(
+    (
+      clickedOrder: MyOrder,
+      actionLabel: string,
+      matchesAction: (order: MyOrder) => boolean,
+    ) => {
+      if (!selectedStatusKey || selectedOrders.length === 0) {
+        return [clickedOrder];
+      }
+
+      const clickedStatusKey = getOrderSelectionStatusKey(clickedOrder);
+      if (clickedStatusKey !== selectedStatusKey) {
+        toast.error(
+          `Bạn đang chọn nhóm đơn ${selectedStatusLabel ?? selectedStatusKey}. Hãy bấm thao tác trên một đơn cùng trạng thái hoặc bỏ chọn nhóm hiện tại.`,
+        );
+        return null;
+      }
+
+      const invalidOrders = selectedOrders.filter(
+        (order) => !matchesAction(order),
+      );
+      if (invalidOrders.length > 0) {
+        toast.error(
+          `Nhóm đơn đã chọn có đơn không thể thực hiện thao tác "${actionLabel}". Vui lòng chỉ giữ các đơn cùng trạng thái và cùng thao tác.`,
+        );
+        return null;
+      }
+
+      return selectedOrders;
+    },
+    [selectedOrders, selectedStatusKey, selectedStatusLabel],
+  );
+
+  const applyStatusUpdateToLocalOrders = useCallback(
+    (orderIds: number[], nextStatus: OrderStatus) => {
+      const updatedIds = new Set(orderIds);
+
+      if (shouldKeepOrderInCurrentView(nextStatus)) {
+        setOrders((prev) =>
+          prev.map((item) =>
+            updatedIds.has(item.id)
+              ? { ...item, status: nextStatus }
+              : item,
+          ),
+        );
+        setDetailCache((prev) => {
+          const next = { ...prev };
+
+          for (const orderId of orderIds) {
+            const detail = next[orderId];
+            if (detail) {
+              next[orderId] = {
+                ...detail,
+                status: nextStatus,
+              };
+            }
+          }
+
+          return next;
+        });
+      } else {
+        setOrders((prev) => prev.filter((item) => !updatedIds.has(item.id)));
+        setExpandedId((prev) =>
+          prev !== null && updatedIds.has(prev) ? null : prev,
+        );
+        setDetailCache((prev) => {
+          const next = { ...prev };
+
+          for (const orderId of orderIds) {
+            delete next[orderId];
+          }
+
+          return next;
+        });
+      }
+
+      setSelectedItems((prev) => prev.filter((id) => !updatedIds.has(id)));
+    },
+    [shouldKeepOrderInCurrentView],
+  );
+
+  const handleBatchAdvanceStatus = useCallback(
+    async (
+      event: React.MouseEvent,
+      clickedOrder: MyOrder,
+    ) => {
+      event.stopPropagation();
+
+      const action = getNextOrderWorkflowAction(clickedOrder);
+      if (!action) {
+        return;
+      }
+
+      const targetOrders = resolveBatchTargetOrders(
+        clickedOrder,
+        action.label,
+        (order) =>
+          getNextOrderWorkflowAction(order)?.nextStatus === action.nextStatus,
+      );
+      if (!targetOrders?.length) {
+        return;
+      }
+
+      const targetIds = targetOrders.map((order) => order.id);
+
+      try {
+        setAdvancingOrderIds(targetIds);
+        const settledResults = await Promise.allSettled(
+          targetOrders.map(async (order) => {
+            if (isBranchScopedView) {
+              await orderService.updateBranchOrderStatus(order.id, action.nextStatus);
+            } else {
+              await orderService.updateOrderStatus(order.id, action.nextStatus);
+            }
+
+            return order;
+          }),
+        );
+
+        const successfulOrders = settledResults.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : [],
+        );
+        const failedCount = settledResults.length - successfulOrders.length;
+
+        if (successfulOrders.length > 0) {
+          applyStatusUpdateToLocalOrders(
+            successfulOrders.map((order) => order.id),
+            action.nextStatus,
+          );
+
+          if (successfulOrders.length === 1 && targetOrders.length === 1) {
+            toast.success(
+              `Đơn hàng ${getOrderCode(successfulOrders[0])} đã được cập nhật trạng thái.`,
+            );
+          } else {
+            toast.success(
+              `Đã cập nhật trạng thái cho ${successfulOrders.length}/${targetOrders.length} đơn đã chọn.`,
+            );
+          }
+
+          await fetchOrders({ background: true });
+        }
+
+        if (failedCount > 0) {
+          toast.error(
+            `Còn ${failedCount} đơn chưa cập nhật trạng thái được. Vui lòng thử lại.`,
+          );
+        }
+      } catch {
+        toast.error("Không thể cập nhật trạng thái đơn hàng.");
+      } finally {
+        setAdvancingOrderIds([]);
+      }
+    },
+    [
+      applyStatusUpdateToLocalOrders,
+      fetchOrders,
+      isBranchScopedView,
+      resolveBatchTargetOrders,
+    ],
+  );
+
+  const toggleBatchSelectAll = useCallback(() => {
+    if (orders.length === 0) {
+      return;
+    }
+
+    if (!selectedStatusKey) {
+      const firstStatusKey = getOrderSelectionStatusKey(orders[0]);
+      const sameStatusOrderIds = orders
+        .filter((order) => getOrderSelectionStatusKey(order) === firstStatusKey)
+        .map((order) => order.id);
+
+      if (sameStatusOrderIds.length !== orders.length) {
+        toast.error(
+          "Danh sách đang có nhiều trạng thái. Vui lòng chọn một đơn trước, rồi chỉ chọn thêm các đơn cùng trạng thái.",
+        );
+        return;
+      }
+
+      setSelectedItems(sameStatusOrderIds);
+      return;
+    }
+
+    setSelectedItems((prev) =>
+      areAllSelectableOrdersSelected
+        ? prev.filter((id) => !selectableSameStatusOrderIdSet.has(id))
+        : selectableSameStatusOrderIds,
+    );
+  }, [
+    areAllSelectableOrdersSelected,
+    orders,
+    selectableSameStatusOrderIdSet,
+    selectableSameStatusOrderIds,
+    selectedStatusKey,
+  ]);
+
+  const toggleBatchSelectItem = useCallback(
+    (order: MyOrder) => {
+      const orderStatusKey = getOrderSelectionStatusKey(order);
+
+      if (
+        selectedStatusKey &&
+        orderStatusKey !== selectedStatusKey &&
+        !selectedOrderIdSet.has(order.id)
+      ) {
+        toast.error(
+          `Bạn đã chọn một đơn trạng thái ${selectedStatusLabel ?? selectedStatusKey} trước đó. Hãy chỉ chọn thêm các đơn cùng trạng thái này.`,
+        );
+        return;
+      }
+
+      setSelectedItems((prev) =>
+        prev.includes(order.id)
+          ? prev.filter((itemId) => itemId !== order.id)
+          : [...prev, order.id],
+      );
+    },
+    [selectedOrderIdSet, selectedStatusKey, selectedStatusLabel],
+  );
+
   const handleToggleRow = async (orderId: number) => {
     if (expandedId === orderId) {
       setExpandedId(null);
@@ -695,52 +1013,115 @@ export default function AdminOrderListPage({
 
   const handleRequestReplenishment = async (
     event: React.MouseEvent,
-    orderId: number,
-    orderCode: string,
+    clickedOrder: MyOrder,
   ) => {
     event.stopPropagation();
 
+    const clickedOrderActionState = getOrderActionState(clickedOrder);
+    if (
+      !clickedOrderActionState.allowReplenishment ||
+      clickedOrderActionState.hasExistingReplenishmentDocuments
+    ) {
+      return;
+    }
+
+    const targetOrders = resolveBatchTargetOrders(
+      clickedOrder,
+      "Xử lý thiếu hàng",
+      (order) => {
+        const actionState = getOrderActionState(order);
+
+        return (
+          actionState.allowReplenishment &&
+          !actionState.hasExistingReplenishmentDocuments
+        );
+      },
+    );
+    if (!targetOrders?.length) {
+      return;
+    }
+
+    const targetIds = targetOrders.map((order) => order.id);
+
     try {
-      setReplenishingOrderId(orderId);
-      const response = isBranchScopedView
-        ? await orderService.requestBranchOrderReplenishment(orderId)
-        : await orderService.requestAdminOrderReplenishment(orderId);
-      const responseDocuments = response.planItems ?? [];
-      const hasCreatedDocuments =
-        getReplenishmentDocumentLinks(responseDocuments).length > 0;
-      if (hasCreatedDocuments) {
+      setReplenishingOrderIds(targetIds);
+      const settledResults = await Promise.allSettled(
+        targetOrders.map(async (order) => {
+          const response = isBranchScopedView
+            ? await orderService.requestBranchOrderReplenishment(order.id)
+            : await orderService.requestAdminOrderReplenishment(order.id);
+
+          return { order, response };
+        }),
+      );
+
+      const successfulResults = settledResults.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      );
+      const failedCount = settledResults.length - successfulResults.length;
+
+      if (successfulResults.length > 0) {
+        const resultMap = new Map(
+          successfulResults.map(({ order, response }) => [
+            order.id,
+            response.planItems ?? [],
+          ]),
+        );
+
         setOrders((prev) =>
           prev.map((order) =>
-            order.id === orderId
+            resultMap.has(order.id)
               ? {
                   ...order,
                   replenishmentRequested: true,
-                  replenishmentDocuments: responseDocuments,
+                  replenishmentDocuments: resultMap.get(order.id) ?? [],
                 }
               : order,
           ),
         );
         setDetailCache((prev) => {
-          const detail = prev[orderId];
-          return detail
-            ? {
-                ...prev,
-                [orderId]: {
-                  ...detail,
-                  replenishmentRequested: true,
-                  replenishmentDocuments: responseDocuments,
-                },
-              }
-            : prev;
+          const next = { ...prev };
+
+          for (const { order, response } of successfulResults) {
+            const detail = next[order.id];
+            if (detail) {
+              next[order.id] = {
+                ...detail,
+                replenishmentRequested: true,
+                replenishmentDocuments: response.planItems ?? [],
+              };
+            }
+          }
+
+          return next;
         });
-        await openOrderDetailRow(orderId);
+        setSelectedItems((prev) =>
+          prev.filter(
+            (id) => !successfulResults.some(({ order }) => order.id === id),
+          ),
+        );
+
+        if (successfulResults.length === 1 && targetOrders.length === 1) {
+          const [{ order, response }] = successfulResults;
+          toast.success(getReplenishmentResultMessage(getOrderCode(order), response));
+        } else {
+          toast.success(
+            `Đã xử lý thiếu hàng cho ${successfulResults.length}/${targetOrders.length} đơn đã chọn.`,
+          );
+        }
+
+        await fetchOrders({ background: true });
       }
-      toast.success(getReplenishmentResultMessage(orderCode, response));
-      await fetchOrders({ background: true });
+
+      if (failedCount > 0) {
+        toast.error(
+          `Còn ${failedCount} đơn chưa xử lý thiếu hàng được. Vui lòng thử lại cho các đơn này.`,
+        );
+      }
     } catch (error) {
       toast.error(getFriendlyError(error));
     } finally {
-      setReplenishingOrderId(null);
+      setReplenishingOrderIds([]);
     }
   };
 
@@ -1134,6 +1515,15 @@ export default function AdminOrderListPage({
         </div>
       ) : null}
 
+      {!useCompactIncompleteTable && selectedStatusKey ? (
+        <div className={ORDER_LIST_NOTE_CLASS}>
+          Đang chọn {selectedItems.length} đơn trạng thái {selectedStatusLabel}. Các
+          dòng cùng trạng thái đang được tô xanh nhẹ để bạn chọn nhanh hơn. Nhấp
+          một nút thao tác ở bất kỳ dòng cùng trạng thái để áp dụng cho nhóm đã
+          chọn.
+        </div>
+      ) : null}
+
       <div className={ORDER_LIST_SHELL_CLASS}>
         <div className="w-full overflow-x-auto">
           <Table className="min-w-max [&_th]:whitespace-nowrap">
@@ -1175,10 +1565,15 @@ export default function AdminOrderListPage({
                   <Checkbox
                     className="border-slate-300 data-[state=checked]:bg-blue-600"
                     checked={
-                      orders.length > 0 &&
-                      selectedItems.length === orders.length
+                      selectedStatusKey
+                        ? areAllSelectableOrdersSelected
+                          ? true
+                          : selectedItems.length > 0
+                            ? "indeterminate"
+                            : false
+                        : false
                     }
-                    onCheckedChange={() => toggleSelectAll()}
+                    onCheckedChange={() => toggleBatchSelectAll()}
                   />
                 </TableHead>
                 <TableHead className="text-[12px] font-bold text-slate-800">
@@ -1258,13 +1653,21 @@ export default function AdminOrderListPage({
                   const allowReplenishment =
                     hasPermission(P.ORDER_UPDATE) &&
                     canRequestReplenishmentAction(orderDetail);
+                  const isSelected = selectedOrderIdSet.has(orderId);
+                  const isBatchSelectionMatch =
+                    Boolean(selectedStatusKey) &&
+                    getOrderSelectionStatusKey(orderDetail) === selectedStatusKey &&
+                    !isSelected;
+                  const isAdvancing = advancingOrderIds.includes(orderId);
+                  const isReplenishing = replenishingOrderIds.includes(orderId);
 
                   return (
                     <React.Fragment key={orderId}>
                       <TableRow
                         className={cn(
                           ORDER_LIST_ROW_CLASS,
-                          selectedItems.includes(orderId) && ORDER_LIST_ROW_SELECTED_CLASS,
+                          isSelected && ORDER_LIST_ROW_SELECTED_CLASS,
+                          isBatchSelectionMatch && ORDER_LIST_ROW_BATCH_MATCH_CLASS,
                           isExpanded && ORDER_LIST_ROW_ACTIVE_CLASS,
                         )}
                         onClick={() => void handleToggleRow(orderId)}
@@ -1324,8 +1727,8 @@ export default function AdminOrderListPage({
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <Checkbox
                             className="border-slate-300 data-[state=checked]:bg-blue-600"
-                            checked={selectedItems.includes(orderId)}
-                            onCheckedChange={() => toggleSelectItem(orderId)}
+                            checked={isSelected}
+                            onCheckedChange={() => toggleBatchSelectItem(orderDetail)}
                           />
                         </TableCell>
                         <TableCell>
@@ -1380,10 +1783,12 @@ export default function AdminOrderListPage({
                                   ORDER_LIST_PRIMARY_ACTION_CLASS,
                                   "w-[132px] justify-center",
                                 )}
-                                disabled={advancingOrderId === orderId}
-                                onClick={(event) => void handleAdvanceStatus(event, orderDetail)}
+                                disabled={isAdvancing}
+                                onClick={(event) =>
+                                  void handleBatchAdvanceStatus(event, orderDetail)
+                                }
                               >
-                                {advancingOrderId === orderId ? (
+                                {isAdvancing ? (
                                   <>
                                     <Loader2 size={14} className="mr-1.5 animate-spin" />
                                     Đang cập nhật
@@ -1399,7 +1804,7 @@ export default function AdminOrderListPage({
                                   ORDER_LIST_SECONDARY_ACTION_CLASS,
                                   "w-[168px] justify-center",
                                 )}
-                                disabled={replenishingOrderId === orderId}
+                                disabled={isReplenishing}
                                 onClick={(event) =>
                                   hasReplenishmentDocuments
                                     ? void handleOpenReplenishmentDocuments(
@@ -1408,8 +1813,7 @@ export default function AdminOrderListPage({
                                       )
                                     : void handleRequestReplenishment(
                                         event,
-                                        orderId,
-                                        orderCode,
+                                        orderDetail,
                                       )
                                 }
                               >

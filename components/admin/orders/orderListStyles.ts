@@ -10,6 +10,9 @@ export const ORDER_LIST_ROW_SELECTED_CLASS = "bg-blue-50/20";
 
 export const ORDER_LIST_ROW_ACTIVE_CLASS = "bg-blue-50/40";
 
+export const ORDER_LIST_ROW_BATCH_MATCH_CLASS =
+  "relative -translate-y-px bg-blue-50/55 shadow-[0_6px_16px_rgba(59,130,246,0.08),inset_0_0_0_1px_rgba(96,165,250,0.3)]";
+
 export const ORDER_LIST_EXPANDED_ROW_CLASS = "bg-blue-50/15 hover:bg-blue-50/15";
 
 export const ORDER_LIST_PANEL_CLASS =
