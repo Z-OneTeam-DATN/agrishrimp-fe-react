@@ -147,7 +147,7 @@ export default function ProfilePage() {
         };
 
         orders.forEach((order) => {
-          const stage = getUserOrderStage(order.status);
+          const stage = getUserOrderStage(order);
           counts[stage] += 1;
         });
 

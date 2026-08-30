@@ -22,7 +22,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
-import { canCustomerConfirmReceivedAction } from "./order-status-utils";
+import {
+  canCustomerConfirmReceivedAction,
+  getUserOrderStage,
+  UserOrderStage,
+} from "./order-status-utils";
 import { CancelOrderModal } from "./CancelOrderModal";
 
 interface OrderCardProps {
@@ -65,37 +69,19 @@ const getPaymentLabel = (status: OrderPaymentStatus | string) => {
   }
 };
 
-const getStatusConfig = (status: OrderStatus) => {
-  switch (status) {
-    case "PENDING_PAYMENT":
-      return {
-        label: "Chờ thanh toán",
-        className: "text-[#1965a2]",
-        icon: <CreditCard size={14} className="mr-1" />,
-      };
-    case "PENDING_AUTO_APPROVAL":
+const getStatusConfig = (stage: UserOrderStage) => {
+  switch (stage) {
     case "PENDING":
       return {
         label: "Chờ xác nhận",
         className: "text-[#1965a2]",
         icon: <Clock size={14} className="mr-1" />,
       };
-    case "PENDING_SHORTAGE_REVIEW":
-    case "PENDING_TRANSFER":
-    case "AWAITING_REPLENISHMENT":
-    case "CONFIRMED":
-    case "PROCESSING":
     case "READY_FOR_PICKUP":
       return {
         label: "Chờ lấy hàng",
         className: "text-[#1965a2]",
         icon: <Package size={14} className="mr-1" />,
-      };
-    case "AWAITING_PAYMENT":
-      return {
-        label: "Chờ thanh toán",
-        className: "text-[#1965a2]",
-        icon: <CreditCard size={14} className="mr-1" />,
       };
     case "SHIPPING":
       return {
@@ -103,23 +89,11 @@ const getStatusConfig = (status: OrderStatus) => {
         className: "text-[#1965a2]",
         icon: <Truck size={14} className="mr-1" />,
       };
-    case "RECEIVED":
-      return {
-        label: "Đã nhận hàng",
-        className: "text-[#1965a2]",
-        icon: <CheckCircle2 size={14} className="mr-1" />,
-      };
     case "COMPLETED":
       return {
         label: "Đã giao",
         className: "text-[#1965a2]",
         icon: <CheckCircle2 size={14} className="mr-1" />,
-      };
-    case "CANCELLED":
-      return {
-        label: "Đã hủy",
-        className: "text-red-500",
-        icon: <XCircle size={14} className="mr-1" />,
       };
     case "RETURNED":
       return {
@@ -127,9 +101,15 @@ const getStatusConfig = (status: OrderStatus) => {
         className: "text-[#1965a2]",
         icon: <RotateCcw size={14} className="mr-1" />,
       };
+    case "CANCELLED":
+      return {
+        label: "Đã hủy",
+        className: "text-red-500",
+        icon: <XCircle size={14} className="mr-1" />,
+      };
     default:
       return {
-        label: status,
+        label: stage,
         className: "text-gray-500",
         icon: null,
       };
@@ -162,8 +142,12 @@ export function OrderCard({
     return totalPrice > 0 && quantity > 0 ? totalPrice / quantity : 0;
   };
 
-  const statusConfig = getStatusConfig(order.status);
+  const customerStage = getUserOrderStage(order);
+  const statusConfig = getStatusConfig(customerStage);
   const canConfirmReceived = canCustomerConfirmReceivedAction(order);
+  const isDeliveredForCustomer = customerStage === "COMPLETED";
+  const hasVisibleReturnRequest =
+    hasReturnRequest || Boolean(order.hasReturnRequest);
 
   const btnMainClass =
     "h-8 rounded-none border border-[#1965a2] bg-[#1965a2] px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#145486]";
@@ -272,7 +256,7 @@ export function OrderCard({
                 {formatCurrency(resolveItemDisplayPrice(item))}
               </div>
 
-              {order.status === "COMPLETED" && item.productId ? (
+              {isDeliveredForCustomer && item.productId ? (
                 item.canReview === false ? (
                   <Button
                     disabled
@@ -379,9 +363,9 @@ export function OrderCard({
             <Button className={btnMainClass}>Chi tiết</Button>
           </Link>
 
-          {order.status === "COMPLETED" ? (
+          {isDeliveredForCustomer ? (
             <>
-              {!hasReturnRequest ? (
+              {!hasVisibleReturnRequest ? (
                 <Link href={`/orders/return/request/${order.id}`}>
                   <Button
                     variant="outline"

@@ -155,22 +155,17 @@ export default function ReturnRequestPage({
         setLoading(true);
         setError(null);
 
-        const [draftResponse, requests] = await Promise.all([
-          returnService.getReturnDraft(id),
-          returnService.getMyReturnRequests(),
-        ]);
-
+        const draftResponse = await returnService.getReturnDraft(id);
         if (!active) {
           return;
         }
 
-        const existingRequest = requests.find(
-          (request) => String(request.orderId) === String(id),
-        );
-
-        if (existingRequest) {
+        if (draftResponse.canCreateRequest === false) {
           toast.info(
-            `Đơn hàng ${existingRequest.orderCode} đã có phiếu ${existingRequest.code}.`,
+            repairVietnameseText(
+              draftResponse.message ||
+                `Đơn hàng ${draftResponse.orderCode} đã có phiếu ${draftResponse.existingRequestCode ?? ""}.`,
+            ).trim(),
           );
           router.replace("/orders/list?status=RETURNED");
           return;
@@ -189,7 +184,10 @@ export default function ReturnRequestPage({
           ),
         );
       } finally {
-        setUploadingType(null);
+        if (active) {
+          setLoading(false);
+          setUploadingType(null);
+        }
       }
     };
 
@@ -199,23 +197,6 @@ export default function ReturnRequestPage({
       active = false;
     };
   }, [id, router]);
-
-  const removeEvidence = (item: UploadEvidenceItem) => {
-    if (item.previewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(item.previewUrl);
-    }
-
-    if (item.mediaType === "IMAGE") {
-      setImageEvidences((current) =>
-        current.filter((evidence) => evidence.id !== item.id),
-      );
-      return;
-    }
-
-    setVideoEvidences((current) =>
-      current.filter((evidence) => evidence.id !== item.id),
-    );
-  };
 
   useEffect(() => {
     if (!user) {
@@ -399,6 +380,24 @@ export default function ReturnRequestPage({
     0,
   );
   const handlingOptionLocked = form.issueType === "MISSING_ITEM";
+  const activeBranchId = selectedDraftItems[0]?.branchId ?? null;
+
+  const removeEvidence = (item: UploadEvidenceItem) => {
+    if (item.previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(item.previewUrl);
+    }
+
+    if (item.mediaType === "IMAGE") {
+      setImageEvidences((current) =>
+        current.filter((evidence) => evidence.id !== item.id),
+      );
+      return;
+    }
+
+    setVideoEvidences((current) =>
+      current.filter((evidence) => evidence.id !== item.id),
+    );
+  };
 
   const handleToggleItem = (item: ReturnDraftItem, checked: boolean) => {
     const itemKey = getDraftItemKey(item);
@@ -631,7 +630,11 @@ export default function ReturnRequestPage({
                   Tạo yêu cầu trả hàng
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  Đơn hàng <span className="font-semibold text-[#12385b]">{draft.orderCode}</span> sẽ được tiếp nhận và xử lý theo yêu cầu bạn gửi.
+                  Đơn hàng{" "}
+                  <span className="font-semibold text-[#12385b]">
+                    {draft.orderCode}
+                  </span>{" "}
+                  sẽ được tiếp nhận và xử lý theo yêu cầu bạn gửi.
                 </p>
               </div>
             </div>
@@ -667,13 +670,16 @@ export default function ReturnRequestPage({
 
         {!draft.singleBranchOnly ? (
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
-            Đơn hàng này có nhiều sản phẩm cần tách thành các yêu cầu riêng. Vui lòng chọn các sản phẩm tương thích để gửi trong cùng một yêu cầu.
+            Các sản phẩm đã chọn hiện chưa thể gửi chung trong một yêu cầu. Vui lòng
+            tách thành các yêu cầu riêng nếu cần.
           </div>
         ) : null}
 
         {form.issueType === "MISSING_ITEM" ? (
           <div className="border border-[#d8e6f5] bg-[#f8fbff] px-4 py-3 text-sm text-slate-600">
-            Trường hợp thiếu hàng sẽ được xử lý theo phương án chỉ hoàn tiền trực tiếp. Bạn không cần gửi lại hàng vật lý nhưng vẫn bắt buộc có hình ảnh và video mô tả lỗi của đơn hàng.
+            Trường hợp thiếu hàng sẽ được xử lý theo phương án chỉ hoàn tiền trực
+            tiếp. Bạn không cần gửi lại hàng vật lý nhưng vẫn bắt buộc có hình ảnh và
+            video mô tả lỗi của đơn hàng.
           </div>
         ) : null}
 
@@ -691,11 +697,9 @@ export default function ReturnRequestPage({
                 {draft.items.map((item) => {
                   const itemKey = getDraftItemKey(item);
                   const isSelected = Boolean(selectedItems[itemKey]);
-                  const activeBranchId = selectedDraftItems[0]?.branchId;
                   const disabledByBranch =
                     !isSelected &&
                     activeBranchId !== null &&
-                    activeBranchId !== undefined &&
                     item.branchId !== null &&
                     item.branchId !== activeBranchId;
 
@@ -731,7 +735,9 @@ export default function ReturnRequestPage({
                                 {item.productName}
                               </h3>
                               <p className="mt-1 text-sm text-slate-500">
-                                {item.variantName || item.sku || "Sản phẩm thuộc đơn hàng"}
+                                {item.variantName ||
+                                  item.sku ||
+                                  "Sản phẩm thuộc đơn hàng"}
                               </p>
                             </div>
 
@@ -786,7 +792,8 @@ export default function ReturnRequestPage({
                   2. Thông tin hoàn tiền
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Cập nhật thông tin liên hệ và tài khoản nhận hoàn tiền để chúng tôi đối soát yêu cầu nhanh hơn.
+                  Cập nhật thông tin liên hệ và tài khoản nhận hoàn tiền để chúng tôi
+                  đối soát yêu cầu nhanh hơn.
                 </p>
               </div>
 
@@ -1001,7 +1008,8 @@ export default function ReturnRequestPage({
                   3. Lý do và mô tả lỗi
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Mô tả rõ tình trạng lỗi, thiếu hàng hoặc giao sai để yêu cầu được xác minh nhanh hơn.
+                  Mô tả rõ tình trạng lỗi, thiếu hàng hoặc giao sai để yêu cầu được xác
+                  minh nhanh hơn.
                 </p>
               </div>
 
@@ -1077,8 +1085,8 @@ export default function ReturnRequestPage({
                   4. Hình ảnh và video bằng chứng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để yêu cầu được xác minh nhanh hơn.
-
+                  Bắt buộc có ít nhất 1 hình ảnh và 1 video lỗi để yêu cầu được xác
+                  minh nhanh hơn.
                 </p>
               </div>
 
@@ -1292,8 +1300,8 @@ export default function ReturnRequestPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận gửi yêu cầu trả hàng</AlertDialogTitle>
             <AlertDialogDescription>
-              Yêu cầu sẽ được tiếp nhận để xử lý. Hãy chắc rằng thông tin liên hệ, phương thức hoàn tiền, lý do và bằng chứng đều đã đầy đủ.
-
+              Yêu cầu sẽ được tiếp nhận để xử lý. Hãy chắc rằng thông tin liên
+              hệ, phương thức hoàn tiền, lý do và bằng chứng đều đã đầy đủ.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -1319,18 +1327,18 @@ export default function ReturnRequestPage({
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting} className="rounded-none">
-              Hủy
+            <AlertDialogCancel className="rounded-none">
+              Kiểm tra lại
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
                 void handleSubmit();
               }}
-              className="rounded-none bg-[#1965a2] text-white hover:bg-[#145486]"
+              className="rounded-none bg-[#1965a2] hover:bg-[#145486]"
               disabled={submitting}
             >
-              {submitting ? "Đang gửi..." : "Đồng ý gửi yêu cầu"}
+              {submitting ? "Đang gửi..." : "Xác nhận gửi"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
