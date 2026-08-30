@@ -117,7 +117,12 @@ export function UserReturnRequestAccordionList({
                   <span className="text-base font-semibold text-[#12385b]">
                     {request.code}
                   </span>
-                  <span className="border border-[#d8e6f5] bg-[#f5f9ff] px-2 py-1 text-xs font-semibold text-[#1965a2]">
+                  <span
+                    className={cn(
+                      "border px-2 py-1 text-xs font-semibold",
+                      statusMeta.className,
+                    )}
+                  >
                     {statusMeta.label}
                   </span>
                   {!request.requiresPhysicalReturn ? (

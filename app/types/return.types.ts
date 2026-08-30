@@ -46,6 +46,9 @@ export interface ReturnOrderDraft {
   customerName: string | null;
   customerPhone: string | null;
   singleBranchOnly: boolean | null;
+  canCreateRequest?: boolean | null;
+  existingRequestId?: number | null;
+  existingRequestCode?: string | null;
   message: string | null;
   items: ReturnDraftItem[];
 }

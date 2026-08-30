@@ -72,30 +72,42 @@ export default function OrderingPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchData = useCallback(async () => {
+  const fetchOrders = useCallback(async () => {
+    const orderData = await orderService.getMyOrders("ALL");
+    setOrders(orderData);
+  }, []);
+
+  const fetchReturnRequests = useCallback(async () => {
+    const returnData = await returnService.getMyReturnRequests();
+    setReturnRequests(returnData);
+  }, []);
+
+  const fetchActiveData = useCallback(async () => {
     setIsLoading(true);
     setIsError(false);
 
     try {
-      const [orderData, returnData] = await Promise.all([
-        orderService.getMyOrders("ALL"),
-        returnService.getMyReturnRequests(),
-      ]);
-
-      setOrders(orderData);
-      setReturnRequests(returnData);
+      if (isReturnTab) {
+        await fetchReturnRequests();
+      } else {
+        await fetchOrders();
+      }
     } catch (error) {
       console.error("Error fetching user order data:", error);
       setIsError(true);
-      toast.error("Không thể tải dữ liệu đơn hàng lúc này.");
+      toast.error(
+        isReturnTab
+          ? "Không thể tải danh sách phiếu trả hàng lúc này."
+          : "Không thể tải dữ liệu đơn hàng lúc này.",
+      );
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchOrders, fetchReturnRequests, isReturnTab]);
 
   useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+    void fetchActiveData();
+  }, [fetchActiveData]);
 
   const handleOrderUpdated = useCallback((updatedOrder: MyOrder) => {
     setOrders((current) =>
@@ -105,15 +117,10 @@ export default function OrderingPage() {
 
   const normalizedKeyword = searchKeyword.trim().toLowerCase();
 
-  const ordersWithReturnRequest = useMemo(
-    () => new Set(returnRequests.map((request) => request.orderId)),
-    [returnRequests],
-  );
-
   const visibleOrders = useMemo(
     () =>
       orders.filter((order) => {
-        if (isReturnTab || !matchesUserOrderFilter(order.status, statusFilter)) {
+        if (isReturnTab || !matchesUserOrderFilter(order, statusFilter)) {
           return false;
         }
 
@@ -190,7 +197,7 @@ export default function OrderingPage() {
     ? "Không tìm thấy phiếu trả hàng phù hợp"
     : "Chưa có yêu cầu trả hàng";
   const emptyReturnDescription = normalizedKeyword
-    ? "Thử tìm theo mã phiếu, mã đơn, chi nhánh hoặc tên sản phẩm trả."
+    ? "Thử tìm theo mã phiếu, mã đơn hoặc tên sản phẩm trả."
     : "Khi bạn gửi yêu cầu từ đơn đã giao, phiếu xử lý sẽ hiển thị trong tab này.";
 
   return (
@@ -205,7 +212,7 @@ export default function OrderingPage() {
             onChange={(event) => setSearchKeyword(event.target.value)}
             placeholder={
               isReturnTab
-                ? "Tìm mã phiếu, mã đơn, chi nhánh hoặc tên sản phẩm trả"
+                ? "Tìm mã phiếu, mã đơn hoặc tên sản phẩm trả"
                 : "Bạn có thể tìm kiếm theo tên shop, mã đơn hoặc tên sản phẩm"
             }
             className="w-full bg-transparent text-[15px] text-gray-700 outline-none placeholder:text-gray-400 sm:text-base"
@@ -227,7 +234,7 @@ export default function OrderingPage() {
           <div className="border border-gray-100 bg-white py-20 text-center text-red-500">
             <p className="mb-4">Có lỗi xảy ra khi tải dữ liệu.</p>
             <button
-              onClick={() => void fetchData()}
+              onClick={() => void fetchActiveData()}
               className="rounded-md bg-[#1965a2] px-4 py-2 text-white hover:bg-[#145486]"
             >
               Thử lại
@@ -317,8 +324,8 @@ export default function OrderingPage() {
               <OrderCard
                 key={order.id}
                 order={order}
-                hasReturnRequest={ordersWithReturnRequest.has(order.id)}
-                onOrderCancelled={fetchData}
+                hasReturnRequest={Boolean(order.hasReturnRequest)}
+                onOrderCancelled={() => void fetchActiveData()}
                 onOrderUpdated={handleOrderUpdated}
               />
             ))}

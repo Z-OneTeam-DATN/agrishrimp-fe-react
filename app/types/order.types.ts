@@ -277,6 +277,7 @@ export interface MyOrder {
   autoApprovalPaused?: boolean | null
   statusUpdatedAt?: string | null
   canConfirmReceived?: boolean | null
+  hasReturnRequest?: boolean | null
   createdAt: string
   note?: string | null
   cancelReasonCode?: OrderCancelReasonCode | null

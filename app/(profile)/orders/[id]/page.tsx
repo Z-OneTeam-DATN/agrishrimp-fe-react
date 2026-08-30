@@ -26,7 +26,10 @@ import {
   OrderStatus,
 } from "@/app/types/order.types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { canCustomerConfirmReceivedAction } from "@/components/orders/order-status-utils";
+import {
+  canCustomerConfirmReceivedAction,
+  getUserOrderStage,
+} from "@/components/orders/order-status-utils";
 import { formatDate } from "@/lib/dateUtils";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
@@ -64,16 +67,26 @@ const getPaymentBadgeLabel = (status: OrderPaymentStatus | string) => {
   }
 };
 
-const getCustomerFacingStatus = (status: OrderStatus): OrderStatus => {
-  switch (status) {
-    case "PENDING_AUTO_APPROVAL":
-    case "PENDING_SHORTAGE_REVIEW":
+const getCustomerFacingStatus = (order: MyOrder | null): OrderStatus => {
+  if (!order) {
+    return "PENDING";
+  }
+
+  switch (getUserOrderStage(order)) {
+    case "PENDING":
       return "PENDING";
-    case "PENDING_TRANSFER":
-    case "AWAITING_REPLENISHMENT":
+    case "READY_FOR_PICKUP":
       return "PROCESSING";
+    case "SHIPPING":
+      return "SHIPPING";
+    case "COMPLETED":
+      return "COMPLETED";
+    case "RETURNED":
+      return "RETURNED";
+    case "CANCELLED":
+      return "CANCELLED";
     default:
-      return status;
+      return order.status;
   }
 };
 
@@ -282,10 +295,12 @@ export default function OrderDetailPage({
     }
   };
 
-  const displayStatus = getCustomerFacingStatus(order?.status ?? "PENDING");
+  const customerStage = order ? getUserOrderStage(order) : "PENDING";
+  const displayStatus = getCustomerFacingStatus(order);
   const canConfirmReceived = order
     ? canCustomerConfirmReceivedAction(order)
     : false;
+  const isDeliveredForCustomer = customerStage === "COMPLETED";
   const cfg = statusConfig[displayStatus];
   const activeStep = getActiveStep(displayStatus);
   const showStepper = displayStatus !== "CANCELLED" && displayStatus !== "RETURNED";
@@ -458,7 +473,7 @@ export default function OrderDetailPage({
                     <p className="line-clamp-2 text-sm font-medium leading-snug text-gray-900">
                       {item.productName}
                     </p>
-                    {order.status === "COMPLETED" && item.productId ? (
+                    {isDeliveredForCustomer && item.productId ? (
                       item.canReview === false ? (
                         <span className="cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                           Đã đánh giá

@@ -1,4 +1,4 @@
-import { MyOrder, OrderStatus } from "@/app/types/order.types";
+import { MyOrder } from "@/app/types/order.types";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 
 const CUSTOMER_CONFIRM_RECEIVED_WINDOW_HOURS = 72;
@@ -13,17 +13,51 @@ export type UserOrderStage =
 
 export type UserOrderFilter = "ALL" | UserOrderStage;
 
-export const USER_ORDER_TABS: Array<{ label: string; value: UserOrderFilter }> = [
-  { label: "Tất cả", value: "ALL" },
-  { label: "Chờ xác nhận", value: "PENDING" },
-  { label: "Chờ lấy hàng", value: "READY_FOR_PICKUP" },
-  { label: "Chờ giao hàng", value: "SHIPPING" },
-  { label: "Đã giao", value: "COMPLETED" },
-  { label: "Trả hàng", value: "RETURNED" },
-  { label: "Đã hủy", value: "CANCELLED" },
-];
+type CustomerOrderStageSource = Pick<
+  MyOrder,
+  "status" | "statusUpdatedAt" | "canConfirmReceived"
+>;
 
-export function getUserOrderStage(status: OrderStatus): UserOrderStage {
+export const USER_ORDER_TABS: Array<{ label: string; value: UserOrderFilter }> =
+  [
+    { label: "Tất cả", value: "ALL" },
+    { label: "Chờ xác nhận", value: "PENDING" },
+    { label: "Chờ lấy hàng", value: "READY_FOR_PICKUP" },
+    { label: "Chờ giao hàng", value: "SHIPPING" },
+    { label: "Đã giao", value: "COMPLETED" },
+    { label: "Trả hàng", value: "RETURNED" },
+    { label: "Đã hủy", value: "CANCELLED" },
+  ];
+
+export function canCustomerConfirmReceivedAction(
+  order: CustomerOrderStageSource,
+): boolean {
+  if (typeof order.canConfirmReceived === "boolean") {
+    return order.canConfirmReceived;
+  }
+
+  if (order.status !== "SHIPPING" && order.status !== "COMPLETED") {
+    return false;
+  }
+
+  if (!order.statusUpdatedAt) {
+    return true;
+  }
+
+  const statusUpdatedAt = parseLocalDateTime(order.statusUpdatedAt);
+  if (Number.isNaN(statusUpdatedAt.getTime())) {
+    return true;
+  }
+
+  return (
+    Date.now() - statusUpdatedAt.getTime() <=
+    CUSTOMER_CONFIRM_RECEIVED_WINDOW_HOURS * 60 * 60 * 1000
+  );
+}
+
+export function getUserOrderStage(order: CustomerOrderStageSource): UserOrderStage {
+  const { status } = order;
+
   if (
     status === "PENDING_PAYMENT" ||
     status === "PENDING_AUTO_APPROVAL" ||
@@ -48,7 +82,13 @@ export function getUserOrderStage(status: OrderStatus): UserOrderStage {
     return "SHIPPING";
   }
 
-  if (status === "RECEIVED" || status === "COMPLETED") {
+  if (status === "COMPLETED") {
+    return canCustomerConfirmReceivedAction(order)
+      ? "SHIPPING"
+      : "COMPLETED";
+  }
+
+  if (status === "RECEIVED") {
     return "COMPLETED";
   }
 
@@ -60,14 +100,14 @@ export function getUserOrderStage(status: OrderStatus): UserOrderStage {
 }
 
 export function matchesUserOrderFilter(
-  status: OrderStatus,
+  order: CustomerOrderStageSource,
   filter: UserOrderFilter,
 ): boolean {
   if (filter === "ALL") {
     return true;
   }
 
-  return getUserOrderStage(status) === filter;
+  return getUserOrderStage(order) === filter;
 }
 
 export function normalizeUserOrderFilter(
@@ -116,28 +156,6 @@ export function normalizeUserOrderFilter(
   return "ALL";
 }
 
-export function canCustomerConfirmReceivedAction(
-  order: Pick<MyOrder, "status" | "statusUpdatedAt" | "canConfirmReceived">,
-): boolean {
-  if (typeof order.canConfirmReceived === "boolean") {
-    return order.canConfirmReceived;
-  }
-
-  if (order.status !== "SHIPPING") {
-    return false;
-  }
-
-  if (!order.statusUpdatedAt) {
-    return true;
-  }
-
-  const statusUpdatedAt = parseLocalDateTime(order.statusUpdatedAt);
-  if (Number.isNaN(statusUpdatedAt.getTime())) {
-    return true;
-  }
-
-  return (
-    Date.now() - statusUpdatedAt.getTime() <=
-    CUSTOMER_CONFIRM_RECEIVED_WINDOW_HOURS * 60 * 60 * 1000
-  );
+export function isCustomerOrderDelivered(order: CustomerOrderStageSource) {
+  return getUserOrderStage(order) === "COMPLETED";
 }

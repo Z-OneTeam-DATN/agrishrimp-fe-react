@@ -50,7 +50,7 @@ export const RETURN_HANDLING_OPTIONS: Array<{
     label: "Trả hàng và hoàn tiền cho khách",
     value: "RETURN_AND_REFUND",
     description:
-      "Khách gửi lại hàng và nhận hoàn tiền sau khi điểm xử lý xác nhận.",
+      "Khách gửi lại hàng và nhận hoàn tiền sau khi yêu cầu được tiếp nhận xử lý.",
   },
 ];
 
