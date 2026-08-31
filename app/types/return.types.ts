@@ -98,6 +98,8 @@ export interface ReturnRequestItem {
   orderedQuantity: number;
   unitPrice: number;
   refundAmount: number;
+  restockQuantity: number;
+  defectiveQuantity: number;
 }
 
 export interface ReturnRequestEvidence {
@@ -132,6 +134,8 @@ export interface ReturnRequest {
   rejectReason?: string | null;
   internalNote?: string | null;
   totalRefundAmount: number;
+  receivedInventoryNoteId?: number | null;
+  receivedInventoryNoteCode?: string | null;
   createdAt: string;
   approvedAt?: string | null;
   rejectedAt?: string | null;
@@ -150,8 +154,16 @@ export interface ReturnRequestRejectPayload {
   internalNote?: string;
 }
 
+export interface ReturnRequestReceiveItemPayload {
+  returnRequestItemId: number;
+  restockQuantity: number;
+  defectiveQuantity: number;
+  itemNote?: string | null;
+}
+
 export interface ReturnRequestReceivePayload {
   internalNote?: string;
+  items: ReturnRequestReceiveItemPayload[];
 }
 
 export interface ReturnRequestRefundPayload {

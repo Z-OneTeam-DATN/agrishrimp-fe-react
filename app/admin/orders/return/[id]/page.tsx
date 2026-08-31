@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { returnService } from "@/app/services/return.service";
 import {
+  ReturnRequestReceiveItemPayload,
   ReturnRefundMethod,
   ReturnRequest,
 } from "@/app/types/return.types";
@@ -54,6 +55,12 @@ type FetchDetailOptions = {
   background?: boolean;
   showError?: boolean;
 };
+type ReceiveItemFormState = {
+  returnRequestItemId: number;
+  restockQuantity: string;
+  defectiveQuantity: string;
+  itemNote: string;
+};
 
 function extractErrorMessage(error: any, fallback: string) {
   return (
@@ -62,6 +69,29 @@ function extractErrorMessage(error: any, fallback: string) {
     error?.message ||
     fallback
   );
+}
+
+function buildReceiveItemFormState(
+  request: ReturnRequest,
+): ReceiveItemFormState[] {
+  return request.items.map((item) => {
+    const restockQuantity = Number(item.restockQuantity || 0);
+    const defectiveQuantity = Number(item.defectiveQuantity || 0);
+    const hasPersistedBreakdown =
+      restockQuantity + defectiveQuantity === Number(item.quantity) &&
+      Number(item.quantity) > 0;
+
+    return {
+      returnRequestItemId: item.id,
+      restockQuantity: String(
+        hasPersistedBreakdown ? restockQuantity : Number(item.quantity),
+      ),
+      defectiveQuantity: String(
+        hasPersistedBreakdown ? defectiveQuantity : 0,
+      ),
+      itemNote: "",
+    };
+  });
 }
 
 const MONO_STATUS_BADGE_CLASS =
@@ -91,7 +121,9 @@ export default function ReturnOrderDetailPage({
     rejectReason: "",
     refundAmount: "",
     refundMethod: BANK_TRANSFER_REFUND_METHOD,
+    receiveItems: [] as ReceiveItemFormState[],
   });
+  const [receiveItemErrors, setReceiveItemErrors] = useState<Record<number, string>>({});
 
   const fetchDetail = useCallback(
     async ({ background = false, showError = false }: FetchDetailOptions = {}) => {
@@ -107,13 +139,6 @@ export default function ReturnOrderDetailPage({
 
         setRequest(data);
         setError(null);
-        setForm((prev) => ({
-          ...prev,
-          refundAmount:
-            prev.refundAmount ||
-            String(Math.round(Number(data.totalRefundAmount ?? 0))),
-          refundMethod: data.refundMethod ?? BANK_TRANSFER_REFUND_METHOD,
-        }));
       } catch (err: any) {
         const message = extractErrorMessage(
           err,
@@ -137,10 +162,30 @@ export default function ReturnOrderDetailPage({
   );
 
   useEffect(() => {
+    if (!request || actionOpen !== null || submitting) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      refundAmount:
+        prev.refundAmount ||
+        String(Math.round(Number(request.totalRefundAmount ?? 0))),
+      refundMethod: request.refundMethod ?? BANK_TRANSFER_REFUND_METHOD,
+      receiveItems: buildReceiveItemFormState(request),
+    }));
+    setReceiveItemErrors({});
+  }, [actionOpen, request, submitting]);
+
+  useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
 
   useEffect(() => {
+    if (actionOpen !== null || submitting) {
+      return;
+    }
+
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") {
         void fetchDetail({ background: true });
@@ -167,7 +212,7 @@ export default function ReturnOrderDetailPage({
       window.removeEventListener("pageshow", refreshNow);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [fetchDetail]);
+  }, [actionOpen, fetchDetail, submitting]);
 
   const statusMeta = useMemo(
     () => (request ? getReturnStatusMeta(request.status) : null),
@@ -187,6 +232,99 @@ export default function ReturnOrderDetailPage({
     !!request &&
     ((request.status === "APPROVED" && !request.requiresPhysicalReturn) ||
       request.status === "RECEIVED");
+  const receiveSummary = useMemo(() => {
+    if (!request) {
+      return { restock: 0, defective: 0 };
+    }
+
+    return request.items.reduce(
+      (totals, item) => ({
+        restock: totals.restock + Number(item.restockQuantity || 0),
+        defective: totals.defective + Number(item.defectiveQuantity || 0),
+      }),
+      { restock: 0, defective: 0 },
+    );
+  }, [request]);
+  const showReceiveInventorySection =
+    !!request && request.requiresPhysicalReturn && (canReceive || !!request.receivedAt);
+
+  const updateReceiveItem = useCallback(
+    (
+      returnRequestItemId: number,
+      field: keyof ReceiveItemFormState,
+      value: string,
+    ) => {
+      setForm((prev) => ({
+        ...prev,
+        receiveItems: prev.receiveItems.map((item) =>
+          item.returnRequestItemId === returnRequestItemId
+            ? { ...item, [field]: value }
+            : item,
+        ),
+      }));
+      setReceiveItemErrors((prev) => {
+        if (!prev[returnRequestItemId]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[returnRequestItemId];
+        return next;
+      });
+    },
+    [],
+  );
+
+  const validateReceiveItems = useCallback(() => {
+    if (!request) {
+      return null;
+    }
+
+    const errors: Record<number, string> = {};
+    const payloadItems: ReturnRequestReceiveItemPayload[] = [];
+
+    for (const item of request.items) {
+      const row = form.receiveItems.find(
+        (entry) => entry.returnRequestItemId === item.id,
+      );
+      if (!row) {
+        errors[item.id] = "Thiếu cấu hình nhập kho cho sản phẩm này.";
+        continue;
+      }
+
+      const restockQuantity = Number(row.restockQuantity || 0);
+      const defectiveQuantity = Number(row.defectiveQuantity || 0);
+
+      if (
+        !Number.isInteger(restockQuantity) ||
+        !Number.isInteger(defectiveQuantity) ||
+        restockQuantity < 0 ||
+        defectiveQuantity < 0
+      ) {
+        errors[item.id] =
+          "Số lượng nhập lại và tồn lỗi phải là số nguyên không âm.";
+        continue;
+      }
+
+      if (restockQuantity + defectiveQuantity !== Number(item.quantity)) {
+        errors[item.id] = `Tổng nhập lại và tồn lỗi phải bằng ${item.quantity}.`;
+        continue;
+      }
+
+      payloadItems.push({
+        returnRequestItemId: item.id,
+        restockQuantity,
+        defectiveQuantity,
+        itemNote: row.itemNote.trim() || undefined,
+      });
+    }
+
+    setReceiveItemErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return null;
+    }
+
+    return payloadItems;
+  }, [form.receiveItems, request]);
 
   const handleConfirmAction = async () => {
     if (!request || !actionOpen) return;
@@ -202,6 +340,13 @@ export default function ReturnOrderDetailPage({
         toast.error("Vui lòng nhập số tiền hoàn hợp lệ.");
         return;
       }
+    }
+
+    const receivePayload =
+      actionOpen === "receive" ? validateReceiveItems() : null;
+    if (actionOpen === "receive" && !receivePayload) {
+      toast.error("Vui lòng kiểm tra lại số lượng nhập kho của từng sản phẩm.");
+      return;
     }
 
     try {
@@ -231,9 +376,11 @@ export default function ReturnOrderDetailPage({
         updatedRequest = canViewSystemOrders
           ? await returnService.receiveAdminReturnRequest(request.id, {
               internalNote: form.internalNote.trim() || undefined,
+              items: receivePayload!,
             })
           : await returnService.receiveBranchReturnRequest(request.id, {
               internalNote: form.internalNote.trim() || undefined,
+              items: receivePayload!,
             });
       } else {
         updatedRequest = canViewSystemOrders
@@ -257,7 +404,9 @@ export default function ReturnOrderDetailPage({
         rejectReason: "",
         refundAmount: String(Math.round(Number(updatedRequest.totalRefundAmount ?? 0))),
         refundMethod: updatedRequest.refundMethod ?? BANK_TRANSFER_REFUND_METHOD,
+        receiveItems: buildReceiveItemFormState(updatedRequest),
       }));
+      setReceiveItemErrors({});
 
       toast.success(
         actionOpen === "approve"
@@ -630,13 +779,15 @@ export default function ReturnOrderDetailPage({
 
         <Panel title="Sản phẩm trong yêu cầu">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left">
+            <table className="w-full min-w-[980px] text-left">
               <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Sản phẩm</th>
                   <th className="px-3 py-2 font-semibold">SKU</th>
                   <th className="px-3 py-2 font-semibold text-center">SL tra</th>
                   <th className="px-3 py-2 font-semibold text-center">Đã mua</th>
+                  <th className="px-3 py-2 font-semibold text-center">Nhập lại</th>
+                  <th className="px-3 py-2 font-semibold text-center">Tồn lỗi</th>
                   <th className="px-3 py-2 font-semibold text-right">Đơn giá</th>
                   <th className="px-3 py-2 font-semibold text-right">Tạm tính hoàn</th>
                 </tr>
@@ -664,6 +815,12 @@ export default function ReturnOrderDetailPage({
                     <td className="px-3 py-3 text-center text-slate-700">
                       {item.orderedQuantity}
                     </td>
+                    <td className="px-3 py-3 text-center text-slate-700">
+                      {item.restockQuantity ?? 0}
+                    </td>
+                    <td className="px-3 py-3 text-center text-slate-700">
+                      {item.defectiveQuantity ?? 0}
+                    </td>
                     <td className="px-3 py-3 text-right text-slate-700">
                       {formatCurrency(item.unitPrice)}
                     </td>
@@ -676,6 +833,38 @@ export default function ReturnOrderDetailPage({
             </table>
           </div>
         </Panel>
+
+        {request.receivedAt ? (
+          <div className={MONO_INFO_PANEL_CLASS}>
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-slate-900">
+                  Đã nhập lại kho sau khi thu hồi hàng trả
+                </p>
+                <p className="text-[13px] text-slate-600">
+                  Nhập lại bán được:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {receiveSummary.restock}
+                  </span>
+                  {" · "}
+                  Tồn lỗi:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {receiveSummary.defective}
+                  </span>
+                </p>
+              </div>
+
+              {request.receivedInventoryNoteId && request.receivedInventoryNoteCode ? (
+                <Link
+                  href={`/admin/receipts/${request.receivedInventoryNoteId}`}
+                  className="inline-flex h-10 items-center rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  Xem phiếu nhập {request.receivedInventoryNoteCode}
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
           <Panel title="Hình ảnh bằng chứng">
@@ -732,6 +921,129 @@ export default function ReturnOrderDetailPage({
         </div>
 
         <Panel title="Xử lý thủ công">
+          {showReceiveInventorySection ? (
+            <div className="mb-5 space-y-4 rounded-[6px] border border-blue-100 bg-blue-50 p-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Phân loại hàng nhận lại vào kho
+                  </p>
+                  <p className="text-[13px] leading-6 text-slate-600">
+                    Tách số lượng bán được và số lượng vào tồn lỗi cho từng SKU ngay ở bước nhận hàng.
+                  </p>
+                </div>
+                <div className="rounded-md border border-blue-200 bg-white px-3 py-2 text-[12px] text-slate-600">
+                  Tổng nhập lại:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {form.receiveItems.reduce(
+                      (sum, item) => sum + Number(item.restockQuantity || 0),
+                      0,
+                    )}
+                  </span>
+                  {" · "}
+                  Tổng tồn lỗi:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {form.receiveItems.reduce(
+                      (sum, item) => sum + Number(item.defectiveQuantity || 0),
+                      0,
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {request.items.map((item) => {
+                  const row = form.receiveItems.find(
+                    (entry) => entry.returnRequestItemId === item.id,
+                  );
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-[6px] border border-slate-200 bg-white p-4"
+                    >
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {item.productName}
+                          </p>
+                          <p className="text-[12px] text-slate-500">
+                            {item.sku || "SKU chưa cập nhật"}
+                            {" · "}
+                            Số lượng trả: {item.quantity}
+                          </p>
+                        </div>
+                        <p className="text-[12px] text-slate-500">
+                          Tạm tính hoàn: {formatCurrency(item.refundAmount)}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_1.3fr]">
+                        <label className="space-y-2 text-sm">
+                          <span className="font-medium text-slate-700">
+                            Số lượng nhập lại bán được
+                          </span>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={row?.restockQuantity ?? String(item.quantity)}
+                            disabled={!canReceive}
+                            onChange={(event) =>
+                              updateReceiveItem(
+                                item.id,
+                                "restockQuantity",
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label className="space-y-2 text-sm">
+                          <span className="font-medium text-slate-700">
+                            Số lượng vào tồn lỗi
+                          </span>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={row?.defectiveQuantity ?? "0"}
+                            disabled={!canReceive}
+                            onChange={(event) =>
+                              updateReceiveItem(
+                                item.id,
+                                "defectiveQuantity",
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label className="space-y-2 text-sm">
+                          <span className="font-medium text-slate-700">
+                            Ghi chú xử lý dòng hàng
+                          </span>
+                          <Input
+                            value={row?.itemNote ?? ""}
+                            disabled={!canReceive}
+                            onChange={(event) =>
+                              updateReceiveItem(item.id, "itemNote", event.target.value)
+                            }
+                            placeholder="Ví dụ: bao bì rách, vào tồn lỗi 1 cái..."
+                          />
+                        </label>
+                      </div>
+
+                      {receiveItemErrors[item.id] ? (
+                        <p className="mt-2 text-sm font-medium text-red-600">
+                          {receiveItemErrors[item.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="space-y-2 text-sm">
               <span className="font-medium text-slate-700">Ghi chú nội bộ</span>
