@@ -67,47 +67,111 @@ export default function OrderingPage() {
 
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [returnRequests, setReturnRequests] = useState<ReturnRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
+  const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
+  const [hasLoadedReturnRequests, setHasLoadedReturnRequests] = useState(false);
+  const [initialOrdersLoading, setInitialOrdersLoading] = useState(true);
+  const [initialReturnsLoading, setInitialReturnsLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState(false);
+  const [returnsError, setReturnsError] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchOrders = useCallback(async () => {
-    const orderData = await orderService.getMyOrders("ALL");
-    setOrders(orderData);
-  }, []);
-
-  const fetchReturnRequests = useCallback(async () => {
-    const returnData = await returnService.getMyReturnRequests();
-    setReturnRequests(returnData);
-  }, []);
-
-  const fetchActiveData = useCallback(async () => {
-    setIsLoading(true);
-    setIsError(false);
-
-    try {
-      if (isReturnTab) {
-        await fetchReturnRequests();
+  const loadOrders = useCallback(
+    async ({ background = false }: { background?: boolean } = {}) => {
+      if (background) {
+        setIsRefreshing(true);
       } else {
-        await fetchOrders();
+        setInitialOrdersLoading(true);
+        setOrdersError(false);
       }
-    } catch (error) {
-      console.error("Error fetching user order data:", error);
-      setIsError(true);
-      toast.error(
-        isReturnTab
-          ? "Không thể tải danh sách phiếu trả hàng lúc này."
-          : "Không thể tải dữ liệu đơn hàng lúc này.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchOrders, fetchReturnRequests, isReturnTab]);
+
+      try {
+        const orderData = await orderService.getMyOrders("ALL");
+        setOrders(orderData);
+        setHasLoadedOrders(true);
+        setOrdersError(false);
+      } catch (error) {
+        console.error("Error fetching user orders:", error);
+        if (!background) {
+          setOrdersError(true);
+        }
+        toast.error("Không thể tải dữ liệu đơn hàng lúc này.");
+      } finally {
+        if (background) {
+          setIsRefreshing(false);
+        } else {
+          setInitialOrdersLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const loadReturnRequests = useCallback(
+    async ({ background = false }: { background?: boolean } = {}) => {
+      if (background) {
+        setIsRefreshing(true);
+      } else {
+        setInitialReturnsLoading(true);
+        setReturnsError(false);
+      }
+
+      try {
+        const returnData = await returnService.getMyReturnRequests();
+        setReturnRequests(returnData);
+        setHasLoadedReturnRequests(true);
+        setReturnsError(false);
+      } catch (error) {
+        console.error("Error fetching user return requests:", error);
+        if (!background) {
+          setReturnsError(true);
+        }
+        toast.error("Không thể tải danh sách phiếu trả hàng lúc này.");
+      } finally {
+        if (background) {
+          setIsRefreshing(false);
+        } else {
+          setInitialReturnsLoading(false);
+        }
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    void fetchActiveData();
-  }, [fetchActiveData]);
+    void loadOrders();
+  }, [loadOrders]);
+
+  useEffect(() => {
+    if (!isReturnTab || hasLoadedReturnRequests || initialReturnsLoading) {
+      return;
+    }
+
+    void loadReturnRequests();
+  }, [
+    hasLoadedReturnRequests,
+    initialReturnsLoading,
+    isReturnTab,
+    loadReturnRequests,
+  ]);
+
+  const handleRetry = useCallback(() => {
+    if (isReturnTab) {
+      void loadReturnRequests();
+      return;
+    }
+
+    void loadOrders();
+  }, [isReturnTab, loadOrders, loadReturnRequests]);
+
+  const refreshOrdersInBackground = useCallback(async () => {
+    try {
+      await loadOrders({ background: true });
+    } catch {
+      // loadOrders already reports UI feedback.
+    }
+  }, [loadOrders]);
 
   const handleOrderUpdated = useCallback((updatedOrder: MyOrder) => {
     setOrders((current) =>
@@ -187,7 +251,8 @@ export default function OrderingPage() {
     [currentPage, totalPages],
   );
 
-  const visibleFrom = activeResultCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const visibleFrom =
+    activeResultCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const visibleTo =
     activeResultCount === 0
       ? 0
@@ -199,6 +264,13 @@ export default function OrderingPage() {
   const emptyReturnDescription = normalizedKeyword
     ? "Thử tìm theo mã phiếu, mã đơn hoặc tên sản phẩm trả."
     : "Khi bạn gửi yêu cầu từ đơn đã giao, phiếu xử lý sẽ hiển thị trong tab này.";
+
+  const activeInitialLoading = isReturnTab
+    ? !hasLoadedReturnRequests && (initialReturnsLoading || !returnsError)
+    : !hasLoadedOrders && (initialOrdersLoading || !ordersError);
+  const activeError = isReturnTab
+    ? returnsError && !hasLoadedReturnRequests && !initialReturnsLoading
+    : ordersError && !hasLoadedOrders && !initialOrdersLoading;
 
   return (
     <>
@@ -221,7 +293,14 @@ export default function OrderingPage() {
       </div>
 
       <div className="mt-4 space-y-3">
-        {isLoading ? (
+        {isRefreshing ? (
+          <div className="flex items-center justify-end gap-2 px-1 text-xs text-gray-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#1965a2]" />
+            <span>Đang cập nhật dữ liệu...</span>
+          </div>
+        ) : null}
+
+        {activeInitialLoading ? (
           <div className="flex flex-col items-center justify-center border border-gray-100 bg-white py-20 text-gray-500">
             <Loader2 className="mb-2 h-8 w-8 animate-spin text-[#1965a2]" />
             <p>
@@ -230,11 +309,11 @@ export default function OrderingPage() {
                 : "Đang tải danh sách đơn hàng..."}
             </p>
           </div>
-        ) : isError ? (
+        ) : activeError ? (
           <div className="border border-gray-100 bg-white py-20 text-center text-red-500">
             <p className="mb-4">Có lỗi xảy ra khi tải dữ liệu.</p>
             <button
-              onClick={() => void fetchActiveData()}
+              onClick={handleRetry}
               className="rounded-md bg-[#1965a2] px-4 py-2 text-white hover:bg-[#145486]"
             >
               Thử lại
@@ -325,7 +404,7 @@ export default function OrderingPage() {
                 key={order.id}
                 order={order}
                 hasReturnRequest={Boolean(order.hasReturnRequest)}
-                onOrderCancelled={() => void fetchActiveData()}
+                onOrderCancelled={() => void refreshOrdersInBackground()}
                 onOrderUpdated={handleOrderUpdated}
               />
             ))}
