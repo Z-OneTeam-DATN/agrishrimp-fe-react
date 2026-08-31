@@ -57,6 +57,14 @@ type UploadEvidenceItem = {
   previewUrl: string;
 };
 
+type UploadProgressState = {
+  mediaType: ReturnEvidenceType;
+  currentFileName: string;
+  currentIndex: number;
+  totalCount: number;
+  progress: number;
+};
+
 type SelectedItemMap = Record<string, { quantity: number }>;
 type RequiredFieldKey =
   | "fullName"
@@ -71,6 +79,10 @@ type TouchedFields = Partial<Record<RequiredFieldKey, boolean>>;
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
+const UPLOAD_TIMEOUT_MS: Record<ReturnEvidenceType, number> = {
+  IMAGE: 60_000,
+  VIDEO: 180_000,
+};
 const REQUIRED_FIELD_KEYS: RequiredFieldKey[] = [
   "fullName",
   "phoneNumber",
@@ -93,12 +105,56 @@ function normalizeNumberInput(value: string) {
 }
 
 function extractErrorMessage(error: any, fallback: string) {
-  return repairVietnameseText(
-    error?.response?.data?.detail ||
-      error?.response?.data?.message ||
-      error?.message ||
-      fallback,
-  );
+  const detail =
+    error?.response?.data?.detail || error?.response?.data?.message;
+  if (typeof detail === "string" && detail.trim()) {
+    return repairVietnameseText(detail).trim();
+  }
+
+  const rawMessage =
+    typeof error?.message === "string" ? error.message.trim() : "";
+  if (error?.response?.status === 413) {
+    return "Tập tin vượt quá dung lượng cho phép. Vui lòng chọn tệp nhỏ hơn.";
+  }
+  if (error?.code === "ECONNABORTED" || /timeout of \d+ms exceeded/i.test(rawMessage)) {
+    return "Yêu cầu đang mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau ít phút.";
+  }
+  if (error?.code === "ERR_NETWORK" || /network error/i.test(rawMessage)) {
+    return "Kết nối mạng đang bị gián đoạn. Vui lòng kiểm tra lại và thử lại.";
+  }
+
+  return repairVietnameseText(rawMessage || fallback).trim();
+}
+
+function extractUploadErrorMessage(
+  error: any,
+  mediaType: ReturnEvidenceType,
+  fallback: string,
+) {
+  const detail =
+    error?.response?.data?.detail || error?.response?.data?.message;
+  if (typeof detail === "string" && detail.trim()) {
+    return repairVietnameseText(detail).trim();
+  }
+
+  const rawMessage =
+    typeof error?.message === "string" ? error.message.trim() : "";
+  if (error?.response?.status === 413) {
+    const limit = mediaType === "IMAGE" ? "10MB" : "50MB";
+    return `Tập tin vượt quá dung lượng ${limit}. Vui lòng chọn tệp nhỏ hơn.`;
+  }
+  if (error?.code === "ECONNABORTED" || /timeout of \d+ms exceeded/i.test(rawMessage)) {
+    return mediaType === "VIDEO"
+      ? "Tải video đang mất nhiều thời gian hơn dự kiến. Vui lòng thử lại hoặc dùng video ngắn hơn."
+      : "Tải hình ảnh đang mất nhiều thời gian hơn dự kiến. Vui lòng thử lại.";
+  }
+  if (error?.code === "ERR_NETWORK" || /network error/i.test(rawMessage)) {
+    return mediaType === "VIDEO"
+      ? "Kết nối mạng bị gián đoạn trong lúc tải video. Vui lòng thử lại."
+      : "Kết nối mạng bị gián đoạn trong lúc tải hình ảnh. Vui lòng thử lại.";
+  }
+
+  return extractErrorMessage(error, fallback);
 }
 
 const flatFieldClass =
@@ -123,6 +179,9 @@ export default function ReturnRequestPage({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [uploadingType, setUploadingType] =
     useState<ReturnEvidenceType | null>(null);
+  const [uploadState, setUploadState] = useState<UploadProgressState | null>(
+    null,
+  );
   const [selectedItems, setSelectedItems] = useState<SelectedItemMap>({});
   const [imageEvidences, setImageEvidences] = useState<UploadEvidenceItem[]>(
     [],
@@ -186,7 +245,7 @@ export default function ReturnRequestPage({
       } finally {
         if (active) {
           setLoading(false);
-          setUploadingType(null);
+          setUploadState(null);
         }
       }
     };
@@ -381,6 +440,7 @@ export default function ReturnRequestPage({
   );
   const handlingOptionLocked = form.issueType === "MISSING_ITEM";
   const activeBranchId = selectedDraftItems[0]?.branchId ?? null;
+  const isUploadingEvidence = uploadState !== null;
 
   const removeEvidence = (item: UploadEvidenceItem) => {
     if (item.previewUrl.startsWith("blob:")) {
@@ -431,7 +491,7 @@ export default function ReturnRequestPage({
     }));
   };
 
-  const uploadEvidenceFiles = async (
+  const uploadEvidenceFilesLegacy = async (
     files: FileList | null,
     mediaType: ReturnEvidenceType,
   ) => {
@@ -494,9 +554,128 @@ export default function ReturnRequestPage({
     }
   };
 
+  const validateBeforeSubmitLegacy = () => {
+    if (!draft) {
+      return "Không có dữ liệu đơn hàng để tạo yêu cầu.";
+    }
+    if (!selectedDraftItems.length) {
+      return "Vui lòng chọn ít nhất một sản phẩm cần trả hàng.";
+    }
+    if (branchConflict || selectedBranchIds.length !== 1) {
+      return "Các sản phẩm đã chọn hiện chưa thể gửi chung trong một yêu cầu. Vui lòng tách thành các yêu cầu riêng.";
+    }
+    if (imageEvidences.length === 0) {
+      return "Cần có ít nhất 1 hình ảnh lỗi.";
+    }
+    if (videoEvidences.length === 0) {
+      return "Cần có ít nhất 1 video lỗi.";
+    }
+    return null;
+  };
+
+  const uploadEvidenceFiles = async (
+    files: FileList | null,
+    mediaType: ReturnEvidenceType,
+  ) => {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const maxSize =
+      mediaType === "IMAGE" ? MAX_IMAGE_SIZE_BYTES : MAX_VIDEO_SIZE_BYTES;
+    const label = mediaType === "IMAGE" ? "hình ảnh" : "video";
+    const uploads = Array.from(files);
+
+    for (const file of uploads) {
+      if (file.size > maxSize) {
+        toast.error(
+          `${repairVietnameseText(file.name)} vượt quá giới hạn ${
+            mediaType === "IMAGE" ? "10MB" : "50MB"
+          }.`,
+        );
+        return;
+      }
+    }
+
+    try {
+      for (const [index, file] of uploads.entries()) {
+        setUploadState({
+          mediaType,
+          currentFileName: repairVietnameseText(file.name),
+          currentIndex: index + 1,
+          totalCount: uploads.length,
+          progress: 0,
+        });
+
+        const formData = new FormData();
+        formData.append("file", file);
+        const uploaded = await FileService.tmpUpload(formData, {
+          mediaType,
+          timeoutMs: UPLOAD_TIMEOUT_MS[mediaType],
+          onUploadProgress: (event) => {
+            const total = event.total ?? file.size;
+            const progress =
+              total > 0
+                ? Math.min(100, Math.round((event.loaded / total) * 100))
+                : 0;
+            setUploadState((current) =>
+              current &&
+              current.mediaType === mediaType &&
+              current.currentIndex === index + 1
+                ? {
+                    ...current,
+                    progress,
+                  }
+                : current,
+            );
+          },
+        });
+
+        const nextItem: UploadEvidenceItem = {
+          id: `${mediaType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          mediaType,
+          fileUrl: uploaded.url,
+          publicId: uploaded.publicId ?? null,
+          fileName: repairVietnameseText(file.name),
+          previewUrl: URL.createObjectURL(file),
+        };
+
+        setUploadState((current) =>
+          current &&
+          current.mediaType === mediaType &&
+          current.currentIndex === index + 1
+            ? {
+                ...current,
+                progress: 100,
+              }
+            : current,
+        );
+
+        if (mediaType === "IMAGE") {
+          setImageEvidences((current) => [...current, nextItem]);
+        } else {
+          setVideoEvidences((current) => [...current, nextItem]);
+        }
+      }
+    } catch (err: any) {
+      toast.error(
+        extractUploadErrorMessage(
+          err,
+          mediaType,
+          `Không thể tải ${label} lên lúc này.`,
+        ),
+      );
+    } finally {
+      setUploadState(null);
+    }
+  };
+
   const validateBeforeSubmit = () => {
     if (!draft) {
       return "Không có dữ liệu đơn hàng để tạo yêu cầu.";
+    }
+    if (isUploadingEvidence) {
+      return "Vui lòng chờ tải xong bằng chứng trước khi gửi yêu cầu.";
     }
     if (!selectedDraftItems.length) {
       return "Vui lòng chọn ít nhất một sản phẩm cần trả hàng.";
@@ -1119,10 +1298,28 @@ export default function ReturnRequestPage({
                     />
                   </label>
 
-                  {uploadingType === "IMAGE" ? (
+                  {false && uploadingType === "IMAGE" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
                       Đang tải hình ảnh...
+                    </div>
+                  ) : null}
+
+                  {uploadState?.mediaType === "IMAGE" ? (
+                    <div className="mt-3 space-y-2 text-sm text-slate-500">
+                      <div className="inline-flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>
+                          Đang tải hình ảnh {uploadState.currentIndex}/
+                          {uploadState.totalCount}: {uploadState.currentFileName}
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden bg-[#e4edf7]">
+                        <div
+                          className="h-full bg-[#1965a2] transition-[width]"
+                          style={{ width: `${uploadState.progress}%` }}
+                        />
+                      </div>
                     </div>
                   ) : null}
 
@@ -1180,10 +1377,29 @@ export default function ReturnRequestPage({
                     />
                   </label>
 
-                  {uploadingType === "VIDEO" ? (
+                  {false && uploadingType === "VIDEO" ? (
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2 size={16} className="animate-spin" />
                       Đang tải video...
+                    </div>
+                  ) : null}
+
+                  {uploadState?.mediaType === "VIDEO" ? (
+                    <div className="mt-3 space-y-2 text-sm text-slate-500">
+                      <div className="inline-flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>
+                          Đang tải video {uploadState.currentIndex}/
+                          {uploadState.totalCount}: {uploadState.currentFileName} (
+                          {uploadState.progress}%)
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden bg-[#e4edf7]">
+                        <div
+                          className="h-full bg-[#1965a2] transition-[width]"
+                          style={{ width: `${uploadState.progress}%` }}
+                        />
+                      </div>
                     </div>
                   ) : null}
 
@@ -1280,7 +1496,7 @@ export default function ReturnRequestPage({
                   setConfirmOpen(true);
                 }}
                 className="mt-5 h-11 w-full rounded-none bg-[#1965a2] text-white hover:bg-[#145486]"
-                disabled={submitting}
+                disabled={submitting || isUploadingEvidence}
               >
                 {submitting ? "Đang gửi..." : "Gửi yêu cầu trả hàng"}
               </Button>
