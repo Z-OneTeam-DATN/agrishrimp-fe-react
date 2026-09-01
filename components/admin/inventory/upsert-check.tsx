@@ -84,6 +84,7 @@ type CheckItem = {
   reason: string;
   batchNumber?: string;
   expiryDate?: string | null;
+  originalExpiryDate?: string | null;
   importPrice?: number | null;
 };
 
@@ -145,7 +146,7 @@ const getVariantId = (item: any) =>
   item?.productVariantId ?? item?.variantId ?? item?.id;
 
 const getLotIdentity = (item: any) =>
-  `${String(getVariantId(item) ?? "variant")}::${String(item?.batchNumber ?? "")}::${String(item?.importPrice ?? "")}`;
+  `${String(getVariantId(item) ?? "variant")}::${String(item?.batchNumber ?? "")}::${String(item?.importPrice ?? "")}::${String(item?.expiryDate ?? "")}`;
 
 const getSkuGroupIdentity = (item: any) =>
   `${String(getVariantId(item) ?? "variant")}::${String(item?.sku ?? "")}`;
@@ -293,6 +294,7 @@ const mapItem = (item: any): CheckItem => {
     reason: autoFill.reason,
     batchNumber: item.batchNumber || "N/A",
     expiryDate: autoFill.expiryDate,
+    originalExpiryDate: item.originalExpiryDate || autoFill.expiryDate,
     importPrice: normalizeImportPrice(item.importPrice ?? item.price),
   };
 };
@@ -302,6 +304,7 @@ const buildCheckPayloadDetails = (items: CheckItem[]) =>
     productVariantId: toNumber(item.productVariantId),
     batchNumber: normalizeBatchNumber(item.batchNumber),
     expiryDate: serializeExpiryDate(item.expiryDate),
+    originalExpiryDate: serializeExpiryDate(item.originalExpiryDate ?? item.expiryDate),
     importPrice: item.importPrice == null ? null : item.importPrice,
     systemQuantity: toNumber(item.systemQuantity),
     quantityReal: getEffectiveQuantityReal(item),
@@ -924,10 +927,7 @@ export default function InventoryUpsert({
         }
 
         const exists = nextItems.some(
-          (item) =>
-            String(item.productVariantId) === String(variantId) &&
-            String(item.batchNumber ?? "") === String(variant.batchNumber ?? "") &&
-            String(item.importPrice ?? "") === String(variant.importPrice ?? ""),
+          (item) => getLotIdentity(item) === getLotIdentity(variant),
         );
 
         if (exists) {
@@ -2455,17 +2455,36 @@ export default function InventoryUpsert({
                                             </TableCell>
                                             <TableCell className="px-3 py-3">
                                               <div className="space-y-1">
-                                                <p
-                                                  className={cn(
-                                                    "text-[11px] text-slate-700",
-                                                    entry.isExpired &&
-                                                      "font-semibold text-rose-600",
-                                                  )}
-                                                >
-                                                  {formatExpiryDate(
-                                                    entry.item.expiryDate,
-                                                  )}
-                                                </p>
+                                                {canEditCountResults ? (
+                                                  <SharedDatePicker
+                                                    value={entry.item.expiryDate || ""}
+                                                    disabled={!canEditCountResults}
+                                                    onChange={(nextValue) =>
+                                                      updateItem(
+                                                        entry.index,
+                                                        "expiryDate",
+                                                        nextValue,
+                                                      )
+                                                    }
+                                                    placeholder="HSD"
+                                                    heading="Hạn sử dụng"
+                                                    emptyStateLabel="Chua chon han dung"
+                                                    variant="compact"
+                                                    buttonClassName="h-7 w-[126px] border-slate-200 px-2 text-[11px] shadow-none"
+                                                  />
+                                                ) : (
+                                                  <p
+                                                    className={cn(
+                                                      "text-[11px] text-slate-700",
+                                                      entry.isExpired &&
+                                                        "font-semibold text-rose-600",
+                                                    )}
+                                                  >
+                                                    {formatExpiryDate(
+                                                      entry.item.expiryDate,
+                                                    )}
+                                                  </p>
+                                                )}
                                                 {entry.isExpired && (
                                                   <Badge className="rounded-md border border-rose-100 bg-rose-50 px-2 py-0.5 text-[9px] font-medium text-rose-700">
                                                     Hết hạn
