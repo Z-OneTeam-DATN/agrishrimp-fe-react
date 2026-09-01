@@ -72,7 +72,7 @@ function InventoryLedgerContent() {
   );
   const [dateFrom, setDateFrom] = useState(toIso(defaultStart));
   const [dateTo, setDateTo] = useState(toIso(today));
-  const [direction, setDirection] = useState<"all" | "import" | "export" | "transfer">("all");
+  const [direction, setDirection] = useState<"all" | "import" | "export" | "transfer" | "loss">("all");
   const [entries, setEntries] = useState<InventoryLedgerEntryData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -211,6 +211,7 @@ function InventoryLedgerContent() {
             <SelectItem value="import">Nhập kho</SelectItem>
             <SelectItem value="export">Xuất kho</SelectItem>
             <SelectItem value="transfer">Điều chuyển</SelectItem>
+            <SelectItem value="loss">Hao hụt vận chuyển</SelectItem>
           </SelectContent>
         </Select>
 

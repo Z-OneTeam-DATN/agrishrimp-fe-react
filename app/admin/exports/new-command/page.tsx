@@ -75,6 +75,9 @@ const ExportCommandSchema = z.object({
 
 type ExportCommandFormValues = z.infer<typeof ExportCommandSchema>;
 
+const DISPOSAL_RECEIVER = "Bộ phận tiêu hủy";
+const DISPOSAL_ADDRESS = "Tiêu hủy hàng lỗi tại kho";
+
 function fmtPrintMoney(value: unknown) {
   return `${new Intl.NumberFormat("vi-VN").format(Number(value) || 0)} đ`;
 }
@@ -685,6 +688,7 @@ function AdminExportFormContent() {
     control,
     watch,
     setValue,
+    getValues,
     reset,
     setError,
     clearErrors,
@@ -1106,31 +1110,46 @@ function AdminExportFormContent() {
     replace,
   ]);
 
-  let targetInfo = { name: "", phone: "", address: "" };
-  if (watchTargetId) {
+  const targetInfo = React.useMemo(() => {
+    if (!watchTargetId) return { name: "", phone: "", address: "" };
     const supplier = suppliers.find((s) => s.id?.toString() === watchTargetId);
-    if (supplier) {
-      targetInfo = {
-        name: supplier.contactName || "Người đại diện",
-        phone: supplier.phone || "",
-        address: supplier.addressDetail || "",
-      };
-    }
-  }
+    if (!supplier) return { name: "", phone: "", address: "" };
+    return {
+      name: supplier.contactName || "Người đại diện",
+      phone: supplier.phone || "",
+      address: supplier.addressDetail || "",
+    };
+  }, [suppliers, watchTargetId]);
 
   useEffect(() => {
     if (isDisposalExport && !isEditMode) {
-      setValue("targetId", "");
-      setValue("specificReceiver", "Bo phan tieu huy");
-      setValue("shippingAddress", "Tieu huy hang loi tai kho");
+      if (getValues("targetId")) setValue("targetId", "");
+      if (getValues("specificReceiver") !== DISPOSAL_RECEIVER) {
+        setValue("specificReceiver", DISPOSAL_RECEIVER);
+      }
+      if (getValues("shippingAddress") !== DISPOSAL_ADDRESS) {
+        setValue("shippingAddress", DISPOSAL_ADDRESS);
+      }
       return;
     }
 
     if (isReturnExport && targetInfo.name && !isEditMode) {
-      setValue("specificReceiver", targetInfo.name);
-      setValue("shippingAddress", targetInfo.address);
+      if (getValues("specificReceiver") !== targetInfo.name) {
+        setValue("specificReceiver", targetInfo.name);
+      }
+      if (getValues("shippingAddress") !== targetInfo.address) {
+        setValue("shippingAddress", targetInfo.address);
+      }
     }
-  }, [watchTargetId, watchExportType, isEditMode, setValue, targetInfo, isReturnExport, isDisposalExport]);
+  }, [
+    getValues,
+    isEditMode,
+    isReturnExport,
+    isDisposalExport,
+    setValue,
+    targetInfo.address,
+    targetInfo.name,
+  ]);
 
   const addVariantToTable = (variant: any, productName: string) => {
     if (isReadOnly) return;
@@ -1195,10 +1214,10 @@ function AdminExportFormContent() {
     const isReturnSubmission = data.exportType === "RETURN";
     const isDisposalSubmission = data.exportType === "DISPOSAL";
     if (isReturnSubmission && !data.targetId) {
-      setError("targetId", {
-        type: "manual",
-        message: "Chon nha cung cap",
-      });
+        setError("targetId", {
+          type: "manual",
+          message: "Chọn nhà cung cấp",
+        });
       return;
     }
     const resolvedBranchId =
@@ -1265,10 +1284,10 @@ function AdminExportFormContent() {
       supplierId: isReturnSubmission ? parseInt(data.targetId) : null,
       targetBranchId: null,
       specificReceiver: isDisposalSubmission
-        ? data.specificReceiver || "Bo phan tieu huy"
+        ? data.specificReceiver || DISPOSAL_RECEIVER
         : data.specificReceiver,
       shippingAddress: isDisposalSubmission
-        ? data.shippingAddress || "Tieu huy hang loi tai kho"
+        ? data.shippingAddress || DISPOSAL_ADDRESS
         : data.shippingAddress,
       createdById: currentUserId,
       details: submissionItems.map((it) => ({
@@ -1289,10 +1308,10 @@ function AdminExportFormContent() {
           exportId as string,
           payload,
         );
-        toast.success(isDisposalSubmission ? "Cap nhat phieu xuat huy hang loi thanh cong!" : "Cap nhat phieu xuat tra thanh cong!");
+        toast.success(isDisposalSubmission ? "Cập nhật phiếu xuất hủy hàng lỗi thành công!" : "Cập nhật phiếu xuất trả thành công!");
       } else {
         await InventoryExportApiService.createExportCommand(payload);
-        toast.success(isDisposalSubmission ? "Tao phieu xuat huy hang loi thanh cong!" : "Tao phieu xuat tra thanh cong!");
+        toast.success(isDisposalSubmission ? "Tạo phiếu xuất hủy hàng lỗi thành công!" : "Tạo phiếu xuất trả thành công!");
       }
       router.push("/admin/exports");
     } catch (e: any) {
@@ -1377,11 +1396,11 @@ function AdminExportFormContent() {
                           "border-slate-200 bg-slate-50",
                         )}
                       >
-                        <SelectValue placeholder="-- Chon loai xuat --" />
+                        <SelectValue placeholder="-- Chọn loại xuất --" />
                       </SelectTrigger>
                       <SelectContent className="rounded-md">
-                        <SelectItem value="RETURN">Xuat tra nha cung cap</SelectItem>
-                        <SelectItem value="DISPOSAL">Xuat huy hang loi</SelectItem>
+                        <SelectItem value="RETURN">Xuất trả nhà cung cấp</SelectItem>
+                        <SelectItem value="DISPOSAL">Xuất hủy hàng lỗi</SelectItem>
                       </SelectContent>
                     </Select>
                   )}

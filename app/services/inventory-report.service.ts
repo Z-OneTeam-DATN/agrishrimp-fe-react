@@ -53,7 +53,7 @@ export const InventoryReportService = {
     branchId?: string | number | null;
     startDate?: string;
     endDate?: string;
-    direction?: "all" | "import" | "export" | "transfer";
+    direction?: "all" | "import" | "export" | "transfer" | "loss";
   }): Promise<InventoryLedgerEntryData[]> {
     const response = await apiJava.get("/inventory-reports/ledger", {
       params: {
