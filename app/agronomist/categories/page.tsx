@@ -76,6 +76,7 @@ export default function AgronomistCategoriesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [slugTouched, setSlugTouched] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<
@@ -106,6 +107,7 @@ export default function AgronomistCategoriesPage() {
     setForm(EMPTY_FORM);
     setFormErrors({});
     setEditingId(null);
+    setSlugTouched(false);
   };
 
   const handleDialogChange = (open: boolean) => {
@@ -127,6 +129,7 @@ export default function AgronomistCategoriesPage() {
       enabled: category.enabled,
     });
     setFormErrors({});
+    setSlugTouched(true);
     setIsOpen(true);
   };
 
@@ -398,9 +401,11 @@ export default function AgronomistCategoriesPage() {
                 <Input
                   value={form.name}
                   onChange={(event) => {
+                    const name = event.target.value;
                     setForm((current) => ({
                       ...current,
-                      name: event.target.value,
+                      name,
+                      slug: slugTouched ? current.slug : toSlug(name),
                     }));
                     setFormErrors((current) => ({
                       ...current,
@@ -423,12 +428,13 @@ export default function AgronomistCategoriesPage() {
                 </Label>
                 <Input
                   value={form.slug}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    setSlugTouched(true);
                     setForm((current) => ({
                       ...current,
                       slug: event.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                   placeholder="benh-do-vi-khuan"
                   className={agronomistInputClassName}
                 />
@@ -535,6 +541,12 @@ function ErrorMessage({ message }: { message?: string }) {
       {message}
     </p>
   );
+}
+
+function toSlug(value: string) {
+  return normalizeText(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function normalizeText(value: string) {

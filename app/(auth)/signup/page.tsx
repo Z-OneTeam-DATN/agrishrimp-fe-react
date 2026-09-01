@@ -117,17 +117,17 @@ export default function SignupPage() {
               </p>
             </div>
 
-            <GoogleLoginBtn />
+            <SignupForm />
 
-            <div className="relative flex items-center gap-4 py-1 mb-5">
+            <div className="relative flex items-center gap-4 py-1 mt-5 mb-5">
               <div className="flex-grow h-px bg-slate-200"></div>
               <span className="flex-shrink-0 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                Hoặc Email
+                Hoặc Google
               </span>
               <div className="flex-grow h-px bg-slate-200"></div>
             </div>
 
-            <SignupForm />
+            <GoogleLoginBtn />
           </div>
         </div>
       </div>
