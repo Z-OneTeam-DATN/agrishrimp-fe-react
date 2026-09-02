@@ -42,8 +42,8 @@ import {
 const RECEIPT_STATUS_LABEL: Record<string, string> = {
   PLANNING: "Đang lập",
   PENDING: "Chờ duyệt",
-  APPROVED: "Chờ kiểm hàng",
-  COMPLETED: "Đã hoàn tất",
+  APPROVED: "Đã duyệt",
+  COMPLETED: "Đã nhập kho",
   IMPORTED: "Đã nhập kho",
   REJECTED: "Đã từ chối",
   CANCELLED: "Đã hủy",
@@ -539,6 +539,7 @@ export default function ReceiptDetailPage() {
     hasPermission(P.IMPORT_VIEW) || hasPermission(P.CHECK_VIEW);
   const canApprove = hasPermission(P.IMPORT_APPROVE);
   const canUpdateReceipt = hasPermission(P.IMPORT_UPDATE);
+  const canCompleteReceipt = canApprove || canUpdateReceipt;
   const canCreateReturn = hasPermission(P.EXPORT_CREATE);
   const displayText = (value: unknown) => {
     const text = String(value ?? "").trim();
@@ -694,26 +695,30 @@ export default function ReceiptDetailPage() {
       }),
   });
 
-  const handleApproveAndComplete = () => {
+  const handleApproveReceipt = () => {
     showConfirm(
-      receipt?.status === "PENDING"
-        ? "Xác nhận duyệt và nhập kho"
-        : "Xác nhận nhập kho",
-      "Phiếu sẽ được duyệt và nhập kho ngay theo số lượng đã kiểm trên phiếu. Không cần mở popup kiểm hàng riêng.",
+      "Xác nhận duyệt phiếu",
+      "Phiếu sẽ chuyển sang trạng thái Đã duyệt. Tồn kho chỉ được cập nhật khi chi nhánh kiểm hàng và bấm Nhập kho.",
       () =>
         handleApiCall(
-          async () => {
-            if (receipt?.status === "PENDING") {
-              await InventoryApiService.approveReceipt(id as string);
-            }
-            return InventoryApiService.completeReceipt(
+          () => InventoryApiService.approveReceipt(id as string),
+          "Đã duyệt phiếu nhập!",
+        ),
+    );
+  };
+
+  const handleCompleteReceipt = () => {
+    showConfirm(
+      "Xác nhận nhập kho",
+      "Hệ thống sẽ cập nhật tồn kho và công nợ theo số lượng đã kiểm trên phiếu.",
+      () =>
+        handleApiCall(
+          () =>
+            InventoryApiService.completeReceipt(
               id as string,
               buildCompletePayload(),
-            );
-          },
-          receipt?.status === "PENDING"
-            ? "Đã duyệt và nhập kho thành công!"
-            : "Hoàn tất nhập kho thành công!",
+            ),
+          "Đã nhập kho thành công!",
         ),
     );
   };
@@ -846,8 +851,8 @@ export default function ReceiptDetailPage() {
   const statusLabel: Record<string, string> = {
     PLANNING: "Đang lập",
     PENDING: "Chờ duyệt",
-    APPROVED: "Chờ kiểm hàng",
-    COMPLETED: "Đã hoàn tất",
+    APPROVED: "Đã duyệt",
+    COMPLETED: "Đã nhập kho",
     IMPORTED: "Đã nhập kho",
     REJECTED: "Đã từ chối",
     CANCELLED: "Đã hủy",
@@ -929,11 +934,11 @@ export default function ReceiptDetailPage() {
           {receipt.status === "PENDING" && canApprove ? (
             <>
               <Button
-                onClick={handleApproveAndComplete}
+                onClick={handleApproveReceipt}
                 disabled={isProcessing}
                 className="h-10 bg-blue-600 px-4 text-[12px] font-semibold hover:bg-blue-700"
               >
-                Duyệt & nhập kho
+                Duyệt phiếu
               </Button>
               <Button
                 onClick={handleReject}
@@ -945,14 +950,14 @@ export default function ReceiptDetailPage() {
               </Button>
             </>
           ) : null}
-          {receipt.status === "APPROVED" && canApprove ? (
+          {receipt.status === "APPROVED" && canCompleteReceipt ? (
             <Button
-              onClick={handleApproveAndComplete}
+              onClick={handleCompleteReceipt}
               disabled={isProcessing}
               className="h-10 bg-blue-600 px-4 text-[12px] font-semibold hover:bg-blue-700"
             >
               <CheckCircle2 size={14} className="mr-2" />
-              Nhập kho ngay
+              Nhập kho
             </Button>
           ) : null}
           {receipt.status === "COMPLETED" ? (

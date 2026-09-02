@@ -105,9 +105,9 @@ export default function AdminExportListPage() {
     let matchTab = true;
     const status = (item.status || "").toUpperCase();
     if (activeTab === "pending") matchTab = status === "PENDING";
-    else if (activeTab === "completed") {
-      matchTab = status === "APPROVED" || status === "COMPLETED";
-    } else if (activeTab === "cancelled") {
+    else if (activeTab === "approved") matchTab = status === "APPROVED";
+    else if (activeTab === "completed") matchTab = status === "COMPLETED";
+    else if (activeTab === "cancelled") {
       matchTab = status === "CANCELLED" || status === "REJECTED";
     }
 
@@ -127,9 +127,8 @@ export default function AdminExportListPage() {
     return {
       all: baseFilteredData.length,
       pending: baseFilteredData.filter((t) => s(t.status) === "PENDING").length,
-      completed: baseFilteredData.filter(
-        (t) => s(t.status) === "APPROVED" || s(t.status) === "COMPLETED",
-      ).length,
+      approved: baseFilteredData.filter((t) => s(t.status) === "APPROVED").length,
+      completed: baseFilteredData.filter((t) => s(t.status) === "COMPLETED").length,
       cancelled: baseFilteredData.filter(
         (t) => s(t.status) === "CANCELLED" || s(t.status) === "REJECTED",
       ).length,
@@ -154,7 +153,7 @@ export default function AdminExportListPage() {
     {
       title: "Đã xuất kho",
       value: counts.completed,
-      description: "Phiếu đã duyệt hoặc đã hoàn tất xuất kho",
+      description: "Phiếu đã hoàn tất xuất kho",
     },
     {
       title: "Đã hủy",
@@ -166,6 +165,7 @@ export default function AdminExportListPage() {
   const tabs = [
     { id: "all", label: "Tất cả" },
     { id: "pending", label: "Chờ duyệt" },
+    { id: "approved", label: "Đã duyệt" },
     { id: "completed", label: "Đã xuất kho" },
     { id: "cancelled", label: "Đã hủy" },
   ];
@@ -233,8 +233,16 @@ export default function AdminExportListPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map((card) => (
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-5">
+          {[
+            ...summaryCards.slice(0, 2),
+            {
+              title: "Đã duyệt",
+              value: counts.approved,
+              description: "Phiếu chờ chi nhánh kiểm tra và xuất kho",
+            },
+            ...summaryCards.slice(2),
+          ].map((card) => (
             <div
               key={card.title}
               className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"

@@ -275,7 +275,7 @@ export const ExportSchema = z.object({
   exportDate: z.string().min(1, "Vui lòng chọn ngày xuất"),
   referenceCode: z.string().optional(),
   description: z.string().optional().default(""),
-  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).default("PENDING"),
+  status: z.enum(["PENDING", "APPROVED", "COMPLETED", "CANCELLED"]).default("PENDING"),
   items: z.array(ExportItemSchema).min(1, "Cần ít nhất một mặt hàng"),
   note: z.string().optional(),
 });
