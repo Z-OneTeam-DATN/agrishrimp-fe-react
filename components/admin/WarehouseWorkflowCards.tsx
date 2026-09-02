@@ -249,15 +249,22 @@ export default function WarehouseWorkflowCards({
         ];
 
         const pendingReceipts = countStatuses(receipts, ["PENDING", "PO"]);
+        const approvedReceipts = countStatuses(receipts, ["APPROVED"]);
         const completedReceipts = countStatuses(receipts, [
           "COMPLETED",
           "IMPORTED",
         ]);
-        const totalReceipts = pendingReceipts + completedReceipts;
+        const actionableReceipts = pendingReceipts + approvedReceipts;
+        const totalReceipts = pendingReceipts + approvedReceipts + completedReceipts;
 
-        const pendingExports = exportCommands.length;
-        const completedExports = exportReceipts.length;
-        const totalExports = pendingExports + completedExports;
+        const pendingExports = countStatuses(exportCommands, ["PENDING"]);
+        const approvedExports = countStatuses(exportCommands, ["APPROVED"]);
+        const completedExports = Math.max(
+          countStatuses(exportCommands, ["COMPLETED"]),
+          exportReceipts.length,
+        );
+        const actionableExports = pendingExports + approvedExports;
+        const totalExports = pendingExports + approvedExports + completedExports;
 
         const pendingTransfers = countStatuses(transfers, ["PENDING"]);
         const shippingTransfers = countStatuses(transfers, ["SHIPPING"]);
@@ -286,7 +293,7 @@ export default function WarehouseWorkflowCards({
         if (canViewReceipts) {
           nextCards.push({
             title: "Phiếu nhập kho",
-            totalAction: `${pendingReceipts} cần làm`,
+            totalAction: `${actionableReceipts} cần làm`,
             href: "/admin/receipts",
             icon: ArrowDownToLine,
             iconColor: "bg-blue-50 text-blue-600",
@@ -299,10 +306,17 @@ export default function WarehouseWorkflowCards({
                 width: getWidth(pendingReceipts, totalReceipts),
               },
               {
-                label: "Đã nhập xong",
-                value: completedReceipts,
+                label: "Đã duyệt",
+                value: approvedReceipts,
                 colorClass: "text-blue-600",
                 bgClass: "bg-blue-500",
+                width: getWidth(approvedReceipts, totalReceipts),
+              },
+              {
+                label: "Đã nhập kho",
+                value: completedReceipts,
+                colorClass: "text-emerald-600",
+                bgClass: "bg-emerald-500",
                 width: getWidth(completedReceipts, totalReceipts),
               },
             ],
@@ -312,23 +326,30 @@ export default function WarehouseWorkflowCards({
         if (canViewExports) {
           nextCards.push({
             title: "Phiếu xuất kho",
-            totalAction: `${pendingExports} cần làm`,
+            totalAction: `${actionableExports} cần làm`,
             href: "/admin/exports",
             icon: ArrowUpFromLine,
             iconColor: "bg-blue-50 text-blue-600",
             stats: [
               {
-                label: "Chờ xuất",
+                label: "Chờ duyệt",
                 value: pendingExports,
                 colorClass: "text-amber-600",
                 bgClass: "bg-amber-500",
                 width: getWidth(pendingExports, totalExports),
               },
               {
-                label: "Đã xuất kho",
-                value: completedExports,
+                label: "Đã duyệt",
+                value: approvedExports,
                 colorClass: "text-blue-600",
                 bgClass: "bg-blue-500",
+                width: getWidth(approvedExports, totalExports),
+              },
+              {
+                label: "Đã xuất kho",
+                value: completedExports,
+                colorClass: "text-emerald-600",
+                bgClass: "bg-emerald-500",
                 width: getWidth(completedExports, totalExports),
               },
             ],

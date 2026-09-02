@@ -71,6 +71,7 @@ export function InventoryExportTable({
 
   const canApprove = hasPermission(P.EXPORT_APPROVE);
   const canUpdate = hasPermission(P.EXPORT_UPDATE);
+  const canComplete = canApprove || canUpdate;
   const canDelete = hasPermission(P.EXPORT_DELETE);
 
   const formatDate = (dateString: string) => {
@@ -96,13 +97,13 @@ export function InventoryExportTable({
 
   const handleComplete = async (id: number, code: string) => {
     showConfirm(
-      "Xác nhận HOÀN TẤT xuất kho",
+      "Xác nhận xuất kho",
       `Hệ thống sẽ trừ tồn kho thực tế cho lệnh ${code}. Bạn đã kiểm tra kỹ hàng hóa chưa?`,
       async () => {
         setIsProcessing(true);
         try {
           await InventoryExportApiService.completeExportCommand(id);
-          toast.success(`Đã hoàn tất xuất kho phiếu ${code}!`);
+          toast.success(`Đã xuất kho phiếu ${code}!`);
           if (onRefresh) await onRefresh();
         } catch (error: any) {
           toast.error(getErrorMessage(error) || "Lỗi khi chốt xuất kho");
@@ -210,7 +211,7 @@ export function InventoryExportTable({
 
                   <TableCell className="px-1.5 py-2 text-center">
                     <span className={cn("whitespace-nowrap text-[11px] font-medium", getStatusStyle(status))}>
-                      {status === "PENDING" ? "Chờ duyệt" : status === "APPROVED" ? "Đã duyệt" : status === "COMPLETED" ? "Đã xuất" : "Đã hủy"}
+                      {status === "PENDING" ? "Chờ duyệt" : status === "APPROVED" ? "Đã duyệt" : status === "COMPLETED" ? "Đã xuất kho" : "Đã hủy"}
                     </span>
                   </TableCell>
 
@@ -223,19 +224,19 @@ export function InventoryExportTable({
                       )}
                       
                       {status === "PENDING" && canApprove && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600" title="Duyệt lệnh" onClick={(e) => { e.stopPropagation(); handleApprove(item.id, item.code); }}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600" title="Duyệt lệnh" disabled={isProcessing} onClick={(e) => { e.stopPropagation(); handleApprove(item.id, item.code); }}>
                           <Check size={14} />
                         </Button>
                       )}
 
-                      {status === "APPROVED" && canApprove && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600" title="Hoàn tất" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
+                      {status === "APPROVED" && canComplete && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600" title="Xuất kho" disabled={isProcessing} onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
                           <Check size={14} />
                         </Button>
                       )}
 
                       {status === "PENDING" && canDelete && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" title="Xóa" onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.code); }}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" title="Xóa" disabled={isProcessing} onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.code); }}>
                           <Trash2 size={13} />
                         </Button>
                       )}

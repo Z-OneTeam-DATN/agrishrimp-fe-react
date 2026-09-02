@@ -566,18 +566,18 @@ function AdminReceiptFormContent() {
 
       const payload = {
         ...restOfData,
-        status: isAdmin && !isEditMode ? "APPROVED" : data.status,
+        status: isEditMode ? data.status : "PENDING",
         items: payloadItems,
       };
-      const savedReceipt = isEditMode
-        ? await InventoryApiService.updateReceipt(receiptId!, payload)
-        : await InventoryApiService.createReceipt(payload);
+      if (isEditMode) {
+        await InventoryApiService.updateReceipt(receiptId!, payload);
+      } else {
+        await InventoryApiService.createReceipt(payload);
+      }
       toast.success(
-        savedReceipt?.status === "COMPLETED"
-          ? "Đã lưu và duyệt phiếu nhập thành công!"
-          : savedReceipt?.status === "APPROVED"
-            ? "Đã lưu và chuyển phiếu sang trạng thái đã duyệt."
-            : "Đã lưu!",
+        isEditMode
+          ? "Đã cập nhật phiếu nhập."
+          : "Đã lưu phiếu nhập chờ duyệt.",
       );
       router.push("/admin/receipts");
     } catch (e) {
@@ -823,12 +823,12 @@ function AdminReceiptFormContent() {
       return;
     }
 
-    const title = isAdmin
-      ? "Xác nhận lưu và duyệt phiếu"
+    const title = isEditMode
+      ? "Xác nhận cập nhật phiếu nhập"
       : "Xác nhận lưu phiếu chờ duyệt";
-    const msg = isAdmin
-      ? "Phiếu nhập do người có quyền duyệt tạo sẽ được duyệt ngay. Nếu đã nhập đủ số lượng đạt/lỗi, hệ thống sẽ chốt luôn tồn kho và công nợ nhà cung cấp."
-      : "Phiếu nhập sẽ được lưu ở trạng thái chờ duyệt. Khi được duyệt, hệ thống mới cập nhật tồn kho và công nợ.";
+    const msg = isEditMode
+      ? "Phiếu nhập sẽ được cập nhật theo thông tin hiện tại."
+      : "Phiếu nhập sẽ được lưu ở trạng thái chờ duyệt. Sau khi duyệt, chi nhánh kiểm hàng và bấm Nhập kho để cập nhật tồn kho, công nợ.";
 
     showConfirm(title, msg, () => {
       onSaveDraft(data);
@@ -1510,7 +1510,7 @@ function AdminReceiptFormContent() {
               )}
               <>
                 <Save size={14} className="mr-2" />{" "}
-                {isAdmin ? "Lưu và duyệt phiếu" : "Lưu và gửi duyệt"}
+                {isEditMode ? "Lưu thay đổi" : "Lưu và gửi duyệt"}
               </>
             </Button>
           )}

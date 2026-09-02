@@ -125,7 +125,8 @@ export default function AdminReceiptListPage() {
     return baseFilteredData.filter((item) => {
       const matchesStatus = selectedStatus === "all"
         || (selectedStatus === "pending" && ["PENDING", "PO"].includes(item.status))
-        || (selectedStatus === "completed" && ["APPROVED", "COMPLETED", "IMPORTED"].includes(item.status))
+        || (selectedStatus === "approved" && item.status === "APPROVED")
+        || (selectedStatus === "completed" && ["COMPLETED", "IMPORTED"].includes(item.status))
         || (selectedStatus === "cancelled" && ["CANCELLED", "REJECTED"].includes(item.status));
       return matchesStatus;
     });
@@ -136,14 +137,17 @@ export default function AdminReceiptListPage() {
       result.totalValue += item.status === "CANCELLED" || item.status === "REJECTED" ? 0 : item.total;
       result.totalDebt += item.status === "CANCELLED" || item.status === "REJECTED" ? 0 : item.debt;
       if (["PENDING", "PO"].includes(item.status)) result.pending += 1;
+      if (item.status === "APPROVED") result.approved += 1;
+      if (["COMPLETED", "IMPORTED"].includes(item.status)) result.completed += 1;
       return result;
     },
-    { totalValue: 0, totalDebt: 0, pending: 0 },
+    { totalValue: 0, totalDebt: 0, pending: 0, approved: 0, completed: 0 },
   ), [baseFilteredData]);
 
   const statusTabs = [
     { id: "all", label: "Tất cả" },
     { id: "pending", label: "Chờ duyệt" },
+    { id: "approved", label: "Đã duyệt" },
     { id: "completed", label: "Đã nhập kho" },
     { id: "cancelled", label: "Đã hủy" },
   ];
@@ -151,7 +155,8 @@ export default function AdminReceiptListPage() {
   const statusCounts = useMemo(() => ({
     all: baseFilteredData.length,
     pending: baseFilteredData.filter((item) => ["PENDING", "PO"].includes(item.status)).length,
-    completed: baseFilteredData.filter((item) => ["APPROVED", "COMPLETED", "IMPORTED"].includes(item.status)).length,
+    approved: baseFilteredData.filter((item) => item.status === "APPROVED").length,
+    completed: baseFilteredData.filter((item) => ["COMPLETED", "IMPORTED"].includes(item.status)).length,
     cancelled: baseFilteredData.filter((item) => ["CANCELLED", "REJECTED"].includes(item.status)).length,
   }), [baseFilteredData]);
 
@@ -232,7 +237,7 @@ export default function AdminReceiptListPage() {
             { title: "Tổng phiếu nhập", value: receipts.length, description: "Toàn bộ phiếu nhập đã lập" },
             { title: "Tổng giá trị nhập", value: `${formatNumber(summary.totalValue)} ₫`, description: "Không tính phiếu đã hủy" },
             { title: "Công nợ còn lại", value: `${formatNumber(summary.totalDebt)} ₫`, description: "Số tiền còn phải thanh toán" },
-            { title: "Đang chờ duyệt", value: summary.pending, description: "Phiếu cần tiếp tục xử lý" },
+            { title: "Đã duyệt", value: summary.approved, description: "Phiếu chờ kiểm hàng và nhập kho" },
           ].map((card) => (
             <div key={card.title} className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
               <p className="text-[11px] font-semibold text-slate-400">{card.title}</p>

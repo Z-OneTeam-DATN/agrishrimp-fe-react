@@ -863,7 +863,7 @@ export default function TransferDetailPage() {
             transfer.toBranchName ||
             "Chi nhánh nhận",
           action: "Hoàn tất kiểm nhận",
-          detail: "Đã nhập hàng đạt và chuyển hàng lỗi hoặc thiếu sang kho rủi ro.",
+          detail: "Đã nhập hàng đạt, ghi nhận hàng lỗi tại chi nhánh nhận và lưu hao hụt vận chuyển nếu có.",
         }
       : null,
     transfer.settledAt
