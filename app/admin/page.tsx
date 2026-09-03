@@ -23,6 +23,7 @@ import {
   TopProduct,
 } from "@/app/types/dashboard.type";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { normalizeRoleSlug } from "@/lib/roles";
+import { toDateTimeLocalValue } from "@/lib/dateUtils";
 
 const AdminDashboardCharts = dynamic(
   () => import("@/components/admin/AdminDashboardCharts"),
@@ -122,15 +124,23 @@ const getCurrentMonthValue = () => {
 
 const getDefaultDateRange = () => {
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = new Date(today);
+  end.setHours(23, 59, 0, 0);
+
+  const start = new Date(today);
+  start.setMonth(start.getMonth() - 1);
+  start.setHours(0, 0, 0, 0);
+
   return {
-    start: toIsoDate(start),
-    end: toIsoDate(today),
+    start: toDateTimeLocalValue(start),
+    end: toDateTimeLocalValue(end),
   };
 };
 
 const formatDateLabel = (value: string) => {
-  const [year, month, day] = value.split("-");
+  if (!value) return "";
+  const datePart = value.split("T")[0];
+  const [year, month, day] = datePart.split("-");
   if (!year || !month || !day) return value;
   return `${Number(day)}/${month}/${year}`;
 };
@@ -427,7 +437,7 @@ export default function AdminDashboard() {
 
   const periodLabel =
     periodMode === "date"
-      ? fromDate === toDate
+      ? fromDate.split("T")[0] === toDate.split("T")[0]
         ? `ngày ${formatDateLabel(fromDate)}`
         : `từ ${formatDateLabel(fromDate)} đến ${formatDateLabel(toDate)}`
       : periodMode === "month"
@@ -643,28 +653,21 @@ export default function AdminDashboard() {
               ))}
             </div>
             {periodMode === "date" && (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
-                  <span className="shrink-0">Từ ngày</span>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    max={toDate || defaultDateRange.end}
-                    onChange={(event) => setFromDate(event.target.value)}
-                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
-                  />
-                </label>
-                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
-                  <span className="shrink-0">Đến ngày</span>
-                  <input
-                    type="date"
-                    value={toDate}
-                    min={fromDate}
-                    max={defaultDateRange.end}
-                    onChange={(event) => setToDate(event.target.value)}
-                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
-                  />
-                </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="datetime-local"
+                  step={60}
+                  value={fromDate}
+                  onChange={(event) => setFromDate(event.target.value)}
+                  className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+                <Input
+                  type="datetime-local"
+                  step={60}
+                  value={toDate}
+                  onChange={(event) => setToDate(event.target.value)}
+                  className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
               </div>
             )}
             {periodMode === "month" && (
