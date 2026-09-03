@@ -208,11 +208,8 @@ export default function AdminDashboard() {
   >();
   const defaultDateRange = useMemo(() => getDefaultDateRange(), []);
   const currentMonthValue = useMemo(() => getCurrentMonthValue(), []);
-  const [periodMode, setPeriodMode] = useState<DashboardPeriodMode>("today");
   const [fromDate, setFromDate] = useState(defaultDateRange.start);
   const [toDate, setToDate] = useState(defaultDateRange.end);
-  const [fromMonth, setFromMonth] = useState(currentMonthValue);
-  const [toMonth, setToMonth] = useState(currentMonthValue);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [warehouseRefreshToken, setWarehouseRefreshToken] = useState(0);
 
@@ -282,7 +279,7 @@ export default function AdminDashboard() {
     enabled: canRunProtectedQueries,
   });
 
-  const isRangeMode = periodMode !== "today";
+  const isRangeMode = true;
   const {
     data: rangeResults,
     isLoading: isRangeLoading,
@@ -290,51 +287,26 @@ export default function AdminDashboard() {
   } = useQuery<MonthlyResults>({
     queryKey: [
       "business-results",
-      periodMode,
       fromDate,
       toDate,
-      fromMonth,
-      toMonth,
       selectedBranchId,
     ],
     queryFn: () =>
       dashboardService.getBusinessResults({
         branchId: selectedBranchId,
-        startDate: periodMode === "date" ? fromDate : undefined,
-        endDate: periodMode === "date" ? toDate : undefined,
-        startMonth: periodMode === "month" ? fromMonth : undefined,
-        endMonth: periodMode === "month" ? toMonth : undefined,
+        startDate: fromDate.split("T")[0],
+        endDate: toDate.split("T")[0],
       }),
-    enabled:
-      canRunProtectedQueries &&
-      ((periodMode === "date" && !!fromDate && !!toDate) ||
-        (periodMode === "month" && !!fromMonth && !!toMonth)),
+    enabled: canRunProtectedQueries && !!fromDate && !!toDate,
   });
 
   const trendParams = useMemo(() => {
-    if (periodMode === "month") {
-      return {
-        granularity: "MONTH" as const,
-        startDate: `${fromMonth}-01`,
-        endDate: monthEndDate(toMonth),
-      };
-    }
-    if (periodMode === "date") {
-      return {
-        granularity: "DAY" as const,
-        startDate: fromDate,
-        endDate: toDate,
-      };
-    }
-    const today = new Date();
     return {
       granularity: "DAY" as const,
-      startDate: toIsoDate(
-        new Date(today.getFullYear(), today.getMonth(), today.getDate() - 13),
-      ),
-      endDate: toIsoDate(today),
+      startDate: fromDate.split("T")[0],
+      endDate: toDate.split("T")[0],
     };
-  }, [periodMode, fromDate, toDate, fromMonth, toMonth]);
+  }, [fromDate, toDate]);
 
   const {
     data: businessTrend,
@@ -436,22 +408,11 @@ export default function AdminDashboard() {
   const urgentWork = orderWorkload + inventoryRisk + backorderCount;
 
   const periodLabel =
-    periodMode === "date"
-      ? fromDate.split("T")[0] === toDate.split("T")[0]
-        ? `ngày ${formatDateLabel(fromDate)}`
-        : `từ ${formatDateLabel(fromDate)} đến ${formatDateLabel(toDate)}`
-      : periodMode === "month"
-        ? fromMonth === toMonth
-          ? `tháng ${formatMonthLabel(fromMonth)}`
-          : `từ tháng ${formatMonthLabel(fromMonth)} đến ${formatMonthLabel(toMonth)}`
-        : "hôm nay";
+    fromDate.split("T")[0] === toDate.split("T")[0]
+      ? `ngày ${formatDateLabel(fromDate)}`
+      : `từ ${formatDateLabel(fromDate)} đến ${formatDateLabel(toDate)}`;
 
-  const comparisonNoun =
-    periodMode === "today"
-      ? "hôm qua"
-      : periodMode === "month" && fromMonth === toMonth
-        ? "tháng trước"
-        : "kỳ trước";
+  const comparisonNoun = "kỳ trước";
   const isPrimaryMetricsLoading = isRangeMode ? isRangeLoading : isDailyLoading;
   const revenueValue = isRangeMode
     ? rangeResults?.currentMonthRevenue
@@ -630,71 +591,21 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
-            <div className="flex w-full rounded-[4px] border border-slate-200 bg-white p-1 shadow-none sm:w-auto">
-              {[
-                { value: "today", label: "Hôm nay" },
-                { value: "date", label: "Theo ngày" },
-                { value: "month", label: "Theo tháng" },
-              ].map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setPeriodMode(option.value as DashboardPeriodMode)}
-                  className={`h-8 flex-1 rounded-[4px] px-3 text-[12px] font-semibold sm:flex-none ${
-                    periodMode === option.value
-                      ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-            {periodMode === "date" && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  type="datetime-local"
-                  step={60}
-                  value={fromDate}
-                  onChange={(event) => setFromDate(event.target.value)}
-                  className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                />
-                <Input
-                  type="datetime-local"
-                  step={60}
-                  value={toDate}
-                  onChange={(event) => setToDate(event.target.value)}
-                  className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                />
-              </div>
-            )}
-            {periodMode === "month" && (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
-                  <span className="shrink-0">Từ tháng</span>
-                  <input
-                    type="month"
-                    value={fromMonth}
-                    max={toMonth || currentMonthValue}
-                    onChange={(event) => setFromMonth(event.target.value)}
-                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
-                  />
-                </label>
-                <label className="flex h-10 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 shadow-none">
-                  <span className="shrink-0">Đến tháng</span>
-                  <input
-                    type="month"
-                    value={toMonth}
-                    min={fromMonth}
-                    max={currentMonthValue}
-                    onChange={(event) => setToMonth(event.target.value)}
-                    className="min-w-0 bg-transparent text-[13px] font-medium text-slate-800 outline-none"
-                  />
-                </label>
-              </div>
-            )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="datetime-local"
+              step={60}
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            />
+            <Input
+              type="datetime-local"
+              step={60}
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className="h-[38px] w-full min-w-[218px] rounded-md border-slate-200 bg-white pr-2 text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[218px] xl:w-[218px] [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            />
           </div>
           {canSelectAllBranches && (
             <Select
