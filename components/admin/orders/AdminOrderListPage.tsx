@@ -82,6 +82,8 @@ import {
   ORDER_LIST_SECONDARY_ACTION_CLASS,
   ORDER_LIST_SHELL_CLASS,
   ORDER_LIST_SUBTABLE_CLASS,
+  ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+  ORDER_LIST_TABLE_ACTION_CELL_CLASS,
 } from "./orderListStyles";
 import type { OrderQuickFilterGroup, OrderQuickFilterId } from "./orderQuickFilters";
 import { ReplenishmentDocumentLinks } from "./ReplenishmentDocumentLinks";
@@ -1597,7 +1599,12 @@ export default function AdminOrderListPage({
                 <TableHead className="text-center text-[12px] font-bold text-slate-800">
                   Trạng thái
                 </TableHead>
-                <TableHead className="text-center text-[12px] font-bold text-slate-800">
+                <TableHead
+                  className={cn(
+                    ORDER_LIST_TABLE_ACTION_CELL_CLASS,
+                    "text-[12px] font-bold text-slate-800",
+                  )}
+                >
                   Thao tác
                 </TableHead>
               </TableRow>
@@ -1772,7 +1779,7 @@ export default function AdminOrderListPage({
                           />
                         </TableCell>
                         <TableCell
-                          className="text-center"
+                          className={ORDER_LIST_TABLE_ACTION_CELL_CLASS}
                           onClick={(event) => event.stopPropagation()}
                         >
                           <div className="flex flex-col items-center gap-2">
@@ -1781,7 +1788,7 @@ export default function AdminOrderListPage({
                                 size="sm"
                                 className={cn(
                                   ORDER_LIST_PRIMARY_ACTION_CLASS,
-                                  "w-[132px] justify-center",
+                                  ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
                                 )}
                                 disabled={isAdvancing}
                                 onClick={(event) =>
@@ -1802,7 +1809,7 @@ export default function AdminOrderListPage({
                                 size="sm"
                                 className={cn(
                                   ORDER_LIST_SECONDARY_ACTION_CLASS,
-                                  "w-[168px] justify-center",
+                                  ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
                                 )}
                                 disabled={isReplenishing}
                                 onClick={(event) =>
