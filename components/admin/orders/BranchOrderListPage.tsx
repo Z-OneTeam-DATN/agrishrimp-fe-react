@@ -60,6 +60,9 @@ import {
   ORDER_LIST_ROW_CLASS,
   ORDER_LIST_SECONDARY_ACTION_CLASS,
   ORDER_LIST_SHELL_CLASS,
+  ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+  ORDER_LIST_TABLE_ACTION_CELL_CLASS,
+  ORDER_LIST_TABLE_COMPACT_ACTION_BUTTON_CLASS,
 } from "./orderListStyles";
 import type { OrderQuickFilterGroup, OrderQuickFilterId } from "./orderQuickFilters";
 
@@ -618,7 +621,10 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             disabled={isMutatingOrder}
-            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+            className={cn(
+              ORDER_LIST_SECONDARY_ACTION_CLASS,
+              ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+            )}
             onClick={(event) => {
               event.stopPropagation();
               void handleRequestReplenishment(order);
@@ -634,7 +640,10 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_PRIMARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             void handleUpdateStatus(order, "CONFIRMED");
@@ -651,7 +660,10 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_SECONDARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             void handleRequestReplenishment(order);
@@ -668,7 +680,10 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_PRIMARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             void handleUpdateStatus(order, "PROCESSING");
@@ -682,11 +697,14 @@ export default function BranchOrderListPage({
 
     if (activeProcessingStatus === "PROCESSING") {
       return (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
           <Button
             size="sm"
             variant="outline"
-            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+            className={cn(
+              ORDER_LIST_SECONDARY_ACTION_CLASS,
+              ORDER_LIST_TABLE_COMPACT_ACTION_BUTTON_CLASS,
+            )}
             onClick={(event) => {
               event.stopPropagation();
               window.print();
@@ -698,7 +716,10 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             disabled={isMutatingOrder}
-            className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+            className={cn(
+              ORDER_LIST_PRIMARY_ACTION_CLASS,
+              ORDER_LIST_TABLE_COMPACT_ACTION_BUTTON_CLASS,
+            )}
             onClick={(event) => {
               event.stopPropagation();
               void handleUpdateStatus(order, "READY_FOR_PICKUP");
@@ -715,7 +736,10 @@ export default function BranchOrderListPage({
       return (
         <Button
           size="sm"
-          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_PRIMARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             openHandoverCreate(order.subOrderId);
@@ -746,7 +770,10 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             disabled={isMutatingOrder}
-            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+            className={cn(
+              ORDER_LIST_SECONDARY_ACTION_CLASS,
+              ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+            )}
             onClick={(event) => {
               event.stopPropagation();
               void handleRequestReplenishment(order);
@@ -762,7 +789,10 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_PRIMARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             void handleUpdateStatus(order, "CONFIRMED");
@@ -779,7 +809,10 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_SECONDARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             void handleRequestReplenishment(order);
@@ -796,7 +829,10 @@ export default function BranchOrderListPage({
         <Button
           size="sm"
           disabled={isMutatingOrder}
-          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_PRIMARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             void handleUpdateStatus(order, "PROCESSING");
@@ -814,7 +850,10 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             variant="outline"
-            className={cn(ORDER_LIST_SECONDARY_ACTION_CLASS, "px-3")}
+            className={cn(
+              ORDER_LIST_SECONDARY_ACTION_CLASS,
+              ORDER_LIST_TABLE_COMPACT_ACTION_BUTTON_CLASS,
+            )}
             onClick={(event) => {
               event.stopPropagation();
               window.print();
@@ -826,7 +865,10 @@ export default function BranchOrderListPage({
           <Button
             size="sm"
             disabled={isMutatingOrder}
-            className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+            className={cn(
+              ORDER_LIST_PRIMARY_ACTION_CLASS,
+              ORDER_LIST_TABLE_COMPACT_ACTION_BUTTON_CLASS,
+            )}
             onClick={(event) => {
               event.stopPropagation();
               void handleUpdateStatus(order, "READY_FOR_PICKUP");
@@ -843,7 +885,10 @@ export default function BranchOrderListPage({
       return (
         <Button
           size="sm"
-          className={cn(ORDER_LIST_PRIMARY_ACTION_CLASS, "px-3")}
+          className={cn(
+            ORDER_LIST_PRIMARY_ACTION_CLASS,
+            ORDER_LIST_TABLE_ACTION_BUTTON_CLASS,
+          )}
           onClick={(event) => {
             event.stopPropagation();
             openHandoverCreate(order.subOrderId);
@@ -1038,7 +1083,14 @@ export default function BranchOrderListPage({
                 <TableHead className="text-right">Tiền hàng</TableHead>
                 <TableHead className="text-right">Phí ship</TableHead>
                 {hasQuickFilters ? (
-                  <TableHead className="text-center">Thao tác</TableHead>
+                  <TableHead
+                    className={cn(
+                      ORDER_LIST_TABLE_ACTION_CELL_CLASS,
+                      "text-center",
+                    )}
+                  >
+                    Thao tác
+                  </TableHead>
                 ) : null}
               </TableRow>
             </TableHeader>
@@ -1136,7 +1188,7 @@ export default function BranchOrderListPage({
                           {formatCurrency(order.shippingFee)}
                         </TableCell>
                         {hasQuickFilters ? (
-                          <TableCell className="text-center">
+                          <TableCell className={ORDER_LIST_TABLE_ACTION_CELL_CLASS}>
                             {renderIncompleteActions(detail, hasMissingItems, isMutatingOrder)}
                           </TableCell>
                         ) : null}

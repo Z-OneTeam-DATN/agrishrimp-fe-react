@@ -39,5 +39,14 @@ export const ORDER_LIST_PRIMARY_ACTION_CLASS =
 export const ORDER_LIST_SECONDARY_ACTION_CLASS =
   "h-8 rounded-none border border-blue-200 bg-white text-[12px] font-semibold text-blue-700 shadow-none hover:bg-blue-50 hover:text-blue-800";
 
+export const ORDER_LIST_TABLE_ACTION_CELL_CLASS =
+  "w-[190px] min-w-[190px] text-center";
+
+export const ORDER_LIST_TABLE_ACTION_BUTTON_CLASS =
+  "w-[168px] max-w-full justify-center px-4 text-center";
+
+export const ORDER_LIST_TABLE_COMPACT_ACTION_BUTTON_CLASS =
+  "min-w-[132px] justify-center px-3 text-center";
+
 export const ORDER_LIST_NOTE_CLASS =
   "rounded-none border border-blue-100 bg-blue-50/40 px-3.5 py-3 text-[12px] text-blue-800";
