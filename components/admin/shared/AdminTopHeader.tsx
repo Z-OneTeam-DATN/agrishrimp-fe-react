@@ -80,6 +80,7 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/variants": "Thuộc tính",
   "/admin/variants/add": "Thêm thuộc tính",
   "/admin/banners": "Banner",
+  "/admin/blog": "Blog",
   "/admin/blog/posts": "Bài viết",
   "/admin/blog/posts/new": "Thêm bài viết",
   "/admin/blog/posts/edit": "Chỉnh sửa bài viết",
@@ -110,6 +111,7 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/financial/cashbook": "Sổ quỹ / Tiền chi",
   "/admin/financial/profit-loss": "Lãi lỗ",
   "/admin/financial/supplier-debt": "Công nợ NCC",
+  "/admin/reports": "Báo cáo",
   "/admin/reports/sales": "Báo cáo doanh thu",
   "/admin/reports/inventory": "Báo cáo nhập xuất tồn",
   "/admin/settings": "Cài đặt",
@@ -117,6 +119,7 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/vouchers": "Khuyến mãi",
   "/admin/vouchers/add": "Thêm voucher",
   "/admin/vouchers/edit": "Cập nhật voucher",
+  "/admin/shipping": "Giao hàng",
   "/admin/shipping/overview": "Tổng quan giao hàng",
   "/admin/ai-knowledge": "AI Doctor",
   "/admin/ai-knowledge/categories": "Danh mục bệnh",
@@ -133,6 +136,12 @@ ADMIN_ROUTE_LABELS["/admin/orders-processing"] = "Xử lý đơn hàng";
 
 const HIDDEN_BREADCRUMB_PATHS = new Set([
   "/admin/employees",
+]);
+
+const NON_NAVIGABLE_BREADCRUMB_PATHS = new Set([
+  "/admin/blog",
+  "/admin/reports",
+  "/admin/shipping",
 ]);
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -203,7 +212,12 @@ export default function AdminTopHeader() {
 
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);
-    const items: { href: string; label: string }[] = [];
+    const items: {
+      href: string;
+      label: string;
+      current?: boolean;
+      linkable?: boolean;
+    }[] = [];
     const hideDetailBreadcrumb = pathname.startsWith("/admin/vouchers/edit/");
 
     if (segments[0] !== "admin") {
@@ -211,22 +225,47 @@ export default function AdminTopHeader() {
     }
 
     let currentPath = "";
+    let skipNextDetailSegment = false;
 
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
+
+      if (skipNextDetailSegment) {
+        skipNextDetailSegment = false;
+        return;
+      }
+
       const exactLabel =
         currentPath === "/admin/branches/add" && editingBranchId
           ? "Cập nhật chi nhánh"
           : ADMIN_ROUTE_LABELS[currentPath] ??
             ADMIN_ORDER_STATUS_ROUTE_LABELS[currentPath];
       const isLast = index === segments.length - 1;
+      const nextSegment = segments[index + 1];
+      const nextSegmentIsDetail =
+        !!nextSegment &&
+        (/^\d+$/.test(nextSegment) || nextSegment.startsWith("["));
 
       if (pathname.startsWith("/admin/employees/roles") && HIDDEN_BREADCRUMB_PATHS.has(currentPath)) {
         return;
       }
 
       if (exactLabel) {
-        items.push({ href: currentPath, label: exactLabel });
+        if (segment === "edit" && nextSegmentIsDetail) {
+          items.push({
+            href: `${currentPath}/${nextSegment}`,
+            label: exactLabel,
+            current: true,
+          });
+          skipNextDetailSegment = true;
+          return;
+        }
+
+        items.push({
+          href: currentPath,
+          label: exactLabel,
+          linkable: !NON_NAVIGABLE_BREADCRUMB_PATHS.has(currentPath),
+        });
         return;
       }
 
@@ -244,7 +283,11 @@ export default function AdminTopHeader() {
           .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
           .join(" ");
 
-      items.push({ href: currentPath, label: segmentLabel });
+      items.push({
+        href: currentPath,
+        label: segmentLabel,
+        linkable: !NON_NAVIGABLE_BREADCRUMB_PATHS.has(currentPath),
+      });
     });
 
     return items;
@@ -302,14 +345,19 @@ export default function AdminTopHeader() {
             <BreadcrumbList className="flex-nowrap overflow-x-auto whitespace-nowrap text-[13px] font-medium text-slate-400 no-scrollbar">
               {breadcrumbs.map((item, index) => {
                 const isLast = index === breadcrumbs.length - 1;
+                const isCurrent = item.current || isLast;
 
                 return (
                   <Fragment key={item.href}>
                     <BreadcrumbItem className="min-w-0">
-                      {isLast ? (
+                      {isCurrent ? (
                         <BreadcrumbPage className="truncate text-[13px] font-bold text-slate-800">
                           {item.label}
                         </BreadcrumbPage>
+                      ) : item.linkable === false ? (
+                        <span className="truncate text-[13px] text-slate-500">
+                          {item.label}
+                        </span>
                       ) : (
                         <BreadcrumbLink asChild className="truncate text-[13px] text-slate-500 hover:text-blue-600">
                           <Link href={item.href}>{item.label}</Link>
