@@ -14,6 +14,8 @@ const toNumber = (value: unknown) => Number(value ?? 0);
 export function mapBranchOrderToMyOrder(order: BranchOrder): MyOrder {
   const subtotal = toNumber(order.subtotal);
   const shippingFee = toNumber(order.shippingFee);
+  const discountAmount = toNumber(order.discountAmount);
+  const finalAmount = toNumber(order.finalAmount);
   const branchName = order.branchName?.trim() || "Chưa gán chi nhánh";
 
   return {
@@ -29,8 +31,8 @@ export function mapBranchOrderToMyOrder(order: BranchOrder): MyOrder {
     shippingFee,
     totalShippingFee: shippingFee,
     voucherCode: null,
-    discountAmount: 0,
-    finalAmount: subtotal + shippingFee,
+    discountAmount,
+    finalAmount,
     branchName,
     branchPhone: order.branchPhone ?? null,
     branchAddress: order.branchAddress ?? null,

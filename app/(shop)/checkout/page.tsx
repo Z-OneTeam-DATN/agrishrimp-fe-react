@@ -620,6 +620,7 @@ export default function CheckoutPage() {
         nextVoucherCode?: string | null,
         options?: {
             context?: PrepareContext
+            selectedAddress?: SavedAddress | null
             rollbackVoucher?: Voucher | null
             rollbackVoucherCode?: string | null
             showVoucherToast?: boolean
@@ -627,7 +628,8 @@ export default function CheckoutPage() {
     ) => {
         const requestId = ++prepareRequestIdRef.current
         const normalizedVoucherCode = normalizeVoucherCode(nextVoucherCode)
-        const selectedAddress = addresses.find((addr) => addr.id === userAddressId)
+        const selectedAddress = options?.selectedAddress
+            ?? addresses.find((addr) => addr.id === userAddressId)
         const selectedDeliveryInfo = deliveryInfo?.userAddressId === userAddressId ? deliveryInfo : null
         const context = options?.context ?? "address"
 
@@ -693,6 +695,7 @@ export default function CheckoutPage() {
                     return
                 }
 
+                clearPrepareResponse()
                 setPrepareError(error)
 
                 if (isRateLimitedError(error)) {
@@ -704,7 +707,7 @@ export default function CheckoutPage() {
             },
         })
         return requestId
-    }, [addresses, cartItems, deliveryInfo, handlePrepareSuccess, prepareMutation, syncVoucherInUrl])
+    }, [addresses, cartItems, clearPrepareResponse, deliveryInfo, handlePrepareSuccess, prepareMutation, syncVoucherInUrl])
 
     const syncVisibleCartItems = useCallback((nextItems: CartItem[]) => {
         setCartItems((currentItems) =>
@@ -970,7 +973,9 @@ export default function CheckoutPage() {
         }
 
         if (addr.id) {
-            requestPrepareQuote(addr.id, currentCart, activeVoucherCode)
+            requestPrepareQuote(addr.id, currentCart, activeVoucherCode, {
+                selectedAddress: addr,
+            })
         }
     }
 

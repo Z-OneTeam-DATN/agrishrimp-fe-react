@@ -276,6 +276,7 @@ export interface MyOrder {
   autoApproveAt?: string | null
   autoApprovalPaused?: boolean | null
   statusUpdatedAt?: string | null
+  canCancel?: boolean | null
   canConfirmReceived?: boolean | null
   hasReturnRequest?: boolean | null
   createdAt: string
@@ -341,6 +342,8 @@ export interface BranchOrder {
   subOrderStatus: OrderStatus
   subtotal: number
   shippingFee: number
+  discountAmount: number
+  finalAmount: number
   estimatedDays: string | null
   carrier: string | null
   branchId?: number | null
