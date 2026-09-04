@@ -8,6 +8,14 @@ type RoleLike =
   | null
   | undefined;
 
+type AssignableRoleLike =
+  | {
+      slug?: string | null;
+      permissionCodes?: string[] | null;
+    }
+  | null
+  | undefined;
+
 export const ADMIN_ROLE_SLUGS = ["ADMIN", "SUPER_ADMIN"] as const;
 
 /** Vai trò chỉ dùng workspace (kỹ sư nông nghiệp / tư vấn khách hàng) — trung lập, không thuộc chi nhánh nào. */
@@ -16,6 +24,10 @@ const BRANCHLESS_WORKSPACE_PERMISSIONS = [P.AGRONOMIST_WORKSPACE_USE, P.CUSTOMER
 export function isBranchlessWorkspaceRole(permissionCodes?: string[] | null): boolean {
   if (!permissionCodes || permissionCodes.length === 0) return false;
   return BRANCHLESS_WORKSPACE_PERMISSIONS.some((code) => permissionCodes.includes(code));
+}
+
+export function isBranchlessEmployeeRole(role: AssignableRoleLike): boolean {
+  return isAdminRole(role) || isBranchlessWorkspaceRole(role?.permissionCodes);
 }
 
 export function normalizeRoleSlug(role: RoleLike): string {

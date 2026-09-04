@@ -24,7 +24,7 @@ import { BranchService } from "@/app/services/branchService";
 import { RoleType } from "@/app/types/role.schema";
 import { BranchType, UserRequest, EmployeeUpdateSchema, EmployeeUpdateInput } from "@/app/types/employee.schema";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { canManageSystemAdminRoles, isBranchlessWorkspaceRole } from "@/lib/roles";
+import { canManageSystemAdminRoles, isBranchlessEmployeeRole } from "@/lib/roles";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 
@@ -53,6 +53,7 @@ export default function EditEmployeePage() {
         watch,
         reset,
         setError,
+        clearErrors,
         formState: { errors },
     } = useForm<EmployeeUpdateInput>({
         resolver: zodResolver(EmployeeUpdateSchema),
@@ -66,7 +67,7 @@ export default function EditEmployeePage() {
     const currentStartDate = watch("startDate");
 
     const selectedRole = roles.find((role) => role.id === currentRoleId);
-    const isBranchRequired = !isBranchlessWorkspaceRole(selectedRole?.permissionCodes);
+    const isBranchRequired = !isBranchlessEmployeeRole(selectedRole);
 
     useEffect(() => {
         if (!isLoadingAuth && !hasAllPermissions([P.STAFF_VIEW, P.STAFF_UPDATE])) {
@@ -132,6 +133,13 @@ export default function EditEmployeePage() {
         loadInitData();
     }, [userId, router, reset, currentUser, hasAllPermissions, isLoadingAuth, isAdmin]);
 
+    useEffect(() => {
+        if (!isBranchRequired && currentBranchId) {
+            setValue("branchId", undefined, { shouldValidate: true, shouldDirty: true });
+            clearErrors("branchId");
+        }
+    }, [clearErrors, currentBranchId, isBranchRequired, setValue]);
+
     const onFormSubmit = async (data: EmployeeUpdateInput) => {
         if (isBranchRequired && !data.branchId) {
             setError("branchId", { type: "manual", message: "Vui lòng chọn chi nhánh" });
@@ -143,6 +151,7 @@ export default function EditEmployeePage() {
             // Add email when updating (email is not part of update form but required by backend)
             const updateData = {
                 ...data,
+                branchId: isBranchRequired ? data.branchId : undefined,
                 email: userEmail
             } as unknown as UserRequest;
             await EmployeeService.update(userId, updateData);
@@ -363,7 +372,7 @@ export default function EditEmployeePage() {
                             <Label className="text-[10px] font-medium text-slate-400">
                                 Chi nhánh làm việc{isBranchRequired ? " *" : ""}
                             </Label>
-                            <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isAdmin}>
+                            <Select value={currentBranchId ? String(currentBranchId) : undefined} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isBranchRequired || !isAdmin}>
                                 <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}

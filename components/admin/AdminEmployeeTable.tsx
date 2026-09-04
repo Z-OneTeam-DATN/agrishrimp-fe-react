@@ -41,7 +41,6 @@ interface AdminEmployeeTableProps {
 }
 
 const getEmployeeRoleLabel = (employee: UserResponse) => {
-  if (employee.isSystemAccount) return "Quản trị viên";
   return employee.role?.displayName || "N/A";
 };
 

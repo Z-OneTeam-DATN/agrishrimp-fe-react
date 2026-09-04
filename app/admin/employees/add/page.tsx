@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePermissions } from "@/hooks/usePermissions";
 import { apiJava, getErrorMessage } from "@/lib/axios";
 import { P } from "@/lib/permissions";
-import { canManageSystemAdminRoles, isBranchlessWorkspaceRole } from "@/lib/roles";
+import { canManageSystemAdminRoles, isBranchlessEmployeeRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -117,7 +117,7 @@ export default function AddEmployeePage() {
     const currentStartDate = watch("startDate");
 
     const selectedRole = roles.find((role) => role.id === currentRoleId);
-    const isBranchRequired = !isBranchlessWorkspaceRole(selectedRole?.permissionCodes);
+    const isBranchRequired = !isBranchlessEmployeeRole(selectedRole);
 
     useEffect(() => {
         if (!isLoadingAuth && !hasPermission(P.STAFF_CREATE)) {
@@ -184,6 +184,13 @@ export default function AddEmployeePage() {
             }
         }
     }, [branches, currentBranchId, currentUser, isAdmin, setValue]);
+
+    useEffect(() => {
+        if (!isBranchRequired && currentBranchId) {
+            setValue("branchId", undefined, { shouldValidate: true, shouldDirty: true });
+            clearErrors("branchId");
+        }
+    }, [clearErrors, currentBranchId, isBranchRequired, setValue]);
 
     const handleAvatarClick = () => avatarInputRef.current?.click();
     const handleCitizenIdUploadClick = () => citizenIdInputRef.current?.click();
@@ -311,7 +318,11 @@ export default function AddEmployeePage() {
 
         try {
             setSaving(true);
-            await EmployeeService.create(data as unknown as UserRequest);
+            const payload = {
+                ...data,
+                branchId: isBranchRequired ? data.branchId : undefined,
+            };
+            await EmployeeService.create(payload as unknown as UserRequest);
             toast.success("Đã tạo nhân viên thành công.");
             router.push("/admin/employees");
         } catch (error: unknown) {
@@ -706,7 +717,7 @@ export default function AddEmployeePage() {
                                                         shouldTouch: true,
                                                     })
                                                 }
-                                                disabled={branches.length === 0 || !isAdmin}
+                                                disabled={!isBranchRequired || branches.length === 0 || !isAdmin}
                                             >
                                                 <SelectTrigger
                                                     className={cn(
