@@ -46,6 +46,17 @@ import autoTable from "jspdf-autotable";
 
 const PAGE_SIZE = 20;
 
+const filterLowStockProducts = (items: any[], keyword: string) => {
+  const searchLower = keyword.trim().toLowerCase();
+  if (!searchLower) return items;
+
+  return items.filter((p) =>
+    (p.productName || p.name || "").toLowerCase().includes(searchLower) ||
+    (p.sku || "").toLowerCase().includes(searchLower) ||
+    (p.branchName || "").toLowerCase().includes(searchLower)
+  );
+};
+
 function InventoryBelowMinReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -116,7 +127,7 @@ function InventoryBelowMinReportContent() {
         const lowStockList = Array.isArray(response) ? response : [];
 
         setProducts(lowStockList);
-        setFilteredProducts(lowStockList);
+        setFilteredProducts(filterLowStockProducts(lowStockList, searchTerm));
         setPage(1);
       }
     } catch (error) {
@@ -133,12 +144,7 @@ function InventoryBelowMinReportContent() {
 
   const handleSearch = (val: string) => {
     setSearchTerm(val);
-    const searchLower = val.toLowerCase();
-    const results = products.filter(p =>
-      (p.productName || p.name || "").toLowerCase().includes(searchLower) ||
-      (p.sku || "").toLowerCase().includes(searchLower)
-    );
-    setFilteredProducts(results);
+    setFilteredProducts(filterLowStockProducts(products, val));
     setPage(1);
   };
 
@@ -168,6 +174,7 @@ function InventoryBelowMinReportContent() {
 
         return {
           "STT": index + 1,
+          "Chi nhánh": p.branchName || branchName,
           "SKU": p.sku || "",
           "Tên sản phẩm": p.productName || "",
           "Tồn hiện tại": qty,
@@ -183,6 +190,7 @@ function InventoryBelowMinReportContent() {
       const wscols = [
         { wch: 8 },
         { wch: 25 },
+        { wch: 25 },
         { wch: 60 },
         { wch: 20 },
         { wch: 20 },
@@ -191,7 +199,7 @@ function InventoryBelowMinReportContent() {
       ws['!cols'] = wscols;
 
       ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }
       ];
 
       const wb = XLSX.utils.book_new();
@@ -231,8 +239,9 @@ function InventoryBelowMinReportContent() {
 
     autoTable(doc, {
       startY: 30,
-      head: [["SKU", "Tên sản phẩm", "Tồn hiện tại", "Tồn chi nhánh tổng", "Định mức tối thiểu", "Thiếu hụt"]],
+      head: [["Chi nhánh", "SKU", "Tên sản phẩm", "Tồn hiện tại", "Tồn chi nhánh tổng", "Định mức tối thiểu", "Thiếu hụt"]],
       body: filteredProducts.map((p) => [
+        p.branchName || branchName,
         p.sku || "",
         p.productName || p.name || "",
         String(p.quantity || 0),
@@ -369,7 +378,7 @@ function InventoryBelowMinReportContent() {
                  </TableHeader>
                  <TableBody>
                    {pagedProducts.map((p, index) => (
-                     <TableRow key={p.variantId || p.sku || index} className="bg-white border-b border-[#eee] hover:bg-slate-50 transition-colors group">
+                     <TableRow key={`${p.branchId || "all"}-${p.variantId || p.sku || index}`} className="bg-white border-b border-[#eee] hover:bg-slate-50 transition-colors group">
                        <TableCell className="text-center text-slate-400 font-bold text-[12px]">{(page - 1) * PAGE_SIZE + index + 1}</TableCell>
                        <TableCell className="p-3">
                          <div className="flex flex-col">
@@ -378,6 +387,11 @@ function InventoryBelowMinReportContent() {
                              <Badge className="bg-rose-100 text-rose-600 border-rose-200 text-[9px] px-1.5 py-0 rounded-full font-black uppercase tracking-tighter">
                                Tồn thấp
                              </Badge>
+                             {p.branchName && (
+                               <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[9px] px-1.5 py-0 rounded-full font-black uppercase tracking-tighter">
+                                 {p.branchName}
+                               </Badge>
+                             )}
                            </div>
                          </div>
                        </TableCell>
