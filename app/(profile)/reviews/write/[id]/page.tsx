@@ -7,10 +7,12 @@ import { Star, Loader2, Send, Camera, X, ChevronLeft } from "lucide-react";
 import { ReviewService } from "@/app/services/review.service";
 import { FileService } from "@/app/services/file.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
+import { PublicProductDetail } from "@/app/types/product.schema";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function WriteReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: productIdStr } = use(params);
@@ -19,7 +21,7 @@ export default function WriteReviewPage({ params }: { params: Promise<{ id: stri
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<PublicProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [rating, setRating] = useState(5);
@@ -153,11 +155,16 @@ export default function WriteReviewPage({ params }: { params: Promise<{ id: stri
             {product && (
               <div className="flex lg:flex-col gap-4 items-center lg:items-start">
                 <div className="relative w-20 h-20 lg:w-32 lg:h-32 shrink-0 border border-slate-100 rounded-xl overflow-hidden bg-slate-50">
-                  <Image 
-                    src={product.imageUrls?.[0] || "/placeholder.png"} 
-                    alt={product.name} 
-                    fill 
-                    className="object-contain p-2" 
+                  <Image
+                    src={resolveImageUrl(
+                      product.imageUrls?.[0] ||
+                        product.variants?.find((variant) => variant.imageUrl)?.imageUrl,
+                      "/placeholder.png",
+                    )}
+                    alt={product.name}
+                    fill
+                    sizes="(min-width: 1024px) 128px, 80px"
+                    className="object-contain p-2"
                   />
                 </div>
                 <div className="space-y-1 text-left">

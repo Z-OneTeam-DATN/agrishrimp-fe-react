@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { ReviewService, ReviewDTO } from "@/app/services/review.service";
 import { cn } from "@/lib/utils";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -292,7 +293,7 @@ export function ProductReviews({
                     <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-slate-500">
                       {review.userAvatar ? (
                         <img
-                          src={getFullImageUrl(review.userAvatar)}
+                          src={resolveImageUrl(review.userAvatar, "/placeholder.png")}
                           alt={review.userName || ""}
                           className="h-full w-full object-cover"
                           onError={(e) => {
