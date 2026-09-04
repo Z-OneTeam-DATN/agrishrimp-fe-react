@@ -1,24 +1,40 @@
 import { apiJava } from "@/lib/axios";
 
 /** Gọi GHN master-data qua Next.js proxy (token giữ server-side) */
+type GhnProvinceOption = {
+  id: number;
+  name: string;
+};
+
+type GhnDistrictOption = {
+  id: number;
+  name: string;
+};
+
+type GhnWardOption = {
+  wardId?: number;
+  code: string;
+  name: string;
+};
+
 export const locationService = {
   // { id: number, name: string }[]
-  getProvinces: async () => {
+  getProvinces: async (): Promise<GhnProvinceOption[]> => {
     const res = await fetch("/api/ghn/province");
     if (!res.ok) throw new Error("Không thể tải tỉnh/thành");
-    return res.json();
+    return (await res.json()) as GhnProvinceOption[];
   },
   // { id: number, name: string }[]  — id = GHN DistrictID
-  getDistricts: async (provinceId: number) => {
+  getDistricts: async (provinceId: number): Promise<GhnDistrictOption[]> => {
     const res = await fetch(`/api/ghn/district?province_id=${provinceId}`);
     if (!res.ok) throw new Error("Không thể tải quận/huyện");
-    return res.json();
+    return (await res.json()) as GhnDistrictOption[];
   },
   // { code: string, name: string }[] — code = GHN WardCode (e.g. "550113")
-  getWards: async (districtId: number) => {
+  getWards: async (districtId: number): Promise<GhnWardOption[]> => {
     const res = await fetch(`/api/ghn/ward?district_id=${districtId}`);
     if (!res.ok) throw new Error("Không thể tải phường/xã");
-    return res.json();
+    return (await res.json()) as GhnWardOption[];
   },
 };
 
