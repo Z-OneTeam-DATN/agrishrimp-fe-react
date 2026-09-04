@@ -97,7 +97,7 @@ export const describeTrend = (
   if (change.newBaseline) {
     return {
       label: "Mới",
-      tone: lowerIsBetter ? "down" : "up",
+      tone: "neutral",
       hint: `${comparisonLabel} chưa phát sinh nên chưa tính được %`,
     };
   }
