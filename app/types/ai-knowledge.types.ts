@@ -4,7 +4,13 @@ export type AiKnowledgeStatus =
   | "APPROVED"
   | "DISABLED"
   | "ARCHIVED";
-export type AiReviewCaseStatus = "NEW" | "IN_PROGRESS" | "RESOLVED" | "IGNORED";
+export type AiReviewCaseStatus =
+  | "NEW"
+  | "ASSIGNED"
+  | "IN_PROGRESS"
+  | "RESOLVED"
+  | "KB_UPDATED"
+  | "IGNORED";
 
 export interface AiKnowledgeCategory {
   id: number;

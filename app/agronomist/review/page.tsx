@@ -168,9 +168,8 @@ function AgronomistReviewContent() {
     const unresolved = groupedCases.reduce(
       (sum, group) =>
         sum +
-        group.cases.filter(
-          (item) => item.status === "NEW" || item.status === "IN_PROGRESS",
-        ).length,
+        group.cases.filter((item) => isReviewCaseOpenStatus(item.status))
+          .length,
       0,
     );
     const mostRepeated = Math.max(
@@ -179,7 +178,9 @@ function AgronomistReviewContent() {
     );
     const resolvedCount = groupedCases.reduce(
       (sum, group) =>
-        sum + group.cases.filter((item) => item.status === "RESOLVED").length,
+        sum +
+        group.cases.filter((item) => isReviewCaseKnowledgeUpdated(item.status))
+          .length,
       0,
     );
     const totalCases = groupedCases.reduce(
@@ -199,13 +200,8 @@ function AgronomistReviewContent() {
 
   const updateCaseMutation = useMutation({
     mutationFn: async (payload: UpdateReviewGroupPayload) => {
-      const targetCases = payload.group.cases.filter((item) => {
-        if (payload.status === "RESOLVED") return item.status !== "RESOLVED";
-        return true;
-      });
-
       await Promise.all(
-        targetCases.map((item) =>
+        payload.group.cases.map((item) =>
           aiKnowledgeService.updateReviewCase(item.id, {
             status: payload.status,
             matchedKnowledgeCode: payload.matchedKnowledgeCode || undefined,
@@ -396,7 +392,7 @@ function AgronomistReviewContent() {
                       <ReviewStatusPill status={group.status} />
                     </td>
                     <td className="px-4 py-4 text-center align-top">
-                      {group.status === "RESOLVED" ? (
+                      {isReviewCaseKnowledgeUpdated(group.status) ? (
                         <button
                           type="button"
                           onClick={() => openEditor(group)}
@@ -448,7 +444,8 @@ function AgronomistReviewContent() {
         <DialogContent className="max-h-[92vh] w-[95vw] max-w-[560px] gap-0 overflow-hidden rounded-[4px] border border-[#dcdfe8] bg-white p-0 shadow-xl">
           <DialogHeader className="border-b border-[#e8ebf1] px-6 py-5">
             <DialogTitle className="text-left text-[18px] font-semibold text-[#232323]">
-              {editor?.group.status === "RESOLVED"
+              {editor?.group.status &&
+              isReviewCaseKnowledgeUpdated(editor.group.status)
                 ? "Tri thức đã thêm"
                 : "Thêm vào tri thức"}
             </DialogTitle>
@@ -509,7 +506,9 @@ function AgronomistReviewContent() {
             >
               Hủy
             </Button>
-            {editor?.group.status !== "RESOLVED" ? (
+            {editor?.group.status &&
+            !isReviewCaseKnowledgeUpdated(editor.group.status) &&
+            editor.group.status !== "IGNORED" ? (
               <Button
                 type="button"
                 variant="outline"
@@ -537,7 +536,7 @@ function AgronomistReviewContent() {
                 editor &&
                 updateCaseMutation.mutate({
                   group: editor.group,
-                  status: "RESOLVED",
+                  status: "KB_UPDATED",
                   matchedKnowledgeCode: joinKnowledgeCodes(
                     editor.matchedKnowledgeCodes,
                   ),
@@ -562,19 +561,21 @@ function AgronomistReviewContent() {
 
 const REVIEW_STATUS_LABELS: Record<AiReviewCaseStatus, string> = {
   NEW: "Chưa xử lý",
+  ASSIGNED: "Đang xử lý",
   IN_PROGRESS: "Đang xử lý",
-  RESOLVED: "Đã thêm tri thức",
+  RESOLVED: "Đã xử lý",
+  KB_UPDATED: "Đã thêm tri thức",
   IGNORED: "Bỏ qua",
 };
 
 function ReviewStatusPill({ status }: { status: AiReviewCaseStatus }) {
-  if (status === "RESOLVED")
+  if (isReviewCaseKnowledgeUpdated(status))
     return (
       <AgronomistStatusPill tone="gray">
         {REVIEW_STATUS_LABELS[status]}
       </AgronomistStatusPill>
     );
-  if (status === "IN_PROGRESS")
+  if (status === "ASSIGNED" || status === "IN_PROGRESS")
     return (
       <AgronomistStatusPill tone="amber">
         {REVIEW_STATUS_LABELS[status]}
@@ -631,8 +632,12 @@ function resolveGroupStatus(
   items: AiKnowledgeReviewCase[],
 ): AiReviewCaseStatus {
   if (items.some((item) => item.status === "NEW")) return "NEW";
-  if (items.some((item) => item.status === "IN_PROGRESS")) return "IN_PROGRESS";
-  if (items.every((item) => item.status === "RESOLVED")) return "RESOLVED";
+  if (items.some((item) => isReviewCaseAssignedStatus(item.status)))
+    return "ASSIGNED";
+  if (items.every((item) => item.status === "KB_UPDATED"))
+    return "KB_UPDATED";
+  if (items.every((item) => isReviewCaseKnowledgeUpdated(item.status)))
+    return "RESOLVED";
   return "IGNORED";
 }
 
@@ -673,7 +678,26 @@ function formatDateTime(value?: string) {
 }
 
 function statusOrder(status: AiReviewCaseStatus) {
-  return { NEW: 0, IN_PROGRESS: 1, RESOLVED: 2, IGNORED: 3 }[status] ?? 9;
+  return {
+    NEW: 0,
+    ASSIGNED: 1,
+    IN_PROGRESS: 1,
+    RESOLVED: 2,
+    KB_UPDATED: 2,
+    IGNORED: 3,
+  }[status] ?? 9;
+}
+
+function isReviewCaseAssignedStatus(status: AiReviewCaseStatus) {
+  return status === "ASSIGNED" || status === "IN_PROGRESS";
+}
+
+function isReviewCaseOpenStatus(status: AiReviewCaseStatus) {
+  return status === "NEW" || isReviewCaseAssignedStatus(status);
+}
+
+function isReviewCaseKnowledgeUpdated(status: AiReviewCaseStatus) {
+  return status === "RESOLVED" || status === "KB_UPDATED";
 }
 
 function toTime(value?: string) {
