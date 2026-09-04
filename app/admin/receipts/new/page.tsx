@@ -16,7 +16,6 @@ import {
   FileText,
 } from "lucide-react";
 import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
-import { DriverNameSelect } from "@/components/admin/shared/DriverNameSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1011,17 +1010,14 @@ function AdminReceiptFormContent() {
             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Người giao hàng *
             </Label>
-            <Controller
-              name="deliverer"
-              control={control}
-              render={({ field }) => (
-                <DriverNameSelect
-                  value={field.value || ""}
-                  onChange={field.onChange}
-                  disabled={isInfoReadOnly}
-                  placeholder="Chọn tài xế giao hàng"
-                  error={Boolean(errors.deliverer)}
-                />
+            <Input
+              {...register("deliverer")}
+              readOnly={isInfoReadOnly}
+              placeholder="Nhập tên người giao hàng của NCC"
+              className={cn(
+                "h-10 border-slate-200 bg-white text-[13px] shadow-none",
+                isInfoReadOnly && "bg-slate-50 text-slate-500",
+                errors.deliverer && "border-rose-500",
               )}
             />
             {errors.deliverer && (
