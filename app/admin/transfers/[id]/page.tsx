@@ -35,6 +35,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/dateUtils";
 import { getErrorMessage } from "@/lib/axios";
 import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
 import { markAdminOrdersRefreshNeeded } from "@/lib/order-refresh";
 import { getTransferStatusLabel } from "@/lib/transfer-status";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -59,6 +60,14 @@ type AuditLog = {
 
 const DONE_STATUSES = ["COMPLETED"];
 const CANCELLABLE_STATUSES = ["PENDING", "SOURCE_CONFIRMED", "APPROVED"];
+
+function normalizeBranchName(value?: string | null) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
 
 function fmtPrintQty(value: unknown) {
   return new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
@@ -553,22 +562,38 @@ export default function TransferDetailPage() {
   const canCreateTransfer = hasPermission(P.TRANSFER_CREATE);
   const canUpdateTransfer = hasPermission(P.TRANSFER_UPDATE);
   const canCancelTransfer = hasPermission(P.TRANSFER_CANCEL);
+  const canOperateAcrossTransferBranches =
+    canApproveTransfer && isAdminRole(currentUser?.role);
+  const findBranchIdByName = (name?: string | null) =>
+    branches.find((branch) => {
+      const branchName = branch.name || branch.branchName;
+      return normalizeBranchName(branchName) === normalizeBranchName(name);
+    })?.id;
   const currentUserBranchId =
     currentUser?.branch?.id ??
     (currentUser as any)?.branchId ??
     warehouseId ??
     null;
+  const currentUserBranchName =
+    currentUser?.branch?.name ?? (currentUser as any)?.branchName ?? null;
   const transferSourceBranchId =
     transfer?.sourceBranchId ??
     transfer?.fromBranchId ??
     transfer?.sourceBranch?.id ??
+    findBranchIdByName(transfer?.fromBranchName) ??
     null;
+  const transferSourceBranchName =
+    transfer?.fromBranchName ?? transfer?.sourceBranch?.name ?? null;
 
   // Chỉ user thuộc chi nhánh nguồn mới được xác nhận nguồn
   const isSourceBranchUser =
-    currentUserBranchId != null &&
-    transferSourceBranchId != null &&
-    String(currentUserBranchId) === String(transferSourceBranchId);
+    (currentUserBranchId != null &&
+      transferSourceBranchId != null &&
+      String(currentUserBranchId) === String(transferSourceBranchId)) ||
+    (!!currentUserBranchName &&
+      !!transferSourceBranchName &&
+      normalizeBranchName(currentUserBranchName) ===
+        normalizeBranchName(transferSourceBranchName));
 
   useEffect(() => {
     void fetchData();
@@ -743,7 +768,10 @@ export default function TransferDetailPage() {
     canApproveTransfer &&
     ((!sourceConfirmationRequired && status === "PENDING") ||
       (sourceConfirmationRequired && status === "SOURCE_CONFIRMED"));
-  const canShip = canApproveTransfer && status === "APPROVED";
+  const canShip =
+    status === "APPROVED" &&
+    (canOperateAcrossTransferBranches ||
+      (canCreateTransfer && isSourceBranchUser));
   const canStartInspection = canCreateTransfer && status === "SHIPPING";
   const canReceive = canCreateTransfer && status === "INSPECTING";
   const canCancel = canCancelTransfer && CANCELLABLE_STATUSES.includes(status);
@@ -938,8 +966,6 @@ export default function TransferDetailPage() {
     const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return offsetDate.toISOString().slice(0, 16);
   };
-  const findBranchIdByName = (name?: string) =>
-    branches.find((branch) => branch.name === name)?.id;
   const sourceBranchValue = String(
     transfer.sourceBranchId ||
       transfer.fromBranchId ||
