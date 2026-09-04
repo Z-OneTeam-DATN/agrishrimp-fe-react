@@ -26,10 +26,14 @@ import {
   OrderStatus,
 } from "@/app/types/order.types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
+  canCustomerCancelAction,
   canCustomerConfirmReceivedAction,
+  getCustomerCancelDeadlineMs,
   getUserOrderStage,
 } from "@/components/orders/order-status-utils";
+import { CancelOrderModal } from "@/components/orders/CancelOrderModal";
 import { formatDate } from "@/lib/dateUtils";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { formatCurrency } from "@/lib/utils";
@@ -258,7 +262,9 @@ export default function OrderDetailPage({
   const [order, setOrder] = useState<MyOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isConfirmingReceived, setIsConfirmingReceived] = useState(false);
+  const [cancelWindowNow, setCancelWindowNow] = useState(() => Date.now());
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -295,8 +301,35 @@ export default function OrderDetailPage({
     }
   };
 
+  const handleOrderCancelled = async () => {
+    if (!order) {
+      return;
+    }
+
+    try {
+      const refreshedOrder = await orderService.getOrderById(order.id);
+      setOrder(refreshedOrder);
+    } catch (err) {
+      console.error("Failed to refresh order after cancellation:", err);
+      setOrder((current) =>
+        current
+          ? {
+              ...current,
+              status: "CANCELLED",
+              legacyStatus: "CANCELLED",
+              canCancel: false,
+            }
+          : current,
+      );
+    }
+  };
+
   const customerStage = order ? getUserOrderStage(order) : "PENDING";
   const displayStatus = getCustomerFacingStatus(order);
+  const cancelDeadlineMs = order ? getCustomerCancelDeadlineMs(order) : null;
+  const canCancelOrder = order
+    ? canCustomerCancelAction(order, cancelWindowNow)
+    : false;
   const canConfirmReceived = order
     ? canCustomerConfirmReceivedAction(order)
     : false;
@@ -307,6 +340,25 @@ export default function OrderDetailPage({
   const progressPct = activeStep > 0 ? (activeStep / (steps.length - 1)) * 100 : 0;
   const hasAppliedVoucher =
     Boolean(order?.voucherCode) || (order?.discountAmount ?? 0) > 0;
+
+  useEffect(() => {
+    setCancelWindowNow(Date.now());
+
+    if (!order || !canCancelOrder || cancelDeadlineMs == null) {
+      return;
+    }
+
+    const remainingMs = Math.max(0, cancelDeadlineMs - Date.now());
+    if (remainingMs <= 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCancelWindowNow(Date.now());
+    }, remainingMs + 50);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [canCancelOrder, cancelDeadlineMs, order]);
 
   if (loading) {
     return <LoadingSkeleton />;
@@ -589,6 +641,26 @@ export default function OrderDetailPage({
             </div>
           )}
         </div>
+
+        {canCancelOrder && order ? (
+          <div className="rounded-xl bg-white px-4 py-4">
+            <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full rounded-xl border border-red-200 bg-red-50 py-3 text-center text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
+                >
+                  Hủy đơn
+                </button>
+              </DialogTrigger>
+              <CancelOrderModal
+                orderId={order.id.toString()}
+                onClose={() => setIsCancelModalOpen(false)}
+                onOrderCancelled={handleOrderCancelled}
+              />
+            </Dialog>
+          </div>
+        ) : null}
 
         {canConfirmReceived && (
           <div className="rounded-xl bg-white px-4 py-4">

@@ -568,7 +568,7 @@ export default function BranchOrderListPage({
     [orders],
   );
   const totalFilteredValue = useMemo(
-    () => orders.reduce((sum, order) => sum + Number(order.subtotal || 0), 0),
+    () => orders.reduce((sum, order) => sum + Number(order.finalAmount || 0), 0),
     [orders],
   );
   const summaryCards = useMemo(
@@ -591,7 +591,7 @@ export default function BranchOrderListPage({
       {
         label: "Giá trị lọc",
         value: formatCurrency(totalFilteredValue),
-        note: "Tổng tiền hàng của tập đơn đang hiển thị",
+        note: "Tổng thanh toán hiển thị của tập đơn đang xem",
       },
     ],
     [orders.length, shortageCount, totalFilteredValue, unpaidCount],
@@ -1080,7 +1080,7 @@ export default function BranchOrderListPage({
                 <TableHead>Khách hàng</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Thanh toán</TableHead>
-                <TableHead className="text-right">Tiền hàng</TableHead>
+                <TableHead className="text-right">Tổng tiền</TableHead>
                 <TableHead className="text-right">Phí ship</TableHead>
                 {hasQuickFilters ? (
                   <TableHead
@@ -1182,7 +1182,7 @@ export default function BranchOrderListPage({
                           />
                         </TableCell>
                         <TableCell className="text-right text-[13px] font-semibold text-slate-800">
-                          {formatCurrency(order.subtotal)}
+                          {formatCurrency(order.finalAmount)}
                         </TableCell>
                         <TableCell className="text-right text-[13px] text-slate-600">
                           {formatCurrency(order.shippingFee)}
@@ -1263,6 +1263,33 @@ export default function BranchOrderListPage({
                                       {detail.estimatedDays
                                         ? formatDate(detail.estimatedDays, "dd/MM/yyyy")
                                         : "Chưa có"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3 text-[12px] text-slate-600">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span>Tiền hàng</span>
+                                    <span className="font-medium text-slate-800">
+                                      {formatCurrency(detail.subtotal)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span>Phí ship</span>
+                                    <span className="font-medium text-slate-800">
+                                      {formatCurrency(detail.shippingFee)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span>Giảm voucher</span>
+                                    <span className="font-medium text-emerald-700">
+                                      -{formatCurrency(detail.discountAmount)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 border-t border-blue-100 pt-2 text-[13px]">
+                                    <span className="font-semibold text-slate-700">Tổng thanh toán</span>
+                                    <span className="font-semibold text-slate-900">
+                                      {formatCurrency(detail.finalAmount)}
                                     </span>
                                   </div>
                                 </div>

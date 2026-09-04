@@ -32,7 +32,7 @@ import { toast } from "sonner";
 interface CancelOrderModalProps {
   orderId: string;
   onClose: () => void;
-  onOrderCancelled?: () => void;
+  onOrderCancelled?: () => void | Promise<void>;
 }
 
 const CANCEL_REASONS: Array<{
@@ -72,7 +72,7 @@ export function CancelOrderModal({
     try {
       await orderService.cancelOrder(orderId, values);
       toast.success("Yêu cầu hủy đơn hàng đã được gửi.");
-      onOrderCancelled?.();
+      await Promise.resolve(onOrderCancelled?.());
       onClose();
       router.refresh();
     } catch (error) {

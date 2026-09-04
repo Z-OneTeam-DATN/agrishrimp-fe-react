@@ -2,6 +2,7 @@ import { MyOrder } from "@/app/types/order.types";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 
 const CUSTOMER_CONFIRM_RECEIVED_WINDOW_HOURS = 72;
+const CUSTOMER_CANCEL_WINDOW_MINUTES = 5;
 
 export type UserOrderStage =
   | "PENDING"
@@ -16,6 +17,11 @@ export type UserOrderFilter = "ALL" | UserOrderStage;
 type CustomerOrderStageSource = Pick<
   MyOrder,
   "status" | "statusUpdatedAt" | "canConfirmReceived"
+>;
+
+type CustomerOrderCancelSource = Pick<
+  MyOrder,
+  "status" | "createdAt" | "canCancel"
 >;
 
 export const USER_ORDER_TABS: Array<{ label: string; value: UserOrderFilter }> =
@@ -53,6 +59,54 @@ export function canCustomerConfirmReceivedAction(
     Date.now() - statusUpdatedAt.getTime() <=
     CUSTOMER_CONFIRM_RECEIVED_WINDOW_HOURS * 60 * 60 * 1000
   );
+}
+
+export function getCustomerCancelDeadlineMs(
+  order: CustomerOrderCancelSource,
+): number | null {
+  const createdAt = parseLocalDateTime(order.createdAt);
+  if (Number.isNaN(createdAt.getTime())) {
+    return null;
+  }
+
+  return (
+    createdAt.getTime() +
+    CUSTOMER_CANCEL_WINDOW_MINUTES * 60 * 1000
+  );
+}
+
+export function getCustomerCancelRemainingMs(
+  order: CustomerOrderCancelSource,
+  now: number = Date.now(),
+): number | null {
+  const deadlineMs = getCustomerCancelDeadlineMs(order);
+  if (deadlineMs == null) {
+    return null;
+  }
+
+  return Math.max(0, deadlineMs - now);
+}
+
+export function canCustomerCancelAction(
+  order: CustomerOrderCancelSource,
+  now: number = Date.now(),
+): boolean {
+  const hasBackendFlag = typeof order.canCancel === "boolean";
+  if (hasBackendFlag && !order.canCancel) {
+    return false;
+  }
+
+  if (
+    !hasBackendFlag &&
+    !["PENDING_PAYMENT", "PENDING_AUTO_APPROVAL", "AWAITING_PAYMENT", "PENDING"].includes(
+      order.status,
+    )
+  ) {
+    return false;
+  }
+
+  const remainingMs = getCustomerCancelRemainingMs(order, now);
+  return remainingMs == null ? Boolean(order.canCancel ?? true) : remainingMs > 0;
 }
 
 export function getUserOrderStage(order: CustomerOrderStageSource): UserOrderStage {

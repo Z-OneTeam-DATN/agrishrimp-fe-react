@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   Clock,
@@ -16,14 +16,15 @@ import { orderService } from "@/app/services/order.service";
 import {
   MyOrder,
   OrderPaymentStatus,
-  OrderStatus,
 } from "@/app/types/order.types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { cn } from "@/lib/utils";
 import {
+  canCustomerCancelAction,
   canCustomerConfirmReceivedAction,
+  getCustomerCancelDeadlineMs,
   getUserOrderStage,
   UserOrderStage,
 } from "./order-status-utils";
@@ -32,16 +33,9 @@ import { CancelOrderModal } from "./CancelOrderModal";
 interface OrderCardProps {
   order: MyOrder;
   hasReturnRequest?: boolean;
-  onOrderCancelled?: () => void;
+  onOrderCancelled?: () => void | Promise<void>;
   onOrderUpdated?: (order: MyOrder) => void | Promise<void>;
 }
-
-const cancellableStatuses = new Set<OrderStatus>([
-  "PENDING_PAYMENT",
-  "PENDING_SHORTAGE_REVIEW",
-  "AWAITING_PAYMENT",
-  "PENDING",
-]);
 
 const isPaidPaymentStatus = (status: OrderPaymentStatus | string) =>
   status === "PAID" || status === "REFUNDED";
@@ -124,6 +118,7 @@ export function OrderCard({
 }: OrderCardProps) {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isConfirmingReceived, setIsConfirmingReceived] = useState(false);
+  const [cancelWindowNow, setCancelWindowNow] = useState(() => Date.now());
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", {
@@ -144,6 +139,8 @@ export function OrderCard({
 
   const customerStage = getUserOrderStage(order);
   const statusConfig = getStatusConfig(customerStage);
+  const cancelDeadlineMs = getCustomerCancelDeadlineMs(order);
+  const canCancelOrder = canCustomerCancelAction(order, cancelWindowNow);
   const canConfirmReceived = canCustomerConfirmReceivedAction(order);
   const isDeliveredForCustomer = customerStage === "COMPLETED";
   const hasVisibleReturnRequest =
@@ -155,6 +152,25 @@ export function OrderCard({
     "h-8 rounded-none border border-gray-300 bg-white px-4 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-800";
   const btnPayClass =
     "h-8 rounded-none border border-red-500 bg-red-500 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-red-600";
+
+  useEffect(() => {
+    setCancelWindowNow(Date.now());
+
+    if (!canCancelOrder || cancelDeadlineMs == null) {
+      return;
+    }
+
+    const remainingMs = Math.max(0, cancelDeadlineMs - Date.now());
+    if (remainingMs <= 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCancelWindowNow(Date.now());
+    }, remainingMs + 50);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [canCancelOrder, cancelDeadlineMs, order.id]);
 
   const handleConfirmReceived = async () => {
     try {
@@ -169,6 +185,18 @@ export function OrderCard({
     } finally {
       setIsConfirmingReceived(false);
     }
+  };
+
+  const handleOrderCancelled = async () => {
+    const cancelledOrder: MyOrder = {
+      ...order,
+      status: "CANCELLED",
+      legacyStatus: "CANCELLED",
+      canCancel: false,
+    };
+
+    await Promise.resolve(onOrderUpdated?.(cancelledOrder));
+    await Promise.resolve(onOrderCancelled?.());
   };
 
   return (
@@ -344,7 +372,7 @@ export function OrderCard({
             </a>
           ) : null}
 
-          {cancellableStatuses.has(order.status) ? (
+          {canCancelOrder ? (
             <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className={btnOutlineClass}>
@@ -354,7 +382,7 @@ export function OrderCard({
               <CancelOrderModal
                 orderId={order.id.toString()}
                 onClose={() => setIsCancelModalOpen(false)}
-                onOrderCancelled={onOrderCancelled}
+                onOrderCancelled={handleOrderCancelled}
               />
             </Dialog>
           ) : null}

@@ -368,7 +368,7 @@ export default function AdminOrderDetailView({
         <DetailMetricCard
           label="Giá trị đơn"
           value={formatCurrency(order.finalAmount ?? order.totalAmount)}
-          hint={`Tiền hàng: ${formatCurrency(order.totalAmount)}`}
+          hint={`Tiền hàng: ${formatCurrency(order.totalAmount)} • Phí ship: ${formatCurrency(order.totalShippingFee ?? order.shippingFee ?? 0)} • Giảm voucher: ${formatCurrency(order.discountAmount ?? 0)}`}
           icon={<Wallet size={18} />}
         />
         <DetailMetricCard
@@ -433,6 +433,16 @@ export default function AdminOrderDetailView({
                 icon={<Truck size={15} className="text-blue-500" />}
                 label="Phí giao hàng"
                 value={formatCurrency(order.totalShippingFee ?? order.shippingFee ?? 0)}
+              />
+              <InfoLine
+                icon={<Wallet size={15} className="text-blue-500" />}
+                label="Giảm voucher"
+                value={formatCurrency(order.discountAmount ?? 0)}
+              />
+              <InfoLine
+                icon={<Wallet size={15} className="text-blue-500" />}
+                label="Tổng thanh toán"
+                value={formatCurrency(order.finalAmount ?? order.totalAmount)}
               />
             </div>
           </div>
