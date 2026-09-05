@@ -29,8 +29,25 @@ import type {
   AiDoctorTreatmentStageOption,
   AiDoctorTreatmentStage,
 } from "@/app/types/ai-doctor.types";
+import type {
+  PublicProductDetail,
+  PublicProductVariant,
+} from "@/app/types/product.schema";
 import { useCartStore } from "@/stores/useCartStore";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+
+type HydratedSuggestedProduct = AiDoctorSuggestedProduct & {
+  displayPriceLabel?: string;
+  displayPriceForTotal?: number;
+};
+
+type HydratedTreatmentStage = Omit<
+  AiDoctorTreatmentStage,
+  "products" | "subStages"
+> & {
+  products: HydratedSuggestedProduct[];
+  subStages?: HydratedTreatmentStage[];
+};
 
 const formatPrice = (price?: number) => {
   if (!price || price <= 0) return "Liên hệ";
@@ -49,12 +66,99 @@ const formatDateTime = (value?: string) => {
   }).format(date);
 };
 
-const getStageTotal = (products: AiDoctorSuggestedProduct[] = []) =>
-  products.reduce(
-    (sum, product) =>
-      sum + (product.price && product.price > 0 ? product.price : 0),
-    0,
+const getStageTotal = (products: HydratedSuggestedProduct[] = []) =>
+  products.reduce((sum, product) => {
+    const price = product.displayPriceForTotal ?? product.price ?? 0;
+    return sum + (price > 0 ? price : 0);
+  }, 0);
+
+const getValidPrices = (variants: PublicProductVariant[] = []) =>
+  variants
+    .map((variant) => Number(variant.price))
+    .filter((price) => Number.isFinite(price) && price > 0);
+
+const getProductPriceDisplay = (productDetail?: PublicProductDetail) => {
+  const prices = getValidPrices(productDetail?.variants ?? []);
+  if (prices.length === 0) return null;
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+
+  return {
+    label:
+      minPrice !== maxPrice
+        ? `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}`
+        : formatPrice(minPrice),
+    valueForTotal: minPrice,
+  };
+};
+
+const getProductImage = (productDetail?: PublicProductDetail) =>
+  [
+    ...(productDetail?.variants ?? []).flatMap((variant) =>
+      (variant.imageUrl ?? "")
+        .split(",")
+        .map((image) => image.trim())
+        .filter(Boolean),
+    ),
+    ...(productDetail?.imageUrls ?? []),
+  ].find((image) => image && image !== "/placeholder.svg");
+
+const pickPublicSaleVariant = (productDetail?: PublicProductDetail | null) => {
+  const variants = productDetail?.variants ?? [];
+
+  return (
+    variants.find(
+      (variant) =>
+        variant.status === "ACTIVE" &&
+        (variant.quantity ?? 0) > 0 &&
+        (variant.batches?.length ?? 0) > 0,
+    ) ||
+    variants.find(
+      (variant) => variant.status === "ACTIVE" && (variant.quantity ?? 0) > 0,
+    ) ||
+    variants.find((variant) => variant.status === "ACTIVE") ||
+    variants[0] ||
+    null
   );
+};
+
+const hydrateSuggestedProduct = (
+  product: AiDoctorSuggestedProduct,
+  productDetailsById: Record<number, PublicProductDetail | undefined>,
+): HydratedSuggestedProduct => {
+  const productDetail = productDetailsById[product.id];
+  if (!productDetail) return product;
+
+  const priceDisplay = getProductPriceDisplay(productDetail);
+  const saleVariant = pickPublicSaleVariant(productDetail);
+
+  return {
+    ...product,
+    name: productDetail.name || product.name,
+    image: getProductImage(productDetail) ?? product.image,
+    price: priceDisplay?.valueForTotal ?? product.price,
+    displayPriceLabel: priceDisplay?.label,
+    displayPriceForTotal: priceDisplay?.valueForTotal,
+    variantId: saleVariant?.id ?? product.variantId,
+    webUrl: productDetail.slug
+      ? `/san-pham/${productDetail.slug}`
+      : product.webUrl,
+  };
+};
+
+const hydrateTreatmentStage = (
+  stage: AiDoctorTreatmentStage,
+  productDetailsById: Record<number, PublicProductDetail | undefined>,
+): HydratedTreatmentStage => ({
+  ...stage,
+  products: (stage.products ?? []).map((product) =>
+    hydrateSuggestedProduct(product, productDetailsById),
+  ),
+  subStages: stage.subStages?.map((subStage) =>
+    hydrateTreatmentStage(subStage, productDetailsById),
+  ),
+});
 
 const STAGE_NUMBER_PREFIX_PATTERN = /^(\d+(?:\.\d+)?)\s*[-–—]\s*/;
 
@@ -125,7 +229,7 @@ function TreatmentInstructionList({
   );
 }
 
-function ProductCard({ product }: { product: AiDoctorSuggestedProduct }) {
+function ProductCard({ product }: { product: HydratedSuggestedProduct }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#376E60]/40 hover:shadow-md">
       <div className="relative mb-2 flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-slate-50">
@@ -146,7 +250,7 @@ function ProductCard({ product }: { product: AiDoctorSuggestedProduct }) {
         {product.name}
       </div>
       <div className="mb-2 text-[12px] font-bold text-red-600">
-        {formatPrice(product.price)}
+        {product.displayPriceLabel ?? formatPrice(product.price)}
       </div>
 
       {product.webUrl && (
@@ -235,7 +339,7 @@ function StageCard({
   isAdding,
   onAddStage,
 }: {
-  stage: AiDoctorTreatmentStage;
+  stage: HydratedTreatmentStage;
   index: number;
   subtotal: number;
   isAdding: boolean;
@@ -339,6 +443,9 @@ export default function TreatmentResultPage() {
     useState<PrescriptionState>("idle");
   const [prescriptionData, setPrescriptionData] =
     useState<Partial<AiDoctorDiagnosisResponse> | null>(null);
+  const [productDetailsById, setProductDetailsById] = useState<
+    Record<number, PublicProductDetail | undefined>
+  >({});
   const variantIdCache = useRef<Map<number, number>>(new Map());
   const { fetchCartCount } = useCartStore();
   const { isAuthenticated } = useCurrentUser();
@@ -364,8 +471,27 @@ export default function TreatmentResultPage() {
   const causes = prescriptionData?.causes ?? diagnosis?.causes ?? [];
   const signsSummary =
     prescriptionData?.signsSummary ?? diagnosis?.signsSummary ?? null;
-  const treatmentStages =
+  const rawTreatmentStages =
     prescriptionData?.treatmentStages ?? diagnosis?.treatmentStages ?? [];
+  const treatmentProductIdsKey = useMemo(() => {
+    const ids = new Set<number>();
+    rawTreatmentStages.forEach((stage) => {
+      stage.products?.forEach((product) => ids.add(product.id));
+      stage.subStages?.forEach((subStage) =>
+        subStage.products?.forEach((product) => ids.add(product.id)),
+      );
+    });
+    return Array.from(ids)
+      .sort((a, b) => a - b)
+      .join(",");
+  }, [rawTreatmentStages]);
+  const treatmentStages = useMemo(
+    () =>
+      rawTreatmentStages.map((stage) =>
+        hydrateTreatmentStage(stage, productDetailsById),
+      ),
+    [rawTreatmentStages, productDetailsById],
+  );
   const stageSelection =
     prescriptionData?.stageSelection ?? diagnosis?.stageSelection ?? null;
   const hasPrescription = treatmentStages.length > 0;
@@ -377,6 +503,52 @@ export default function TreatmentResultPage() {
   const overallProducts = treatmentStages.flatMap(
     (stage) => stage.products ?? [],
   );
+
+  useEffect(() => {
+    const productIds = treatmentProductIdsKey
+      .split(",")
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    const missingIds = productIds.filter((id) => !productDetailsById[id]);
+    if (missingIds.length === 0) return;
+
+    let cancelled = false;
+
+    Promise.all(
+      missingIds.map((id) =>
+        PublicProductService.getById(id)
+          .then((productDetail) => [id, productDetail] as const)
+          .catch((error) => {
+            console.warn(
+              `[AiDoctor] Cannot hydrate product detail for ID ${id}:`,
+              error,
+            );
+            return null;
+          }),
+      ),
+    ).then((entries) => {
+      if (cancelled) return;
+
+      const validEntries = entries.filter(
+        (entry): entry is readonly [number, PublicProductDetail] =>
+          entry !== null,
+      );
+      if (validEntries.length === 0) return;
+
+      setProductDetailsById((current) => {
+        const next = { ...current };
+        validEntries.forEach(([id, productDetail]) => {
+          next[id] = productDetail;
+        });
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [treatmentProductIdsKey, productDetailsById]);
 
   useEffect(() => {
     // Ca đang chờ AI hỏi làm rõ bệnh (chưa xác nhận) — không được tự tạo phác đồ cho bệnh
@@ -439,7 +611,16 @@ export default function TreatmentResultPage() {
   };
 
   const resolveVariantId = async (product: AiDoctorSuggestedProduct) => {
-    // 1. Ưu tiên variantId từ backend trả về trong phác đồ (nếu có)
+    const hydratedDetail = productDetailsById[product.id];
+    if (hydratedDetail) {
+      const hydratedVariant = pickPublicSaleVariant(hydratedDetail);
+      if (hydratedVariant?.id) {
+        variantIdCache.current.set(product.id, hydratedVariant.id);
+        return hydratedVariant.id;
+      }
+    }
+
+    // 1. Dùng variantId từ phác đồ như fallback khi chưa hydrate được chi tiết sản phẩm
     if (product.variantId) return product.variantId;
 
     // 2. Kiểm tra cache theo productId
@@ -448,7 +629,18 @@ export default function TreatmentResultPage() {
 
     // 3. Gọi API lấy chi tiết sản phẩm để tìm biến thể phù hợp
     console.log(`[AiDoctor] Resolving variant for product ID: ${product.id}`);
-    const productDetail = await PublicProductService.getById(product.id);
+    const productDetail =
+      productDetailsById[product.id] ??
+      (await PublicProductService.getById(product.id));
+
+    setProductDetailsById((current) =>
+      current[product.id]
+        ? current
+        : {
+            ...current,
+            [product.id]: productDetail,
+          },
+    );
 
     if (!productDetail?.variants || productDetail.variants.length === 0) {
       throw new Error(
@@ -456,13 +648,7 @@ export default function TreatmentResultPage() {
       );
     }
 
-    // Ưu tiên biến thể đang ACTIVE và có hàng, sau đó là ACTIVE, cuối cùng là cái đầu tiên
-    const preferredVariant =
-      productDetail.variants.find(
-        (v) => v.status === "ACTIVE" && v.quantity > 0,
-      ) ||
-      productDetail.variants.find((v) => v.status === "ACTIVE") ||
-      productDetail.variants[0];
+    const preferredVariant = pickPublicSaleVariant(productDetail);
 
     if (!preferredVariant?.id) {
       throw new Error(
